@@ -8,13 +8,14 @@
 
 **Documento fundador obrigatório:** [Bíblia do Projeto — visão, finalidade, experiência, monetização, fases e limites](docs/governanca/BIBLIA-DO-PROJETO.md).
 
-1. [Regras de trabalho de agentes e Codex](AGENTS.md).
-2. [Mapa dos setores e responsáveis](docs/governanca/MAPA-SETORES.md).
-3. [Decisões confirmadas e hipóteses](docs/governanca/DECISOES.md).
-4. [Constituição editorial](docs/governanca/CONSTITUICAO-EDITORIAL.md).
-5. [Estado geral e próximos trabalhos](docs/governanca/STATUS-GERAL.md).
-6. [Protocolo de comunicação entre chats](docs/operacao/PROTOCOLO-HANDOFF.md).
-7. [Caixa de solicitações](https://github.com/Saaimingo/Revista_Gamer/issues).
+1. [Registro e estado dos blocos](docs/governanca/REGISTRO-BLOCOS.md).
+3. [Regras de trabalho de agentes e Codex](AGENTS.md).
+3. [Mapa dos setores e responsáveis](docs/governanca/MAPA-SETORES.md).
+4. [Decisões confirmadas e hipóteses](docs/governanca/DECISOES.md).
+5. [Constituição editorial](docs/governanca/CONSTITUICAO-EDITORIAL.md).
+6. [Estado geral e próximos trabalhos](docs/governanca/STATUS-GERAL.md).
+7. [Protocolo de comunicação entre chats](docs/operacao/PROTOCOLO-HANDOFF.md).
+8. [Caixa de solicitações](https://github.com/Saaimingo/Revista_Gamer/issues).
 
 ## Setores
 
