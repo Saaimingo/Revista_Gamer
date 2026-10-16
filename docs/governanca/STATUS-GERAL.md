@@ -14,7 +14,8 @@ Data-base: 2026-10-15. **Fase: estruturação do repositório e distribuição d
 - Um chat anterior continua reservado em standby e sem função atribuída.
 - Bloco 02 (Personagens) **criado e inicializado**; houve uma breve amostra de texto em conversa, sem edição no GitHub; **não autorizado a desenvolver DNAs ainda**, aguardando debates.
 - Bloco 03 (Identidade Visual e Experiência de Leitura) **criado, prompt entregue**; em leitura e standby, sem autorização para produzir.
-- Bloco 04 (Redação e Curadoria Editorial) com prompt preparado, **ainda não confirmado como criado**; somente leitura e standby.
+- Bloco 04 (Redação e Curadoria Editorial) **criado e com prompt entregue**; somente leitura e standby, sem produção autorizada.
+- Bloco 05 (Acervo Editorial, Imagens e Direitos de Uso) com prompt preparado, **ainda não confirmado como criado**; somente leitura e standby.
 - Regra de onboarding: nenhum bloco deve produzir projetos, rascunhos ou Issues até o diretor autorizar uma tarefa específica após discussão.
 
 ## O que ainda NÃO existe neste repositório
