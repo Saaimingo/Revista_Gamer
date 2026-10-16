@@ -1,6 +1,13 @@
 # Setor: engenharia e Codex
 
-Status: **arquitetura proposta; não há pipeline executável nem autorização para implantação**.
+Status: **primeira implementação LOCAL autorizada (Motor v0.1); não há pipeline executável pronto nem autorização para implantação pública**.
+
+## Ordem técnica vigente
+
+- [Especificação Motor Editorial v0.1](ESPECIFICACAO-MOTOR-EDITORIAL-V0.1.md) — arquitetura e critérios de aceite.
+- [Ordem Codex 001: construir](ORDEM-CODEX-001-CONSTRUIR-MOTOR-V0.1.md) — executar código e testes, preparar PR, sem publicação.
+
+Este trabalho não ativa os blocos conceituais e não autoriza integrações reais de IA/notícias.
 
 ## Primeiro estágio
 
