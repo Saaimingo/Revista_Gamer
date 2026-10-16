@@ -7,7 +7,8 @@ Data-base: 2026-10-15. **Não é um monitor em tempo real.** O estado só muda a
 | Fundador | Revista Gamer — Direção e Arquitetura | em uso | Visão, governança, integração e especificações gerais | `docs/governanca/BIBLIA-DO-PROJETO.md` |
 | Existente em espera | Chat já criado dentro do Project, sem setor designado | standby | Nenhum, até nova instrução do diretor | A definir |
 | Bloco 02 | Revista Gamer — Personagens e Identidade Narrativa | **criado; leitura e breve ensaio sem alteração do GitHub; aguardando debates e autorização para produzir** | `docs/personagens/` | `docs/operacao/PROMPT-BLOCO-02-PERSONAGENS.md` |
-| Bloco 03 | Revista Gamer — Identidade Visual e Experiência de Leitura | **prompt preparado; chat ainda não confirmado, modo somente leitura** | `docs/visual/` | `docs/operacao/PROMPT-BLOCO-03-IDENTIDADE-VISUAL.md` |
+| Bloco 03 | Revista Gamer — Identidade Visual e Experiência de Leitura | **criado, prompt entregue, aguardando debates; nenhum trabalho autorizado** | `docs/visual/` | `docs/operacao/PROMPT-BLOCO-03-IDENTIDADE-VISUAL.md` |
+| Bloco 04 | Revista Gamer — Redação e Curadoria Editorial | **prompt preparado; chat não confirmado; somente leitura e standby** | `docs/redacao/` | `docs/operacao/PROMPT-BLOCO-04-REDACAO-CURADORIA.md` |
 | Futuro | Bloco(s) adicionais | não criado(s) | Só após avaliar necessidade real | Não decidido |
 | Futuro | Codex — Engenharia e Integração | não criado neste fluxo | Construir o sistema após especificações aprovadas | Não iniciado |
 
