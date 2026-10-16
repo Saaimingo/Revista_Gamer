@@ -8,6 +8,14 @@ Data-base: 2026-10-15. **Fase: estruturação do repositório e distribuição d
 - Repositório GitHub `Saaimingo/Revista_Gamer` como fonte central de documentação.
 - Conjunto inicial de princípios, áreas setoriais e protocolo de comunicação.
 
+## Organização dos blocos neste momento
+
+- Bloco fundador ativo, responsável pela concepção global e integração.
+- Um chat anterior continua reservado em standby e sem função atribuída.
+- Bloco 02 (Personagens) **criado e inicializado**; houve uma breve amostra de texto em conversa, sem edição no GitHub; **não autorizado a desenvolver DNAs ainda**, aguardando debates.
+- Bloco 03 (Identidade Visual e Experiência de Leitura) tem prompt preparado, **ainda não confirmado como criado**; deve entrar em **somente leitura e standby**.
+- Regra de onboarding: nenhum bloco deve produzir projetos, rascunhos ou Issues até o diretor autorizar uma tarefa específica após discussão.
+
 ## O que ainda NÃO existe neste repositório
 
 - Agentes Codex configurados/validados; orquestrador; sistema web da revista; personagens desenhados; imagens licenciadas; calendário publicado; campanhas comerciais; pipeline de produção.
