@@ -1,6 +1,6 @@
 # Estado geral do projeto
 
-Data-base: 2026-10-15. **Fase: estruturação do repositório e distribuição das responsabilidades.**
+Data-base: 2026-10-15. **Fase: blocos de concepção formados e primeira missão técnica autorizada; aguardando implementação.**
 
 ## O que existe
 
@@ -18,6 +18,14 @@ Data-base: 2026-10-15. **Fase: estruturação do repositório e distribuição d
 - Bloco 05 (Acervo Editorial, Imagens e Direitos de Uso) **criado e com prompt entregue**; somente leitura e standby, sem produção autorizada.
 - Bloco 06 (Comercial, Monetização e Divulgação) **criado, prompt entregue**; somente leitura e standby, sem produção autorizada.
 - Regra de onboarding: nenhum bloco deve produzir projetos, rascunhos ou Issues até o diretor autorizar uma tarefa específica após discussão.
+
+## Primeira missão do Codex — autorizada, ainda NÃO executada
+
+- Ordem `CODEX-001`: construir **Motor Editorial v0.1 local com fluxo simulado, persistência, testes e aprovação humana interna**.
+- Especificação: `docs/engenharia/ESPECIFICACAO-MOTOR-EDITORIAL-V0.1.md`.
+- Ordem operacional: `docs/engenharia/ORDEM-CODEX-001-CONSTRUIR-MOTOR-V0.1.md`.
+- **Nenhum código da missão foi executado por esta atualização documental.** A construção começa quando o diretor iniciar a ordem em sua sessão do Codex.
+- Os blocos 02–06 continuam em leitura/standby até debates e tarefas individuais. Esta autorização é EXCLUSIVA do Codex construtor.
 
 ## O que ainda NÃO existe neste repositório
 
