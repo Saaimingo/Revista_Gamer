@@ -24,12 +24,13 @@ Data-base: 2026-10-15. **Fase: blocos de concepção formados e primeira missão
 - Ordem `CODEX-001`: construir **Motor Editorial v0.1 local com fluxo simulado, persistência, testes e aprovação humana interna**.
 - Especificação: `docs/engenharia/ESPECIFICACAO-MOTOR-EDITORIAL-V0.1.md`.
 - Ordem operacional: `docs/engenharia/ORDEM-CODEX-001-CONSTRUIR-MOTOR-V0.1.md`.
-- **Nenhum código da missão foi executado por esta atualização documental.** A construção começa quando o diretor iniciar a ordem em sua sessão do Codex.
+- **Construção executada em branch:** [PR #3](https://github.com/Saaimingo/Revista_Gamer/pull/3), com motor Python/SQLite, simulação determinística, painel local e documentação. O PR está **aberto e não mesclado**. Após revisão, o Codex corrigiu três condições de borda e informa **11 testes aprovados no ambiente Python 3.12.14**. A inspeção arquitetural está concluída para esses pontos, mas ainda **falta teste nativo no Windows 11** antes do aceite final/merge. Revisão: [comentário no PR](https://github.com/Saaimingo/Revista_Gamer/pull/3#issuecomment-6226974328). Nenhum deploy, edição real, integração de IA ou publicação autorizado.
 - Os blocos 02–06 continuam em leitura/standby até debates e tarefas individuais. Esta autorização é EXCLUSIVA do Codex construtor.
 
 ## O que ainda NÃO existe neste repositório
 
-- Agentes Codex configurados/validados; orquestrador; sistema web da revista; personagens desenhados; imagens licenciadas; calendário publicado; campanhas comerciais; pipeline de produção.
+- **Motor operacional validado em produção:** há apenas protótipo simulado em PR, não mergeado; nem integrações reais de IA/notícias.
+- Orquestração com agentes reais, leitor web definitivo, personagens desenhados aprovados, imagens licenciadas, calendário publicado, campanhas comerciais ou pipeline de publicação.
 - Teste comprovando uso autônomo do Codex dentro do plano Plus sem API.
 - Licenças gerais que liberem todo o conteúdo de qualquer publisher.
 
