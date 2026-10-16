@@ -80,6 +80,8 @@ O **GitHub `Saaimingo/Revista_Gamer` é a fonte única de verdade operacional**.
 
 Manter blocos em quantidade mínima que facilite foco sem criar burocracia. Um setor lógico não exige automaticamente um chat específico, modelo exclusivo, licença extra ou serviço rodando 24/7.
 
+**Fase de formação da equipe:** a criação de um novo chat NÃO autoriza criação de material. Cada bloco deve inicialmente apenas ler a documentação e entrar em **standby**. O diretor debaterá cada conceito antes de pedir proposta, rascunho, teste ou registro no GitHub. O bloco só age sob missão expressa; isso vale mesmo quando sua documentação lista futuras entregas. O setor não deve antecipar trabalho para parecer produtivo.
+
 ## 10. Etapas e fronteiras — NÃO pular fases
 
 **Etapa A — Arquitetura e documentação (agora).** Organizar repositório, Bíblia, decisões, setores, responsabilidades e handoffs; usuário cria chats especializados gradualmente; especificações tornam-se prontas para implementação após aprovação.
