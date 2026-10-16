@@ -61,14 +61,16 @@ No Windows, use `py -3.11` no lugar de `python3`. Os testes usam bancos e arquiv
 
 O banco local registra fontes e itens normalizados, pauta e vínculos, pacote de apuração, versões de matéria, resultados de revisão, ativos e decisões de direitos, edição e composição, tentativas de execução e eventos de auditoria. As chaves estrangeiras e restrições SQLite protegem as relações e estados permitidos.
 
-O fluxo de demonstração exercita normalização e deduplicação, triagem, apuração, rascunho, revisão reprovada, nova versão, segunda revisão aprovada, verificação de direitos, montagem da prévia e espera por decisão humana. A revisão encontra uma afirmação fictícia sem fonte; a correção cria uma nova versão. O ativo permitido de teste é desenhado como SVG original incorporado; o ativo pendente nunca é incluído e aparece somente como placeholder. Falhas transitórias têm tentativas contadas e limite finito.
+O fluxo de demonstração exercita normalização e deduplicação, triagem, apuração, rascunho, revisão reprovada, nova versão, segunda revisão aprovada, verificação de direitos, montagem da prévia e espera por decisão humana. A revisão encontra uma afirmação fictícia sem fonte; a correção cria uma nova versão. A mídia só entra quando a permissão está `permitido` **e** cobre a modalidade `editorial_preview`. Permissão ou modalidade incompatível gera placeholder para item obrigatório e omissão auditável para item opcional. A política é conferida antes de escrever a prévia e novamente na aprovação; se uma permissão mudar, o HTML local é atualizado, a tentativa de aprovação é recusada e uma nova revisão humana é exigida. Falhas transitórias têm tentativas contadas e limite finito; se a segunda versão continuar reprovada, a pauta fica bloqueada e a execução termina em intervenção humana auditada, sem novas correções automáticas.
+
+A v0.1 monta uma pauta por edição. Uma fixture que selecionaria mais de uma pauta é rejeitada antes de criar registros, para evitar uma edição incompleta. O SQLite inicia no esquema v2 e migra automaticamente bancos v1, acrescentando o indicador de mídia obrigatória.
 
 As referências principais de implementação estão nos módulos `db`, `domain`, `workflow`, `render`, `web` e `cli`. A simulação usa adaptadores determinísticos e fixture versionada; não existe mecanismo de publicação.
 
 ## Limitações conhecidas
 
 - O painel é local e não tem autenticação de usuário. A confirmação explícita reduz aprovações acidentais, mas não substitui controles de acesso do sistema operacional em um computador compartilhado.
-- A v0.1 suporta um operador/processo local e uma fixture de demonstração estável. Ainda não implementa edição concorrente, fila distribuída, agendamento, ingestão real ou backup automatizado.
+- A v0.1 suporta um operador/processo local e uma fixture de demonstração estável com uma pauta selecionável. Ainda não implementa edição concorrente, fila distribuída, agendamento, ingestão real ou backup automatizado.
 - O histórico é append-only pelo fluxo do aplicativo; acesso direto ao arquivo SQLite pelo operador pode alterar dados.
 - A aprovação grava o estado de aprovação interna no SQLite e mantém a prévia local. Isso não é aprovação de direitos, autorização comercial nem publicação.
 

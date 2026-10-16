@@ -41,6 +41,7 @@ class Motor:
         *,
         research_failures_to_inject: int = 1,
         max_attempts: int = MAX_ATTEMPTS,
+        force_v2_review_failure: bool = False,
     ):
         if max_attempts < 1:
             raise ValueError("O limite de tentativas precisa ser pelo menos 1.")
@@ -50,6 +51,7 @@ class Motor:
         self.fixture_path = fixture_path or Path(__file__).parent / "fixtures" / "demo.json"
         self.research_failures_to_inject = research_failures_to_inject
         self.max_attempts = max_attempts
+        self.force_v2_review_failure = force_v2_review_failure
 
     def load_fixture(self) -> dict[str, Any]:
         with self.fixture_path.open("r", encoding="utf-8") as fixture_file:
@@ -60,6 +62,7 @@ class Motor:
 
     def run_demo(self) -> SimulationResult:
         data = self.load_fixture()
+        self._validate_single_selected_story(data)
         run_id = data["scenario_id"]
         self._ensure_run(run_id, data["scenario_label"])
         existing_run = self.store.get_run(run_id)
@@ -128,6 +131,33 @@ class Motor:
                 edition["id"],
             )
         return SimulationResult(run_id, "running", "A simulação foi retomada.")
+
+    @staticmethod
+    def _validate_single_selected_story(data: dict[str, Any]) -> None:
+        seen_identifiers: set[str] = set()
+        seen_fingerprints: set[str] = set()
+        selected_topics: set[str] = set()
+        for item in data["items"]:
+            canonical = canonicalize_identifier(item.get("source_identifier"))
+            fingerprint = stable_hash(
+                normalize_text(item["title"]) + "\0" + normalize_text(item["summary"])
+            )
+            duplicate = bool(
+                (canonical and canonical in seen_identifiers)
+                or fingerprint in seen_fingerprints
+            )
+            if duplicate:
+                continue
+            if canonical:
+                seen_identifiers.add(canonical)
+            seen_fingerprints.add(fingerprint)
+            if item["relevance"]:
+                selected_topics.add(item["topic_key"])
+        if len(selected_topics) > 1:
+            raise ValueError(
+                "Fixture rejeitada: há mais de uma pauta selecionável; "
+                "o Motor Editorial v0.1 monta uma pauta por edição."
+            )
 
     def _ensure_run(self, run_id: str, label: str) -> None:
         with self.store.transaction() as connection:
@@ -515,6 +545,54 @@ class Motor:
                 run_id, story_id, "assemble-preview",
                 lambda connection, attempt: self._assemble_preview(connection, run_id, story_id, data),
             )
+        story = self.store.get_story(story_id)
+        if (
+            story is not None
+            and story["state"] == "blocked_by_review"
+            and story["current_revision_number"] >= 2
+        ):
+            self._record_review_intervention(run_id, story_id, story["current_revision_number"])
+            raise InterventionRequired(
+                "A versão corrigida foi reprovada novamente; a pauta exige intervenção humana."
+            )
+
+    def _record_review_intervention(
+        self, run_id: str, story_id: str, version: int
+    ) -> None:
+        now = utc_now()
+        with self.store.transaction() as connection:
+            run = connection.execute(
+                "SELECT status FROM runs WHERE id = ?", (run_id,)
+            ).fetchone()
+            if run and run["status"] != "failed_intervention":
+                connection.execute(
+                    "UPDATE runs SET status = 'failed_intervention', updated_at = ? WHERE id = ?",
+                    (now, run_id),
+                )
+                self.store.log_event(
+                    connection,
+                    entity_type="run",
+                    entity_id=run_id,
+                    action="run_status_changed",
+                    actor="orquestrador",
+                    source="review-v2",
+                    before={"status": run["status"]},
+                    after={"status": "failed_intervention"},
+                )
+            self.store.log_event(
+                connection,
+                entity_type="story",
+                entity_id=story_id,
+                action="review_correction_limit_reached",
+                actor="orquestrador",
+                source="review-v2",
+                after={
+                    "state": "blocked_by_review",
+                    "revision": version,
+                    "status": "failed_intervention",
+                    "reason": "A v0.1 encerra após a reprovação da segunda versão.",
+                },
+            )
 
     def _research(
         self, connection: Any, story_id: str, data: dict[str, Any], attempt_number: int
@@ -668,6 +746,10 @@ class Motor:
             "o resultado não deve ser generalizado para todos os aparelhos [news-moonlit-lab].\n\n"
             "As fontes e acontecimentos desta demonstração são fictícios."
         )
+        if self.force_v2_review_failure:
+            content += (
+                "\n\nAfirmação de teste sem referência: desempenho idêntico em todos os aparelhos."
+            )
         revision_id = f"revision-{story_id}-2"
         connection.execute(
             """INSERT INTO article_revisions
@@ -704,26 +786,47 @@ class Motor:
             )
         included = 0
         placeholders = 0
+        omitted_optional = 0
         for requested in data["story_assets"]:
             asset = connection.execute(
                 "SELECT * FROM media_assets WHERE id = ?", (requested["asset_id"],)
             ).fetchone()
             if asset is None:
                 raise ValueError(f"Ativo de fixture não encontrado: {requested['asset_id']}.")
-            if asset["permission_status"] == "permitido":
+            required = bool(requested.get("required", True))
+            authorized_for_preview = (
+                asset["permission_status"] == "permitido"
+                and asset["usage_mode"] == "editorial_preview"
+            )
+            if authorized_for_preview:
                 decision = "include"
-                reason = "A fixture fictícia marca a ilustração original como permitida para esta prévia editorial."
+                reason = "A permissão e a modalidade autorizam o uso editorial nesta prévia fictícia."
                 included += 1
+            elif required:
+                decision = "placeholder"
+                reason = (
+                    f"Permissão '{asset['permission_status']}' e modalidade "
+                    f"'{asset['usage_mode']}' não autorizam editorial_preview; "
+                    "o ativo obrigatório foi substituído por placeholder."
+                )
+                placeholders += 1
             else:
-                decision = "placeholder" if requested["required"] else "blocked"
-                reason = "Permissão pendente/bloqueada; o ativo não será incorporado."
-                placeholders += int(decision == "placeholder")
+                decision = "blocked"
+                reason = (
+                    f"Ativo opcional omitido: permissão '{asset['permission_status']}' "
+                    f"e modalidade '{asset['usage_mode']}' não autorizam "
+                    "editorial_preview."
+                )
+                omitted_optional += 1
             decision_id = f"media-decision-{story_id}-{asset['id']}"
             connection.execute(
                 """INSERT OR IGNORE INTO media_decisions
-                   (id, story_id, asset_id, decision, reason, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                (decision_id, story_id, asset["id"], decision, reason, utc_now()),
+                   (id, story_id, asset_id, required, decision, reason, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    decision_id, story_id, asset["id"], int(required), decision,
+                    reason, utc_now(),
+                ),
             )
             self.store.log_event(
                 connection,
@@ -732,10 +835,91 @@ class Motor:
                 action="media_checked",
                 actor="politica_midia",
                 source="fixture",
-                after={"permission_status": asset["permission_status"], "decision": decision, "reason": reason},
+                after={
+                    "permission_status": asset["permission_status"],
+                    "usage_mode": asset["usage_mode"],
+                    "required": required,
+                    "decision": decision,
+                    "reason": reason,
+                },
             )
         self.store.transition_story(story_id, "media_checked", connection=connection)
-        return {"included_assets": included, "placeholders": placeholders}
+        return {
+            "included_assets": included,
+            "placeholders": placeholders,
+            "omitted_optional_assets": omitted_optional,
+        }
+
+    def _revalidate_included_media(
+        self, connection: Any, story_id: str, *, source: str
+    ) -> bool:
+        decisions = connection.execute(
+            """SELECT md.id, md.asset_id, md.decision, md.required, md.reason,
+                      ma.title, ma.permission_status, ma.usage_mode
+               FROM media_decisions md JOIN media_assets ma ON ma.id = md.asset_id
+               WHERE md.story_id = ? ORDER BY ma.id""",
+            (story_id,),
+        ).fetchall()
+        changed = False
+        for row in decisions:
+            if row["decision"] != "include":
+                continue
+            if (
+                row["permission_status"] == "permitido"
+                and row["usage_mode"] == "editorial_preview"
+            ):
+                continue
+            new_decision = "placeholder" if row["required"] else "blocked"
+            reason = (
+                f"Ativo não incorporado: permissão '{row['permission_status']}' e/ou "
+                f"modalidade '{row['usage_mode']}' não autoriza editorial_preview. "
+                + (
+                    "Substituído por placeholder."
+                    if row["required"]
+                    else "Ativo opcional omitido."
+                )
+            )
+            connection.execute(
+                "UPDATE media_decisions SET decision = ?, reason = ? WHERE id = ?",
+                (new_decision, reason, row["id"]),
+            )
+            self.store.log_event(
+                connection,
+                entity_type="story",
+                entity_id=story_id,
+                action="media_permission_revalidated",
+                actor="politica_midia",
+                source=source,
+                before={"decision": row["decision"]},
+                after={
+                    "media_decision_id": row["id"],
+                    "asset_id": row["asset_id"],
+                    "decision": new_decision,
+                    "permission_status": row["permission_status"],
+                    "usage_mode": row["usage_mode"],
+                    "reason": reason,
+                },
+            )
+            changed = True
+        return changed
+
+    @staticmethod
+    def _write_preview(target: Path, html_text: str) -> None:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temp_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                "w", encoding="utf-8", newline="\n", dir=target.parent,
+                prefix="preview-", suffix=".tmp", delete=False,
+            ) as temp_file:
+                temp_path = Path(temp_file.name)
+                temp_file.write(html_text)
+                temp_file.flush()
+            temp_path.replace(target)
+            temp_path = None
+        finally:
+            if temp_path is not None:
+                temp_path.unlink(missing_ok=True)
 
     def _assemble_preview(
         self, connection: Any, run_id: str, story_id: str, data: dict[str, Any]
@@ -746,35 +930,14 @@ class Motor:
         if existing:
             return {"edition_id": existing["id"], "preview_path": existing["preview_path"], "created": False}
         edition_id = "edition-demo-motor-v0.1"
+        self._revalidate_included_media(connection, story_id, source="assemble-preview")
         detail = self.store.story_detail(story_id, connection)
         if detail is None:
             raise ValueError("Não foi possível montar a prévia: pauta não encontrada.")
         html_text = render_preview(edition_id, detail, data["scenario_label"])
         relative_path = f"editions/{edition_id}/preview.html"
         target = self.store.safe_artifact_path(relative_path)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        with tempfile.NamedTemporaryFile(
-            "w", encoding="utf-8", newline="\n", dir=target.parent,
-            prefix="preview-", suffix=".tmp", delete=False,
-        ) as temp_file:
-            temp_path = Path(temp_file.name)
-            temp_file.write(html_text)
-            temp_file.flush()
-        temp_path.replace(target)
-
-        existing_assets = connection.execute(
-            """SELECT md.asset_id, md.decision, md.reason, ma.title,
-                      ma.permission_status, ma.label
-               FROM media_decisions md JOIN media_assets ma ON ma.id = md.asset_id
-               WHERE md.story_id = ? ORDER BY ma.id""",
-            (story_id,),
-        ).fetchall()
-        pending_included = any(
-            row["permission_status"] != "permitido" and row["decision"] == "include"
-            for row in existing_assets
-        )
-        if pending_included:
-            raise ValueError("A prévia tentaria incluir mídia sem permissão confirmada.")
+        self._write_preview(target, html_text)
 
         now = utc_now()
         connection.execute(
@@ -810,6 +973,7 @@ class Motor:
             raise InvalidApproval(
                 f"Para confirmar, digite exatamente: {APPROVAL_PHRASE}"
             )
+        approval_error: str | None = None
         with self.store.transaction() as connection:
             edition = connection.execute(
                 "SELECT * FROM editions WHERE id = ?", (edition_id,)
@@ -840,29 +1004,69 @@ class Motor:
                 ).fetchone()
                 if latest is None or latest["approved"] != 1:
                     raise InvalidApproval("A versão atual da matéria não foi aprovada na revisão.")
-            now = utc_now()
-            connection.execute(
-                """UPDATE editions SET status = 'approved_internally',
-                          approved_by = ?, approved_at = ? WHERE id = ?""",
-                (actor, now, edition_id),
-            )
+            media_changed = False
             for story in stories:
-                self.store.transition_story(
-                    story["id"], "approved_internally", actor=actor,
-                    connection=connection, human_confirmed=True,
+                if self._revalidate_included_media(
+                    connection, story["id"], source="human-approval"
+                ):
+                    media_changed = True
+            if media_changed:
+                run = connection.execute(
+                    "SELECT scenario_label FROM runs WHERE id = ?",
+                    (edition["run_id"],),
+                ).fetchone()
+                for story in stories:
+                    detail = self.store.story_detail(story["id"], connection)
+                    if detail is None:
+                        raise InvalidApproval("Não foi possível revalidar a prévia da edição.")
+                    self._write_preview(
+                        preview,
+                        render_preview(edition_id, detail, run["scenario_label"]),
+                    )
+                self.store.log_event(
+                    connection,
+                    entity_type="edition",
+                    entity_id=edition_id,
+                    action="preview_refreshed_after_media_change",
+                    actor="politica_midia",
+                    source="human-approval",
+                    before={"status": "awaiting_human_approval"},
+                    after={
+                        "status": "awaiting_human_approval",
+                        "reason": "A permissão ou modalidade de uma mídia mudou; nova revisão humana necessária.",
+                    },
+                    artifact_ref=edition["preview_path"],
                 )
-            connection.execute(
-                "UPDATE runs SET status = 'approved_internally', updated_at = ? WHERE id = ?",
-                (now, edition["run_id"]),
-            )
-            self.store.log_event(
-                connection,
-                entity_type="edition",
-                entity_id=edition_id,
-                action="approved_internally",
-                actor=actor,
-                source="human_confirmation",
-                before={"status": "awaiting_human_approval"},
-                after={"status": "approved_internally", "approved_at": now},
-                artifact_ref=edition["preview_path"],
-            )
+                approval_error = (
+                    "A permissão ou modalidade de uma mídia mudou. A prévia foi atualizada "
+                    "sem o ativo; revise a nova prévia antes de aprovar."
+                )
+            else:
+                now = utc_now()
+                connection.execute(
+                    """UPDATE editions SET status = 'approved_internally',
+                              approved_by = ?, approved_at = ? WHERE id = ?""",
+                    (actor, now, edition_id),
+                )
+                for story in stories:
+                    self.store.transition_story(
+                        story["id"], "approved_internally", actor=actor,
+                        connection=connection, human_confirmed=True,
+                    )
+                connection.execute(
+                    "UPDATE runs SET status = 'approved_internally', updated_at = ? WHERE id = ?",
+                    (now, edition["run_id"]),
+                )
+                self.store.log_event(
+                    connection,
+                    entity_type="edition",
+                    entity_id=edition_id,
+                    action="approved_internally",
+                    actor=actor,
+                    source="human_confirmation",
+                    before={"status": "awaiting_human_approval"},
+                    after={"status": "approved_internally", "approved_at": now},
+                    artifact_ref=edition["preview_path"],
+                )
+        if approval_error:
+            raise InvalidApproval(approval_error)

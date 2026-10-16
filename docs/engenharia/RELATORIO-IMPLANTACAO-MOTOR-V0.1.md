@@ -4,9 +4,9 @@
 
 ## Entrega
 
-Foi implementado um aplicativo Python local, sem dependências de terceiros, com orquestração determinística, persistência SQLite, arquivos de prévia no disco, CLI e painel HTTP limitado a `127.0.0.1`. O conjunto inclui fixture inteiramente fictícia, máquina de estados, tentativas limitadas, trilha de auditoria, revisão versionada, decisão de direitos e aprovação humana exclusivamente interna.
+Foi implementado um aplicativo Python local, sem dependências de terceiros, com orquestração determinística, persistência SQLite, arquivos de prévia no disco, CLI e painel HTTP limitado a `127.0.0.1`. O conjunto inclui fixture inteiramente fictícia, máquina de estados, tentativas limitadas, trilha de auditoria, revisão versionada, decisão de direitos e aprovação humana exclusivamente interna. Após as correções da revisão do Pull Request, o SQLite usa o esquema v2 e migra automaticamente o esquema v1, preservando as decisões de mídia existentes como obrigatórias por padrão.
 
-A primeira chamada de demonstração gera uma falha temporária injetada e fica pronta para retomada. A chamada seguinte termina com uma edição em `awaiting_approval`. O operador pode revisar o HTML e registrar a aprovação interna pelo painel ou pelo CLI. Não há scraping, IA, API externa, automação programada, upload ou rota de publicação.
+A primeira chamada de demonstração gera uma falha temporária injetada e fica pronta para retomada. A chamada seguinte termina com uma edição em `awaiting_approval`. O operador pode revisar o HTML e registrar a aprovação interna pelo painel ou pelo CLI. A v0.1 rejeita fixtures com mais de uma pauta selecionável antes de criar dados; uma segunda reprovação editorial encerra a execução em `failed_intervention`, com evento auditável. Não há scraping, IA, API externa, automação programada, upload ou rota de publicação.
 
 ## Estrutura persistida
 
@@ -14,7 +14,7 @@ O SQLite cobre fontes, itens de entrada, pautas e fontes associadas, pacotes de 
 
 ## Validação
 
-Os testes automatizados cobrem o percurso até a aprovação pendente, deduplicação, duas versões e duas passagens de revisão, bloqueio de mídia pendente, falha recuperável e limite de tentativas, idempotência, persistência após reabrir o banco, transições inválidas, requisito de aprovação da versão atual e rotas do painel em loopback. A aprovação pelo painel é executada em teste contra um servidor local temporário. O painel não foi avaliado visualmente em Windows ou Debian neste ambiente.
+Os testes automatizados cobrem o percurso até a aprovação pendente, deduplicação, duas versões e duas passagens de revisão, bloqueio de mídia pendente, licença incompatível com a modalidade, mídia opcional pendente, revogação após a prévia e nova confirmação, reprovação da segunda revisão com intervenção auditável, rejeição antecipada de múltiplas pautas, migração de esquema v1, falha recuperável e limite de tentativas, idempotência, persistência após reabrir o banco, transições inválidas, requisito de aprovação da versão atual e rotas do painel em loopback. A aprovação pelo painel é executada em teste contra um servidor local temporário. O painel não foi avaliado visualmente em Windows ou Debian neste ambiente.
 
 Validação executada no ambiente disponível, com Python 3.12.14:
 
@@ -23,12 +23,12 @@ python3 -m compileall -q motor_editorial
 python3 -m unittest discover -s motor_editorial/tests -v
 ```
 
-Resultado: compilação sem erros e **5 testes aprovados**. Também foi feito um smoke test do CLI (`init`, duas execuções de `demo` e `status`): a primeira execução parou na falha recuperável simulada; a segunda chegou a `awaiting_approval` com 4 itens, 1 duplicata, 1 pauta, 2 revisões, 1 edição, 33 eventos e 10 tentativas. O status repetido preservou esses totais. O workspace de teste foi temporário.
+Resultado: compilação sem erros e **11 testes aprovados**. Também foi feito um smoke test do CLI (`init`, duas execuções de `demo` e `status`): a primeira execução parou na falha recuperável simulada; a segunda chegou a `awaiting_approval` com 4 itens, 1 duplicata, 1 pauta, 2 revisões, 1 edição, 33 eventos e 10 tentativas. O status repetido preservou esses totais. O workspace de teste foi temporário.
 
 Consulte `motor_editorial/README.md` para executar a aplicação em Windows 11 e Debian 12.
 
 ## Limites e próximos adaptadores
 
-O teste exercita o software em Python 3.12 no ambiente disponível; Windows 11 e Debian 12 não foram executados fisicamente nesta validação. A implementação usa apenas recursos da biblioteca padrão e paths portáveis, mas essa portabilidade precisa ser confirmada nos sistemas-alvo.
+O teste exercita o software em Python 3.12 no ambiente disponível; Windows 11 e Debian 12 não foram executados fisicamente nesta validação. A implementação usa apenas recursos da biblioteca padrão e paths portáveis, mas essa portabilidade precisa ser confirmada nos sistemas-alvo. A v0.1 aceita uma única pauta por edição; suporte a múltiplas pautas exige a implementação e testes do montador correspondente.
 
 O painel local não autentica usuários; a confirmação exigida é uma proteção contra ação acidental, não uma barreira contra outra pessoa com acesso à mesma conta local. O SQLite pode ser alterado por acesso direto ao arquivo. Antes de operar em dados reais, definir controle de acesso, política de backup e retenção, além de contratos e testes para cada integração externa. Qualquer coleta real, modelo de IA, mídia de terceiros, agendamento ou publicação requer especificação e autorização separadas.

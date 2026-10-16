@@ -97,7 +97,14 @@ def create_server(motor: Motor, port: int = 8765) -> HTTPServer:
 
             path = urlsplit(self.path).path
             if path == "/demo/run":
-                result = motor.run_demo()
+                try:
+                    result = motor.run_demo()
+                except (MotorError, ValueError) as error:
+                    self._send(
+                        400,
+                        dashboard_html(motor.store.dashboard(), str(error), csrf_token),
+                    )
+                    return
                 self._redirect(result.message)
                 return
             parts = [part for part in path.split("/") if part]

@@ -58,7 +58,7 @@ def render_preview(edition_id: str, detail: dict[str, Any], scenario_label: str)
     for media in detail["media"]:
         if media["decision"] == "include":
             media_blocks.append(
-                "<figure class=\"art\" data-asset-id=\"asset-original-demo\" role=\"img\" "
+                "<figure class=\"art\" data-asset-id=\"" + _e(media["asset_id"]) + "\" role=\"img\" "
                 "aria-label=\"Ilustração geométrica original de teste\">"
                 "<svg viewBox=\"0 0 600 180\" aria-hidden=\"true\" focusable=\"false\">"
                 "<rect width=\"600\" height=\"180\" fill=\"#dbe6ff\"/>"
@@ -67,16 +67,21 @@ def render_preview(edition_id: str, detail: dict[str, Any], scenario_label: str)
                 "<text x=\"320\" y=\"105\" fill=\"#fff\" font-size=\"24\" text-anchor=\"middle\">"
                 "ARTE ORIGINAL DE TESTE</text></svg></figure>"
             )
-        else:
+        elif media["decision"] == "placeholder":
             media_blocks.append(
-                "<div class=\"placeholder\" role=\"note\"><strong>Placeholder interno</strong>: "
-                "mídia omitida porque a permissão está pendente ou bloqueada. "
-                "Nenhum arquivo do ativo foi incorporado.</div>"
+                "<div class=\"placeholder\" role=\"note\"><strong>Placeholder interno</strong> — "
+                + _e(media["title"]) + ": " + _e(media["reason"])
+                + " Nenhum arquivo do ativo foi incorporado.</div>"
             )
     media_status = "\n".join(
         "<li>" + _e(row["title"]) + ": " +
-        ("uso editorial permitido nesta fixture fictícia" if row["decision"] == "include"
-         else "omitido e substituído por placeholder") + "</li>"
+        (
+            "incluído para " + _e(row["usage_mode"])
+            if row["decision"] == "include"
+            else "substituído por placeholder: " + _e(row["reason"])
+            if row["decision"] == "placeholder"
+            else "omitido: " + _e(row["reason"])
+        ) + "</li>"
         for row in detail["media"]
     )
     return f"""<!doctype html>

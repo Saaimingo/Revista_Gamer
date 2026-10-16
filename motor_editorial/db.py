@@ -15,7 +15,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from .domain import InvalidApproval, InvalidTransition, STORY_TRANSITIONS
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 def utc_now() -> str:
@@ -199,6 +199,7 @@ class Store:
                     id TEXT PRIMARY KEY,
                     story_id TEXT NOT NULL REFERENCES stories(id),
                     asset_id TEXT NOT NULL REFERENCES media_assets(id),
+                    required INTEGER NOT NULL CHECK (required IN (0, 1)),
                     decision TEXT NOT NULL CHECK (decision IN (
                         'include', 'placeholder', 'blocked'
                     )),
@@ -270,6 +271,19 @@ class Store:
                     f"Banco da versão {version} é mais novo que este aplicativo "
                     f"(v{SCHEMA_VERSION})."
                 )
+            if version < SCHEMA_VERSION:
+                columns = {
+                    row["name"]
+                    for row in connection.execute(
+                        "PRAGMA table_info(media_decisions)"
+                    ).fetchall()
+                }
+                if "required" not in columns:
+                    connection.execute(
+                        """ALTER TABLE media_decisions
+                           ADD COLUMN required INTEGER NOT NULL DEFAULT 1
+                           CHECK (required IN (0, 1))"""
+                    )
             connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
     @staticmethod
@@ -358,10 +372,27 @@ class Store:
                 raise InvalidTransition("A apuração precisa ser persistida primeiro.")
         if target == "media_checked":
             decisions = connection.execute(
-                "SELECT decision FROM media_decisions WHERE story_id = ?", (story_id,)
+                """SELECT md.decision, md.required,
+                          ma.permission_status, ma.usage_mode
+                   FROM media_decisions md
+                   JOIN media_assets ma ON ma.id = md.asset_id
+                   WHERE md.story_id = ?""",
+                (story_id,),
             ).fetchall()
-            if not decisions or any(row["decision"] == "blocked" for row in decisions):
-                raise InvalidTransition("A política de mídia ainda não foi satisfeita.")
+            if not decisions or any(
+                (row["decision"] == "blocked" and row["required"])
+                or (
+                    row["decision"] == "include"
+                    and (
+                        row["permission_status"] != "permitido"
+                        or row["usage_mode"] != "editorial_preview"
+                    )
+                )
+                for row in decisions
+            ):
+                raise InvalidTransition(
+                    "A política de mídia exige autorização para editorial_preview."
+                )
         if target == "awaiting_human_approval":
             edition = connection.execute(
                 "SELECT * FROM editions WHERE run_id = ?", (story["run_id"],)
@@ -493,7 +524,7 @@ class Store:
             (story_id,),
         ).fetchall()
         media = connection.execute(
-            """SELECT md.*, ma.title, ma.permission_status, ma.label
+            """SELECT md.*, ma.title, ma.permission_status, ma.label, ma.usage_mode
                FROM media_decisions md JOIN media_assets ma ON ma.id = md.asset_id
                WHERE md.story_id = ? ORDER BY ma.id""",
             (story_id,),

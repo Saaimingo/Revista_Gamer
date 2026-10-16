@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import re
+import json
+import sqlite3
 import tempfile
 import threading
 import unittest
@@ -13,7 +15,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from unittest.mock import patch
 
-from motor_editorial.db import Store
+from motor_editorial.db import SCHEMA_VERSION, Store
 from motor_editorial.domain import InvalidApproval, InvalidTransition
 from motor_editorial.web import create_server
 from motor_editorial.workflow import APPROVAL_PHRASE, Motor
@@ -36,6 +38,24 @@ class MotorWorkflowTests(unittest.TestCase):
         self.assertEqual(resumed.status, "awaiting_approval")
         self.assertIsNotNone(resumed.edition_id)
         return resumed
+
+    def motor_with_fixture(self, edit_fixture, **motor_options):
+        fixture_path = self.root / "custom-demo.json"
+        data = json.loads(
+            (Path(__file__).parents[1] / "fixtures" / "demo.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        edit_fixture(data)
+        fixture_path.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        return Motor(
+            self.store,
+            fixture_path,
+            research_failures_to_inject=0,
+            **motor_options,
+        )
 
     def test_full_demo_is_offline_and_enforces_editorial_and_media_gates(self) -> None:
         # The deterministic pipeline must not open a network socket.
@@ -142,6 +162,206 @@ class MotorWorkflowTests(unittest.TestCase):
                 "SELECT COUNT(*) FROM execution_attempts WHERE stage = 'research'"
             ).fetchone()[0]
         self.assertEqual(research_attempts, 3)
+
+    def test_permitted_asset_for_wrong_usage_mode_is_replaced_before_preview(self) -> None:
+        def change_usage(data):
+            next(asset for asset in data["assets"] if asset["id"] == "asset-original-demo")[
+                "usage_mode"
+            ] = "commercial_advertising"
+
+        motor = self.motor_with_fixture(change_usage)
+        result = motor.run_demo()
+        self.assertEqual(result.status, "awaiting_approval")
+        story = self.store.list_stories()[0]
+        decisions = {
+            row["asset_id"]: row for row in self.store.story_detail(story["id"])["media"]
+        }
+        decision = decisions["asset-original-demo"]
+        self.assertEqual(decision["permission_status"], "permitido")
+        self.assertEqual(decision["usage_mode"], "commercial_advertising")
+        self.assertEqual(decision["decision"], "placeholder")
+        self.assertIn("modalidade", decision["reason"])
+
+        preview_path = self.store.safe_artifact_path(
+            self.store.get_edition(result.edition_id)["preview_path"]
+        )
+        preview = preview_path.read_text(encoding="utf-8")
+        self.assertNotIn('data-asset-id="asset-original-demo"', preview)
+        self.assertNotIn("ARTE ORIGINAL DE TESTE", preview)
+        self.assertIn("commercial_advertising", preview)
+
+        with self.store.transaction() as connection:
+            connection.execute(
+                "UPDATE stories SET state = 'reviewed' WHERE id = ?", (story["id"],)
+            )
+            connection.execute(
+                "UPDATE media_decisions SET decision = 'include' "
+                "WHERE story_id = ? AND asset_id = 'asset-original-demo'",
+                (story["id"],),
+            )
+        with self.assertRaises(InvalidTransition):
+            self.store.transition_story(story["id"], "media_checked")
+
+    def test_optional_pending_asset_is_omitted_without_blocking_story(self) -> None:
+        def make_optional(data):
+            next(
+                asset for asset in data["story_assets"]
+                if asset["asset_id"] == "asset-pending-demo"
+            )["required"] = False
+
+        motor = self.motor_with_fixture(make_optional)
+        result = motor.run_demo()
+        self.assertEqual(result.status, "awaiting_approval")
+        story = self.store.list_stories()[0]
+        decisions = {
+            row["asset_id"]: row for row in self.store.story_detail(story["id"])["media"]
+        }
+        pending = decisions["asset-pending-demo"]
+        self.assertEqual(pending["required"], 0)
+        self.assertEqual(pending["decision"], "blocked")
+        self.assertIn("opcional omitido", pending["reason"])
+
+        preview_path = self.store.safe_artifact_path(
+            self.store.get_edition(result.edition_id)["preview_path"]
+        )
+        preview = preview_path.read_text(encoding="utf-8")
+        self.assertNotIn("Placeholder interno", preview)
+        self.assertIn("omitido:", preview)
+        self.assertIn("Ativo fictício com permissão pendente", preview)
+
+    def test_revoked_permission_refreshes_preview_and_requires_a_new_approval_action(self) -> None:
+        result = self.run_to_preview()
+        with self.store.transaction() as connection:
+            connection.execute(
+                "UPDATE media_assets SET permission_status = 'bloqueado' "
+                "WHERE id = 'asset-original-demo'"
+            )
+
+        with self.assertRaisesRegex(InvalidApproval, "permissão ou modalidade.*mudou"):
+            self.motor.approve_internally(
+                result.edition_id, "Diretor", APPROVAL_PHRASE
+            )
+        self.assertEqual(
+            self.store.get_edition(result.edition_id)["status"], "awaiting_human_approval"
+        )
+        story = self.store.list_stories()[0]
+        original = next(
+            row for row in self.store.story_detail(story["id"])["media"]
+            if row["asset_id"] == "asset-original-demo"
+        )
+        self.assertEqual(original["decision"], "placeholder")
+        self.assertIn("bloqueado", original["reason"])
+
+        preview_path = self.store.safe_artifact_path(
+            self.store.get_edition(result.edition_id)["preview_path"]
+        )
+        refreshed_preview = preview_path.read_text(encoding="utf-8")
+        self.assertNotIn('data-asset-id="asset-original-demo"', refreshed_preview)
+        self.assertNotIn("ARTE ORIGINAL DE TESTE", refreshed_preview)
+        self.assertIn("bloqueado", refreshed_preview)
+        story_events = self.store.list_events(story["id"])
+        self.assertTrue(
+            any(event["action"] == "media_permission_revalidated" for event in story_events)
+        )
+        edition_events = self.store.list_events(result.edition_id)
+        self.assertTrue(
+            any(
+                event["action"] == "preview_refreshed_after_media_change"
+                for event in edition_events
+            )
+        )
+
+        # A later deliberate approval can proceed after the updated preview is reviewed.
+        self.motor.approve_internally(result.edition_id, "Diretor", APPROVAL_PHRASE)
+        self.assertEqual(
+            self.store.get_edition(result.edition_id)["status"], "approved_internally"
+        )
+
+    def test_second_rejected_revision_records_terminal_intervention(self) -> None:
+        motor = Motor(
+            self.store,
+            research_failures_to_inject=0,
+            force_v2_review_failure=True,
+        )
+        result = motor.run_demo()
+        self.assertEqual(result.status, "failed_intervention")
+        self.assertIn("reprovada novamente", result.message)
+        run = self.store.get_run("demo-motor-v0.1")
+        self.assertEqual(run["status"], "failed_intervention")
+
+        story = self.store.list_stories()[0]
+        detail = self.store.story_detail(story["id"])
+        self.assertEqual(detail["story"]["state"], "blocked_by_review")
+        self.assertEqual(detail["story"]["current_revision_number"], 2)
+        self.assertEqual(detail["revisions"][-1]["review_approved"], 0)
+        self.assertTrue(
+            any(
+                event["action"] == "review_correction_limit_reached"
+                for event in detail["events"]
+            )
+        )
+        counts = self.store.counts()
+        self.assertEqual(motor.run_demo().status, "failed_intervention")
+        self.assertEqual(self.store.counts(), counts)
+
+    def test_fixture_with_multiple_selectable_topics_is_rejected_before_writing(self) -> None:
+        def add_second_story(data):
+            data["items"].append({
+                "id": "news-second-topic",
+                "source_id": "source-community",
+                "source_identifier": "mock://noticias/comunidade/segundo-topico",
+                "title": "Nota fictícia de outro tópico selecionável",
+                "published_at": "2026-10-04T10:00:00Z",
+                "summary": "Conteúdo inventado para testar o limite de uma pauta por edição.",
+                "topic_key": "second-selectable-topic",
+                "relevance": True,
+            })
+            data["stories"].append({
+                "topic_key": "second-selectable-topic",
+                "question": "Qual é o segundo tópico fictício?",
+            })
+
+        motor = self.motor_with_fixture(add_second_story)
+        with self.assertRaisesRegex(ValueError, "mais de uma pauta selecionável"):
+            motor.run_demo()
+        self.assertEqual(self.store.counts()["items"], 0)
+        self.assertIsNone(self.store.get_run("demo-motor-v0.1"))
+
+    def test_schema_v1_migrates_media_decision_required_flag(self) -> None:
+        legacy_db = self.root / "legacy.sqlite3"
+        with sqlite3.connect(legacy_db) as connection:
+            connection.execute(
+                """CREATE TABLE media_decisions (
+                       id TEXT PRIMARY KEY,
+                       story_id TEXT NOT NULL,
+                       asset_id TEXT NOT NULL,
+                       decision TEXT NOT NULL CHECK (decision IN (
+                           'include', 'placeholder', 'blocked'
+                       )),
+                       reason TEXT NOT NULL,
+                       created_at TEXT NOT NULL,
+                       UNIQUE(story_id, asset_id)
+                   )"""
+            )
+            connection.execute(
+                "INSERT INTO media_decisions VALUES "
+                "('old-decision', 'old-story', 'old-asset', 'placeholder', 'legacy', '2026-10-01')"
+            )
+            connection.execute("PRAGMA user_version = 1")
+
+        migrated = Store(legacy_db, self.root / "legacy-artifacts")
+        with closing(migrated.connect()) as connection:
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], SCHEMA_VERSION)
+            column_names = {
+                row["name"] for row in connection.execute("PRAGMA table_info(media_decisions)")
+            }
+            self.assertIn("required", column_names)
+            self.assertEqual(
+                connection.execute(
+                    "SELECT required FROM media_decisions WHERE id = 'old-decision'"
+                ).fetchone()[0],
+                1,
+            )
 
     def test_panel_serves_database_preview_and_only_internal_actions(self) -> None:
         result = self.run_to_preview()
