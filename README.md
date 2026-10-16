@@ -6,6 +6,8 @@
 
 ## Comece aqui
 
+**Documento fundador obrigatório:** [Bíblia do Projeto — visão, finalidade, experiência, monetização, fases e limites](docs/governanca/BIBLIA-DO-PROJETO.md).
+
 1. [Regras de trabalho de agentes e Codex](AGENTS.md).
 2. [Mapa dos setores e responsáveis](docs/governanca/MAPA-SETORES.md).
 3. [Decisões confirmadas e hipóteses](docs/governanca/DECISOES.md).
