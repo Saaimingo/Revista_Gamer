@@ -18,4 +18,4 @@ Grade comercial identificada, mídia kit baseado em audiência real, catálogo d
 
 ## Estudos conceituais em discussão
 
-- [Nomes de marca e capas experimentais: RODOU?, THE BOOT e CONTINUA... (16/10/2026)](ESTUDO-PRELIMINAR-NOMES-E-CAPAS-2026-10-16.md) — pesquisa preliminar e conceitos **não aprovados**, sem confirmação de disponibilidade jurídica; imagens ainda preservadas na conversa, não anexadas ao repositório.
+- [Nomes de marca e capas experimentais: RODOU, BOOT e CONTINUA (com reticências opcionais) (16/10/2026)](ESTUDO-PRELIMINAR-NOMES-E-CAPAS-2026-10-16.md) — pesquisa preliminar e conceitos **não aprovados**, sem confirmação de disponibilidade jurídica; imagens ainda preservadas na conversa, não anexadas ao repositório.
