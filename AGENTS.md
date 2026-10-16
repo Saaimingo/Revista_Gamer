@@ -4,7 +4,7 @@ Este repositório é a **fonte de verdade do projeto**, não um sistema de execu
 
 ## Ao começar qualquer tarefa
 
-1. Ler `README.md`, `docs/governanca/DECISOES.md`, `docs/governanca/STATUS-GERAL.md` e o README do setor.
+1. Ler a **`docs/governanca/BIBLIA-DO-PROJETO.md`**, `README.md`, `docs/governanca/DECISOES.md`, `docs/governanca/STATUS-GERAL.md` e o README do setor.
 2. Consultar GitHub Issues abertas vinculadas ao setor e quaisquer alterações recentes pertinentes.
 3. Identificar entregável, responsável, status e referências aprovadas.
 4. Se houver requisito não decidido, abrir Issue seguindo `docs/operacao/PROTOCOLO-HANDOFF.md`; não preencher lacuna criativa/jurídica por conta própria.
