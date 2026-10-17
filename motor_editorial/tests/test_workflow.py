@@ -329,25 +329,26 @@ class MotorWorkflowTests(unittest.TestCase):
 
     def test_schema_v1_migrates_media_decision_required_flag(self) -> None:
         legacy_db = self.root / "legacy.sqlite3"
-        with sqlite3.connect(legacy_db) as connection:
-            connection.execute(
-                """CREATE TABLE media_decisions (
-                       id TEXT PRIMARY KEY,
-                       story_id TEXT NOT NULL,
-                       asset_id TEXT NOT NULL,
-                       decision TEXT NOT NULL CHECK (decision IN (
-                           'include', 'placeholder', 'blocked'
-                       )),
-                       reason TEXT NOT NULL,
-                       created_at TEXT NOT NULL,
-                       UNIQUE(story_id, asset_id)
-                   )"""
-            )
-            connection.execute(
-                "INSERT INTO media_decisions VALUES "
-                "('old-decision', 'old-story', 'old-asset', 'placeholder', 'legacy', '2026-10-01')"
-            )
-            connection.execute("PRAGMA user_version = 1")
+        with closing(sqlite3.connect(legacy_db)) as connection:
+            with connection:
+                connection.execute(
+                    """CREATE TABLE media_decisions (
+                           id TEXT PRIMARY KEY,
+                           story_id TEXT NOT NULL,
+                           asset_id TEXT NOT NULL,
+                           decision TEXT NOT NULL CHECK (decision IN (
+                               'include', 'placeholder', 'blocked'
+                           )),
+                           reason TEXT NOT NULL,
+                           created_at TEXT NOT NULL,
+                           UNIQUE(story_id, asset_id)
+                       )"""
+                )
+                connection.execute(
+                    "INSERT INTO media_decisions VALUES "
+                    "('old-decision', 'old-story', 'old-asset', 'placeholder', 'legacy', '2026-10-01')"
+                )
+                connection.execute("PRAGMA user_version = 1")
 
         migrated = Store(legacy_db, self.root / "legacy-artifacts")
         with closing(migrated.connect()) as connection:

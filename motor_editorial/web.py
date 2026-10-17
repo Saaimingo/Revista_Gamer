@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import secrets
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlencode, urlsplit
 
 from .domain import MotorError
@@ -14,7 +14,7 @@ from .workflow import Motor
 MAX_FORM_BYTES = 4096
 
 
-def create_server(motor: Motor, port: int = 8765) -> HTTPServer:
+def create_server(motor: Motor, port: int = 8765) -> ThreadingHTTPServer:
     csrf_token = secrets.token_urlsafe(24)
 
     class Handler(BaseHTTPRequestHandler):
@@ -122,8 +122,8 @@ def create_server(motor: Motor, port: int = 8765) -> HTTPServer:
                 return
             self._send(404, render_panel_page("Ação não disponível", "<main><p>Esta ação não existe no Motor Editorial v0.1.</p><p><a href=\"/\">Voltar ao painel</a></p></main>"))
 
-    server = HTTPServer(("127.0.0.1", port), Handler)
-    server.daemon_threads = False
+    server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    server.daemon_threads = True
     return server
 
 
