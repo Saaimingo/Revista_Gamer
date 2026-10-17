@@ -27,6 +27,12 @@ Data-base: 2026-10-16. **Fase: blocos de concepção organizados e Motor Editori
 - **Implementado, revisto e integrado à main:** [PR #3](https://github.com/Saaimingo/Revista_Gamer/pull/3); commit de integração `525ae351d1e7375821435efeb1e012955785f69d`. Motor Python + SQLite, cenário fictício, painel local, direitos simulados, estados auditáveis, correções e aprovação humana interna. Evidências registradas: **11/11 testes no Windows 11 Home/Python 3.11.9**, inspeção visual do painel no Chrome e **11/11 testes no Linux/Python 3.12.14**; conferir [relatório](../engenharia/RELATORIO-IMPLANTACAO-MOTOR-V0.1.md). [Aceite arquitetural](https://github.com/Saaimingo/Revista_Gamer/pull/3#issuecomment-6227519030). Sem deploy, edição real, integração de IA ou publicação autorizados.
 - Os blocos 02–06 continuam em leitura/standby até debates e tarefas individuais. Esta autorização é EXCLUSIVA do Codex construtor.
 
+## Próxima missão do Codex — CODEX-002 especificada, execução NÃO iniciada
+
+- [Issue #5](https://github.com/Saaimingo/Revista_Gamer/issues/5): Motor Editorial **v0.2 multipauta e composição de edição**, com três pautas fictícias, fluxos independentes, revisão, direitos, auditoria, painel e prévia multipauta.
+- [Especificação ENG-MOTOR-002](../engenharia/ESPECIFICACAO-MOTOR-EDITORIAL-V0.2-MULTIPAUTA.md) e [ordem CODEX-002](../engenharia/ORDEM-CODEX-002-MOTOR-MULTIPAUTA.md) preparadas no GitHub.
+- A ordem está autorizada apenas para execução de engenharia offline quando iniciada pelo Codex no repositório; não há evidências de construção nem PR v0.2 até aqui. Nenhuma publicação, API paga ou coleta real foi autorizada.
+
 ## O que ainda NÃO existe neste repositório
 
 - **Motor editorial de PRODUÇÃO:** existe apenas protótipo simulado integrado; não há sistema de produção, nem integrações reais de IA/notícias.
