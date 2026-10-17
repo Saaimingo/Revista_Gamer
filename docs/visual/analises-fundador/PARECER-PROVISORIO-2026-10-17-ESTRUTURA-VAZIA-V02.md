@@ -58,3 +58,32 @@ O principal bloqueio conceitual apontado na v0.1 — **leitura microscópica no 
 **Próxima conversa com Bloco 03:** avaliar com a direção sobretudo V2-1 (rolagem versus folhear no celular), V2-2 (relação texto/imagens/continuação) e V2-3 (sumário). Depois, consolidar decisão ratificada em parecer final de rodada. Caso haja impacto nos outros setores, abrir handoff específico **sem envolver Codex neste momento**.
 
 As observações deste documento são **parecer técnico do fundador**, não ordem ao Bloco 03 para mudar sem a direção discutir. Arquivo binário permanece com a direção na conversa como artefato de revisão; não alegar que está hospedado no GitHub nem que a identidade foi aprovada.
+
+## 6. Adendo de conversa com a direção — adaptação inteligente e personalização (17/10/2026)
+
+**Situação:** conceito apresentado pelo diretor e discutido com o fundador; adendo **provisório**, ainda sem aceite de interface, engenharia ou implementação. A expressão **“sistema inteligente”** refere-se a uma interface que *reage automaticamente ao dispositivo e aos ajustes do leitor*; **não significa obrigatoriamente inteligência artificial**.
+
+### Intenção do diretor, expressa na conversa
+
+- A revista deve **adaptar a apresentação ao espaço disponível** em celular, tablet e computador, inclusive quando a tela gira, a janela muda ou alguma configuração do leitor é alterada. Não basta escolher um layout somente na abertura.
+- **Leitores diferentes devem poder escolher modos de navegação diferentes**: folhear horizontalmente como revista ou ler em rolagem vertical contínua. A preferência pessoal não deve ser eliminada por uma escolha automática da interface.
+- Em **tablet na horizontal** e em computadores com espaço suficiente, a revista deve poder simular uma **revista física aberta**, com capa isolada e depois pares corretos de páginas opostas (por exemplo, faces 2–3), usando toque/arraste/mouse para virar a folha. O objetivo é conservar frente/verso e coerência das páginas.
+- Quando o leitor **altera fonte, espaçamento ou forma de leitura**, a revista deve **reorganizar o conteúdo naquele momento**, e não apenas ampliar uma imagem ou cortar o texto. Preferências podem ser lembradas no próprio navegador, respeitando a possibilidade de redefini-las.
+
+### Proposta arquitetural do fundador para prototipação (não decisão fechada)
+
+1. Usar **layout responsivo e reativo** ao tamanho da área de leitura, orientação e alterações relevantes; tecnologias comuns da web (CSS responsivo, media/container queries, observação de redimensionamento e gestão de estado) são suficientes como base, sem necessidade de IA.
+2. Separar **adaptação automática** (quantas páginas cabem, colunas, dimensões, tratamento de imagens) da **escolha explícita do leitor** (modo folhear ou leitura contínua, opções de tipografia). Uma mudança de orientação não deve substituir silenciosamente uma preferência definida pelo leitor.
+3. Ao alternar modo, orientação ou tamanho da fonte, **redistribuir/recalcular texto e elementos vinculados**, preservando tanto quanto possível a **posição lógica de leitura** (matéria/parágrafo/âncora), pois o número da face pode mudar após a recomposição.
+4. Nos modos de folhear, preservar sequência correta de faces, capa/contracapa e leitura acessível. Em modo contínuo, não exigir que se navegue uma face longa por vez. Não interpretar qualquer deslize vertical como pedido para trocar de modo: usar controles claros, acessíveis por toque, mouse e teclado.
+5. Considerar limites de desempenho, redução de movimento, zoom e fontes ampliadas. Imagens, legendas, quadros e publicidade permanecem **componentes independentes e refluíveis**, não uma imagem única da página inteira.
+
+### Provas de conceito que o Bloco 03 pode apresentar à direção
+
+- Um mesmo texto demonstrativo em celular estreito, tablet vertical, tablet horizontal e desktop, com alteração de orientação/redimensionamento em tempo real.
+- Controle simples para alternar **Folhear / Leitura contínua** e ajuste de fonte; observar recomposição imediata, sem perda do ponto da leitura e sem rolagem lateral involuntária.
+- No tablet horizontal, **capa isolada → faces 2–3 → faces 4–5**; testar gestos/arraste e opção de navegação sem animação.
+- Matéria extensa com foto, legenda, tabela e continuação; verificar que o conjunto não se separa indevidamente nem desaparece ao mudar o modo ou o tamanho de texto.
+- Persistência local opcional de preferências e caminho claro para restaurar o padrão; acessibilidade e desempenho em aparelhos modestos.
+
+**Limite de autorização:** este registro preserva a conversa e orienta a próxima discussão com o Bloco 03. **Não determina implementação, não aciona Codex, não aprova UX definitiva e não altera o trabalho dos demais setores.** As escolhas detalhadas de navegação, prioridades e transições serão validadas com a direção antes da especificação final.
