@@ -32,5 +32,6 @@ O diretor autorizou documentar dois estudos gráficos comparáveis, **sem aprov�
 - [Parecer provisório do fundador — revisão dos dois mocks e orientações de retomada](analises-fundador/PARECER-PROVISORIO-2026-10-17-MOCKS-A-B.md) — avaliação independente, NÃO identidade aprovada.
 
 - [Parecer provisório do fundador — Estrutura Vazia v0.1 (ZIP HTML + seis prévias)](analises-fundador/PARECER-PROVISORIO-2026-10-17-ESTRUTURA-VAZIA-V01.md) — inspeção funcional de layouts e questões de legibilidade mobile; não é identidade aprovada nem implementação da revista.
+- [Parecer provisório do fundador — Estrutura Vazia v0.2](analises-fundador/PARECER-PROVISORIO-2026-10-17-ESTRUTURA-VAZIA-V02.md) — resposta a P1–P6, verificação de layout responsivo e paginação experimental; continuidade em discussão.
 
 **Estado operacional:** documentação em GitHub; arquivos PNG binários gerados e organizados no pacote de entrega ao diretor, mas **pendentes de transferência efetiva para o repositório**. Não alegar que os arquivos visuais estão presentes até validação por leitura do próprio GitHub. As imagens contêm IP/marcas reconhecíveis e informações fictícias, exigindo análise de direitos e revisão antes de uso público.
