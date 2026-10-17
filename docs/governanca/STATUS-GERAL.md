@@ -1,6 +1,6 @@
 # Estado geral do projeto
 
-Data-base: 2026-10-15. **Fase: blocos de concepção formados e primeira missão técnica autorizada; aguardando implementação.**
+Data-base: 2026-10-16. **Fase: blocos de concepção organizados e Motor Editorial v0.1 implementado, validado como simulação local e integrado à main.**
 
 ## O que existe
 
@@ -19,29 +19,29 @@ Data-base: 2026-10-15. **Fase: blocos de concepção formados e primeira missão
 - Bloco 06 (Comercial, Monetização e Divulgação) **criado, prompt entregue**; somente leitura e standby, sem produção autorizada.
 - Regra de onboarding: nenhum bloco deve produzir projetos, rascunhos ou Issues até o diretor autorizar uma tarefa específica após discussão.
 
-## Primeira missão do Codex — autorizada, ainda NÃO executada
+## Primeira missão do Codex — CODEX-001 concluída (protótipo local)
 
 - Ordem `CODEX-001`: construir **Motor Editorial v0.1 local com fluxo simulado, persistência, testes e aprovação humana interna**.
 - Especificação: `docs/engenharia/ESPECIFICACAO-MOTOR-EDITORIAL-V0.1.md`.
 - Ordem operacional: `docs/engenharia/ORDEM-CODEX-001-CONSTRUIR-MOTOR-V0.1.md`.
-- **Construção executada em branch:** [PR #3](https://github.com/Saaimingo/Revista_Gamer/pull/3), com motor Python/SQLite, simulação determinística, painel local e documentação. O PR está **aberto e não mesclado**. Após revisão, o Codex corrigiu três condições de borda e informa **11 testes aprovados no ambiente Python 3.12.14**. A inspeção arquitetural está concluída para esses pontos, mas ainda **falta teste nativo no Windows 11** antes do aceite final/merge. Revisão: [comentário no PR](https://github.com/Saaimingo/Revista_Gamer/pull/3#issuecomment-6226974328). Nenhum deploy, edição real, integração de IA ou publicação autorizado.
+- **Implementado, revisto e integrado à main:** [PR #3](https://github.com/Saaimingo/Revista_Gamer/pull/3); commit de integração `525ae351d1e7375821435efeb1e012955785f69d`. Motor Python + SQLite, cenário fictício, painel local, direitos simulados, estados auditáveis, correções e aprovação humana interna. Evidências registradas: **11/11 testes no Windows 11 Home/Python 3.11.9**, inspeção visual do painel no Chrome e **11/11 testes no Linux/Python 3.12.14**; conferir [relatório](../engenharia/RELATORIO-IMPLANTACAO-MOTOR-V0.1.md). [Aceite arquitetural](https://github.com/Saaimingo/Revista_Gamer/pull/3#issuecomment-6227519030). Sem deploy, edição real, integração de IA ou publicação autorizados.
 - Os blocos 02–06 continuam em leitura/standby até debates e tarefas individuais. Esta autorização é EXCLUSIVA do Codex construtor.
 
 ## O que ainda NÃO existe neste repositório
 
-- **Motor operacional validado em produção:** há apenas protótipo simulado em PR, não mergeado; nem integrações reais de IA/notícias.
+- **Motor editorial de PRODUÇÃO:** existe apenas protótipo simulado integrado; não há sistema de produção, nem integrações reais de IA/notícias.
 - Orquestração com agentes reais, leitor web definitivo, personagens desenhados aprovados, imagens licenciadas, calendário publicado, campanhas comerciais ou pipeline de publicação.
 - Teste comprovando uso autônomo do Codex dentro do plano Plus sem API.
 - Licenças gerais que liberem todo o conteúdo de qualquer publisher.
 
-## Prioridade recomendada, sem início automático
+## Próxima prioridade recomendada, sem início automático
 
-1. Validar esta arquitetura e tornar o repositório privado se a direção preferir documentação interna.
-2. Designar os blocos concretamente e entregar a cada um o README setorial.
-3. Abrir Issues de trabalho por setor e registrar responsáveis.
-4. Desenvolver DNAs dos personagens e especificações visuais, em paralelo com projeto técnico sem serviços pagos.
-5. Medir consumo real de um pequeno circuito de investigação/redação/revisão.
-6. Só então prototipar edição piloto e validar acervo/direitos.
+1. Preservar o Motor v0.1 como baseline de simulação e consolidar os testes de regressão.
+2. Debater e aprovar contratos de entrada/saída para primeira função editorial REAL sem ativar APIs/coleta por antecipação.
+3. Prosseguir com discussões de personagens, editorial, visual, acervo e comercial nos blocos, um assunto por vez.
+4. Decidir armazenamento privado e proteção de dados antes de usar conteúdo editorial inédito.
+5. Medir custos e quotas num teste real explicitamente autorizado antes de conectar modelos e agendamento.
+6. Montar a primeira edição-piloto interna somente após os critérios e a base técnica necessários.
 
 ## Regras de atualização
 
