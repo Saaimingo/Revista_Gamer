@@ -19,3 +19,15 @@ Funcionamento em notebook modesto com ~4 GB de RAM, tablets e smartphones; carre
 ## Entregas a Engenharia
 
 Tokens de identidade, componentes e estados, protótipos com tamanhos responsivos, representação da dobra/verso, especificações de animação, performance medida, acessibilidade testada, contrato de posicionamento editorial e espaços reservados para anúncios **sem acesso a mídias editoriais**.
+
+
+## Estudos de identidade e protótipos — 17/10/2026
+
+O diretor autorizou documentar dois estudos gráficos comparáveis, **sem aprová-los como identidade definitiva**. Ambos possuem oito faces de mock (capa + seis faces internas + contracapa) e testam capa cinematográfica com miolo editorial que privilegia a redação dos cronistas. A referência de aproximadamente 70% de prioridade à escrita nas matérias internas é uma **hipótese em avaliação**, não regra fixa para cada editoria.
+
+- [Visão comparativa e pontos a decidir](estudos/ESTUDO-COMPARATIVO-DOIS-MOCKS-TEMATICOS-2026-10-17.md).
+- [Catálogo dos dois protótipos e situação dos PNGs](prototipos/README.md).
+- [Mock A — terror, capa escura e exemplo de anúncio](prototipos/mock-a-terror/README.md).
+- [Mock B — GTA VI, capa colorida e retorno ao tema-base nas demais editorias](prototipos/mock-b-gta/README.md).
+
+**Estado operacional:** documentação em GitHub; arquivos PNG binários gerados e organizados no pacote de entrega ao diretor, mas **pendentes de transferência efetiva para o repositório**. Não alegar que os arquivos visuais estão presentes até validação por leitura do próprio GitHub. As imagens contêm IP/marcas reconhecíveis e informações fictícias, exigindo análise de direitos e revisão antes de uso público.
