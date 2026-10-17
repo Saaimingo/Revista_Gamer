@@ -66,6 +66,17 @@ def create_server(motor: Motor, port: int = 8765) -> ThreadingHTTPServer:
                 self._send(200, story_html(detail))
                 return
             if len(parts) == 3 and parts[0] == "editions" and parts[2] == "preview":
+                try:
+                    preview_revalidated = motor.revalidate_edition_preview_for_access(parts[1])
+                except (MotorError, ValueError, OSError):
+                    self._send(
+                        409,
+                        render_panel_page(
+                            "Prévia desatualizada",
+                            "<main><p>Não foi possível revalidar a prévia. Ela não será exibida; volte ao painel e resolva as pendências.</p><p><a href=\"/\">Voltar</a></p></main>",
+                        ),
+                    )
+                    return
                 edition = motor.store.get_edition(parts[1])
                 if edition is None:
                     self._send(404, render_panel_page("Não encontrado", "<main><p>Edição não encontrada.</p></main>"))
@@ -81,6 +92,13 @@ def create_server(motor: Motor, port: int = 8765) -> ThreadingHTTPServer:
                 except (OSError, ValueError):
                     self._send(404, render_panel_page("Prévia indisponível", "<main><p>O arquivo de prévia não está disponível.</p></main>"))
                     return
+                if preview_revalidated:
+                    notice = (
+                        '<aside role="status" style="margin:16px;padding:12px;background:#fff4cc;'
+                        'border:2px solid #a26700">A composição foi revalidada. Examine esta prévia '
+                        'antes de registrar uma nova aprovação interna.</aside>'
+                    )
+                    body = body.replace("</body>", notice + "</body>", 1)
                 self._send(200, body)
                 return
             self._send(404, render_panel_page("Rota não encontrada", "<main><p>Esta rota não existe no Motor Editorial v0.2.</p><p><a href=\"/\">Voltar ao painel</a></p></main>"))

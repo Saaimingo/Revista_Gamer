@@ -34,7 +34,7 @@ py -3.11 -m motor_editorial approve <edition_id>
 py -3.11 -m motor_editorial run-story <run_id> <story_id>
 ```
 
-O painel local abre em `http://127.0.0.1:8765/`. Ele oferece execução em lote, retomada individual de falha transitória, detalhes de fontes e revisão, direitos por matéria, exclusão humana auditada e prévia multipauta. Não existe publicação.
+O painel local abre em `http://127.0.0.1:8765/`. Ele oferece execução em lote, retomada individual de falha transitória, detalhes de fontes e revisão, direitos por matéria, exclusão humana auditada e prévia multipauta. Antes de servir uma prévia, revalida a composição e os direitos; se algo mudar após uma aprovação, invalida essa aprovação, atualiza a prévia e aguarda nova confirmação humana. Não existe publicação.
 
 ## Compatibilidade v0.1
 

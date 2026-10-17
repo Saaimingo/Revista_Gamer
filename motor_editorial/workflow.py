@@ -183,6 +183,14 @@ class Motor:
         existing_run = self.store.get_run(actual_run_id)
         edition = self.store.get_edition_by_run(actual_run_id)
         if existing_run and existing_run["status"] == "approved_internally":
+            if edition and self._revalidate_approved_multipauta_edition(edition["id"]):
+                edition = self.store.get_edition(edition["id"])
+                return SimulationResult(
+                    actual_run_id, edition["composition_status"],
+                    "A aprovacao anterior foi invalidada. Resolva eventuais pendencias e "
+                    "revise novamente a previa antes de aprovar.",
+                    edition["id"],
+                )
             return SimulationResult(
                 actual_run_id, "approved_internally",
                 "A edicao multipauta ja foi aprovada internamente.",
@@ -770,6 +778,21 @@ class Motor:
             raise ValueError("A pauta nao pertence a edicao multipauta.")
         if not member["active"]:
             raise ValueError("A pauta foi excluida explicitamente desta edicao.")
+        if (edition["status"] == "approved_internally"
+                or edition["composition_status"] == "approved_internally"):
+            if self._revalidate_approved_multipauta_edition(edition["id"]):
+                refreshed = self.store.get_edition(edition["id"])
+                return SimulationResult(
+                    run_id, refreshed["composition_status"],
+                    "A aprovacao anterior foi invalidada. Resolva eventuais pendencias e "
+                    "revise novamente a previa antes de aprovar.",
+                    edition["id"],
+                )
+            return SimulationResult(
+                run_id, "approved_internally",
+                "A edicao multipauta ja foi aprovada internamente; a retomada nao alterou o estado.",
+                edition["id"],
+            )
         self._run_multipauta_story(run_id, story_id, data)
         story = self.store.get_story(story_id)
         if story and story["state"] in {
@@ -908,6 +931,207 @@ class Motor:
                 "media": [dict(row) for row in media],
             })
         return stable_hash(json_dumps(payload))
+
+    def _revalidate_approved_multipauta_edition(self, edition_id: str) -> bool:
+        """Invalidate a prior human approval if its saved composition is no longer current."""
+        with self.store.transaction() as connection:
+            edition = connection.execute(
+                "SELECT * FROM editions WHERE id = ?", (edition_id,)
+            ).fetchone()
+            if edition is None:
+                return False
+            members = connection.execute(
+                """SELECT es.position, es.story_id, es.required, s.state,
+                          s.current_revision_number
+                   FROM edition_stories es JOIN stories s ON s.id = es.story_id
+                   WHERE es.edition_id = ? AND es.active = 1 ORDER BY es.position""",
+                (edition_id,),
+            ).fetchall()
+            media_changes = [
+                self._revalidate_included_media(
+                    connection, member["story_id"], source="approved-edition-revalidation"
+                )
+                for member in members
+            ]
+            media_changed = any(media_changes)
+            fingerprint = self._composition_fingerprint(connection, edition_id)
+            preview = self.store.safe_artifact_path(edition["preview_path"])
+
+            all_currently_approved = bool(members) and all(
+                member["state"] == "approved_internally" for member in members
+            )
+            review_is_current = True
+            media_is_eligible = True
+            for member in members:
+                latest = connection.execute(
+                    """SELECT ar.status, rr.approved FROM article_revisions ar
+                       LEFT JOIN review_results rr ON rr.revision_id = ar.id
+                       WHERE ar.story_id = ? AND ar.version = ?
+                       ORDER BY rr.pass_number DESC LIMIT 1""",
+                    (member["story_id"], member["current_revision_number"]),
+                ).fetchone()
+                if latest is None or latest["status"] != "approved" or latest["approved"] != 1:
+                    review_is_current = False
+                blocked_required_media = connection.execute(
+                    """SELECT 1 FROM media_decisions
+                       WHERE story_id = ? AND required = 1 AND decision = 'blocked' LIMIT 1""",
+                    (member["story_id"],),
+                ).fetchone()
+                if blocked_required_media is not None:
+                    media_is_eligible = False
+
+            composition_is_current = (
+                edition["status"] == "approved_internally"
+                and edition["composition_status"] == "approved_internally"
+                and edition["approved_by"]
+                and edition["approved_at"]
+                and edition["composition_fingerprint"] == fingerprint
+                and preview.is_file()
+                and all_currently_approved
+                and review_is_current
+                and media_is_eligible
+                and not media_changed
+            )
+            if composition_is_current:
+                return False
+
+            ready_for_new_approval = (
+                bool(members) and review_is_current and media_is_eligible
+                and all(
+                    member["state"] in {"approved_internally", "awaiting_human_approval"}
+                    for member in members
+                )
+            )
+            run = connection.execute(
+                "SELECT scenario_label, status FROM runs WHERE id = ?",
+                (edition["run_id"],),
+            ).fetchone()
+            if run is None:
+                raise ValueError("A execucao vinculada a edicao nao foi encontrada.")
+
+            if ready_for_new_approval:
+                details = []
+                for member in members:
+                    detail = self.store.story_detail(member["story_id"], connection)
+                    if detail is None:
+                        raise ValueError(f"Pauta nao encontrada: {member['story_id']}.")
+                    details.append((member["position"], detail))
+                from .render import render_edition_preview
+                self._write_preview(
+                    preview,
+                    render_edition_preview(edition_id, details, run["scenario_label"]),
+                )
+
+            next_composition_status = (
+                "ready_for_approval" if ready_for_new_approval else "waiting_on_blockers"
+            )
+            connection.execute(
+                """UPDATE editions SET status = 'awaiting_human_approval',
+                   composition_status = ?, composition_fingerprint = ?,
+                   approved_by = NULL, approved_at = NULL WHERE id = ?""",
+                (
+                    next_composition_status,
+                    fingerprint if ready_for_new_approval else None,
+                    edition_id,
+                ),
+            )
+            if ready_for_new_approval:
+                for member in members:
+                    if member["state"] == "approved_internally":
+                        connection.execute(
+                            "UPDATE stories SET state = 'awaiting_human_approval', updated_at = ? "
+                            "WHERE id = ?",
+                            (utc_now(), member["story_id"]),
+                        )
+                        self.store.log_event(
+                            connection,
+                            entity_type="story",
+                            entity_id=member["story_id"],
+                            action="internal_approval_invalidated",
+                            actor="politica_midia" if media_changed else "orquestrador",
+                            source="approved-edition-revalidation",
+                            before={"state": "approved_internally"},
+                            after={"state": "awaiting_human_approval",
+                                   "edition_id": edition_id},
+                        )
+
+            next_run_status = "awaiting_approval" if ready_for_new_approval else "running"
+            if run["status"] != next_run_status:
+                connection.execute(
+                    "UPDATE runs SET status = ?, updated_at = ? WHERE id = ?",
+                    (next_run_status, utc_now(), edition["run_id"]),
+                )
+                self.store.log_event(
+                    connection,
+                    entity_type="run",
+                    entity_id=edition["run_id"],
+                    action="run_status_changed",
+                    actor="orquestrador",
+                    source="approved-edition-revalidation",
+                    before={"status": run["status"]},
+                    after={"status": next_run_status},
+                )
+
+            reason = (
+                "Permissao ou modalidade de uso de midia mudou."
+                if media_changed
+                else "A revisao, as fontes, a composicao ou o arquivo de previa mudou."
+            )
+            self.store.log_event(
+                connection,
+                entity_type="edition",
+                entity_id=edition_id,
+                action="internal_approval_invalidated",
+                actor="politica_midia" if media_changed else "orquestrador",
+                source="approved-edition-revalidation",
+                before={
+                    "status": edition["status"],
+                    "composition_status": edition["composition_status"],
+                    "approved_by": edition["approved_by"],
+                    "approved_at": edition["approved_at"],
+                    "composition_fingerprint": edition["composition_fingerprint"],
+                },
+                after={
+                    "status": "awaiting_human_approval",
+                    "composition_status": next_composition_status,
+                    "approved_by": None,
+                    "approved_at": None,
+                    "composition_fingerprint": (
+                        fingerprint if ready_for_new_approval else None
+                    ),
+                    "reason": reason,
+                    "media_changed": media_changed,
+                    "preview_refreshed": ready_for_new_approval,
+                },
+                artifact_ref=edition["preview_path"] if ready_for_new_approval else None,
+            )
+            return True
+
+    @_serialized_operation
+    def revalidate_edition_preview_for_access(self, edition_id: str) -> bool:
+        """Refresh eligible multipauta previews before serving them over the local panel."""
+        edition = self.store.get_edition(edition_id)
+        if edition is None or edition["composition_status"] == "legacy_v1":
+            return False
+        if (edition["status"] == "approved_internally"
+                or edition["composition_status"] == "approved_internally"):
+            return self._revalidate_approved_multipauta_edition(edition_id)
+        if edition["composition_status"] != "ready_for_approval":
+            return False
+
+        previous_fingerprint = edition["composition_fingerprint"]
+        previous_preview = self.store.safe_artifact_path(edition["preview_path"])
+        preview_existed = previous_preview.is_file()
+        data = self._load_multipauta_fixture(edition["run_id"])
+        self._compose_multipauta_edition(edition["run_id"], edition_id, data)
+        refreshed = self.store.get_edition(edition_id)
+        return bool(
+            refreshed
+            and (
+                refreshed["composition_fingerprint"] != previous_fingerprint
+                or (not preview_existed and previous_preview.is_file())
+            )
+        )
 
     def _compose_multipauta_edition(
         self, run_id: str, edition_id: str, data: dict[str, Any]
@@ -1666,6 +1890,14 @@ class Motor:
             )
         edition = self.store.get_edition(edition_id)
         if edition and edition["composition_status"] != "legacy_v1":
+            if (edition["status"] == "approved_internally"
+                    or edition["composition_status"] == "approved_internally"):
+                if self._revalidate_approved_multipauta_edition(edition_id):
+                    raise InvalidApproval(
+                        "A aprovacao anterior foi invalidada. Resolva eventuais pendencias e "
+                        "revise novamente a previa antes de aprovar."
+                    )
+                raise InvalidApproval("A edicao ja foi aprovada internamente.")
             self._approve_multipauta_internally(edition_id, actor, confirmation)
             return
         approval_error: str | None = None

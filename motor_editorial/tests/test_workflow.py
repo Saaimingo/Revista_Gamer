@@ -57,6 +57,20 @@ class MotorWorkflowTests(unittest.TestCase):
             **motor_options,
         )
 
+    def approve_multipauta_demo(self):
+        result = self.motor.run_multipauta_demo()
+        self.motor.run_multipauta_demo()
+        stories = {row["topic_key"]: row for row in self.store.list_stories()}
+        garden = stories["garden-of-echoes-fotografia"]
+        self.motor.exclude_story_from_edition(
+            result.edition_id, garden["id"], "Diretoria de teste",
+            "Bloqueio editorial ficticio documentado.", EXCLUSION_PHRASE,
+        )
+        self.motor.approve_internally(
+            result.edition_id, "Diretoria de teste", APPROVAL_PHRASE
+        )
+        return result, stories
+
     def test_full_demo_is_offline_and_enforces_editorial_and_media_gates(self) -> None:
         # The deterministic pipeline must not open a network socket.
         with patch("socket.socket", side_effect=AssertionError("socket access is forbidden")):
@@ -524,6 +538,201 @@ class MotorWorkflowTests(unittest.TestCase):
         self.assertEqual(edition["composition_status"], "ready_for_approval")
         self.motor.approve_internally(result.edition_id, "Diretoria", APPROVAL_PHRASE)
         self.assertEqual(self.store.get_edition(result.edition_id)["status"], "approved_internally")
+
+    def test_approved_multipauta_resumes_are_idempotent_and_preserve_approval(self) -> None:
+        result, stories = self.approve_multipauta_demo()
+        approved = self.store.get_edition(result.edition_id)
+        approval_snapshot = (
+            approved["status"], approved["composition_status"], approved["approved_by"],
+            approved["approved_at"], approved["composition_fingerprint"],
+        )
+        counts_before = self.store.counts()
+        events_before = tuple(
+            (row["entity_id"], row["action"], row["actor"], row["after_json"])
+            for row in self.store.list_events()
+        )
+
+        resumed_story = self.motor.run_multipauta_story(
+            result.run_id, stories["orbit-racers-copa-nebular"]["id"]
+        )
+        resumed_batch = self.motor.run_multipauta_demo()
+
+        self.assertEqual(resumed_story.status, "approved_internally")
+        self.assertEqual(resumed_batch.status, "approved_internally")
+        current = self.store.get_edition(result.edition_id)
+        self.assertEqual(
+            (
+                current["status"], current["composition_status"], current["approved_by"],
+                current["approved_at"], current["composition_fingerprint"],
+            ),
+            approval_snapshot,
+        )
+        self.assertEqual(self.store.counts(), counts_before)
+        self.assertEqual(
+            tuple(
+                (row["entity_id"], row["action"], row["actor"], row["after_json"])
+                for row in self.store.list_events()
+            ),
+            events_before,
+        )
+        self.assertTrue(
+            all(self.store.get_story(row["id"])["state"] == "approved_internally"
+                for row in stories.values() if row["topic_key"] != "garden-of-echoes-fotografia")
+        )
+
+    def test_revoked_media_after_approval_invalidates_edition_and_requires_reapproval(self) -> None:
+        result, stories = self.approve_multipauta_demo()
+        approved = self.store.get_edition(result.edition_id)
+        approved_fingerprint = approved["composition_fingerprint"]
+        approved_at = approved["approved_at"]
+        with self.store.transaction() as connection:
+            connection.execute(
+                "UPDATE media_assets SET permission_status = 'bloqueado' "
+                "WHERE id = 'asset-v02-orbit-art'"
+            )
+
+        resumed = self.motor.run_multipauta_demo()
+
+        self.assertEqual(resumed.status, "ready_for_approval")
+        edition = self.store.get_edition(result.edition_id)
+        self.assertEqual(edition["status"], "awaiting_human_approval")
+        self.assertEqual(edition["composition_status"], "ready_for_approval")
+        self.assertIsNone(edition["approved_by"])
+        self.assertIsNone(edition["approved_at"])
+        self.assertNotEqual(edition["composition_fingerprint"], approved_fingerprint)
+        self.assertNotEqual(edition["approved_at"], approved_at)
+        active_stories = [
+            row for row in stories.values()
+            if row["topic_key"] != "garden-of-echoes-fotografia"
+        ]
+        self.assertTrue(
+            all(self.store.get_story(row["id"])["state"] == "awaiting_human_approval"
+                for row in active_stories)
+        )
+        orbit_media = next(
+            row for row in self.store.story_detail(stories["orbit-racers-copa-nebular"]["id"])["media"]
+            if row["asset_id"] == "asset-v02-orbit-art"
+        )
+        self.assertEqual(orbit_media["decision"], "placeholder")
+        preview = self.store.safe_artifact_path(edition["preview_path"]).read_text(encoding="utf-8")
+        self.assertNotIn('data-asset-id="asset-v02-orbit-art"', preview)
+        self.assertIn("bloqueado", preview)
+        self.assertTrue(
+            any(event["action"] == "internal_approval_invalidated"
+                for event in self.store.list_events(result.edition_id))
+        )
+
+        self.motor.approve_internally(
+            result.edition_id, "Diretoria de revalidacao", APPROVAL_PHRASE
+        )
+        final_edition = self.store.get_edition(result.edition_id)
+        self.assertEqual(final_edition["status"], "approved_internally")
+        self.assertEqual(final_edition["approved_by"], "Diretoria de revalidacao")
+
+    def test_multipauta_preview_access_revalidates_media_after_approval(self) -> None:
+        result, stories = self.approve_multipauta_demo()
+        with self.store.transaction() as connection:
+            connection.execute(
+                "UPDATE media_assets SET permission_status = 'bloqueado' "
+                "WHERE id = 'asset-v02-orbit-art'"
+            )
+
+        server = create_server(self.motor, 0)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        base_url = f"http://127.0.0.1:{server.server_address[1]}"
+        try:
+            with urlopen(
+                base_url + f"/editions/{result.edition_id}/preview", timeout=3
+            ) as response:
+                self.assertEqual(response.status, 200)
+                preview = response.read().decode("utf-8")
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
+
+        edition = self.store.get_edition(result.edition_id)
+        self.assertEqual(edition["status"], "awaiting_human_approval")
+        self.assertEqual(edition["composition_status"], "ready_for_approval")
+        self.assertIsNone(edition["approved_by"])
+        self.assertIsNone(edition["approved_at"])
+        self.assertNotIn('data-asset-id="asset-v02-orbit-art"', preview)
+        self.assertIn("bloqueado", preview)
+        self.assertIn("Examine esta prévia", preview)
+        self.assertEqual(
+            self.store.get_story(stories["orbit-racers-copa-nebular"]["id"])["state"],
+            "awaiting_human_approval",
+        )
+        self.assertTrue(
+            any(event["action"] == "internal_approval_invalidated"
+                for event in self.store.list_events(result.edition_id))
+        )
+
+    def test_multipauta_batch_and_individual_resume_share_serialization_lock(self) -> None:
+        initial = self.motor.run_multipauta_demo()
+        stories = {row["topic_key"]: row for row in self.store.list_stories()}
+        orbit_id = stories["orbit-racers-copa-nebular"]["id"]
+        harbor_id = stories["clockwork-harbor-cooperativo"]["id"]
+        batch_paused = threading.Event()
+        release_batch = threading.Event()
+        individual_entered_while_batch_paused = threading.Event()
+        individual_started = threading.Event()
+        results = []
+        errors = []
+        original_run_story = self.motor._run_multipauta_story
+
+        def controlled_run_story(run_id, story_id, data):
+            if story_id == orbit_id and not batch_paused.is_set():
+                batch_paused.set()
+                if not release_batch.wait(timeout=5):
+                    raise AssertionError("A barreira de concorrencia nao foi liberada.")
+            elif story_id == harbor_id and batch_paused.is_set() and not release_batch.is_set():
+                individual_entered_while_batch_paused.set()
+                raise AssertionError("A retomada individual entrou durante a execucao em lote.")
+            return original_run_story(run_id, story_id, data)
+
+        def run_batch() -> None:
+            try:
+                results.append(self.motor.run_multipauta_demo())
+            except Exception as error:  # surfaced as assertion below
+                errors.append(error)
+
+        def run_individual() -> None:
+            try:
+                individual_started.set()
+                results.append(self.motor.run_multipauta_story(initial.run_id, harbor_id))
+            except Exception as error:  # surfaced as assertion below
+                errors.append(error)
+
+        with patch.object(self.motor, "_run_multipauta_story", side_effect=controlled_run_story):
+            batch_thread = threading.Thread(target=run_batch)
+            individual_thread = threading.Thread(target=run_individual)
+            batch_thread.start()
+            self.assertTrue(batch_paused.wait(timeout=3))
+            individual_thread.start()
+            self.assertTrue(individual_started.wait(timeout=3))
+            entered_while_paused = individual_entered_while_batch_paused.wait(timeout=0.2)
+            release_batch.set()
+            batch_thread.join(timeout=8)
+            individual_thread.join(timeout=8)
+
+        self.assertFalse(entered_while_paused)
+        self.assertFalse(batch_thread.is_alive())
+        self.assertFalse(individual_thread.is_alive())
+        self.assertEqual(errors, [])
+        self.assertEqual(len(results), 2)
+        self.assertTrue(all(result.edition_id == initial.edition_id for result in results))
+        self.assertEqual(len(self.store.list_editions()), 1)
+        self.assertEqual(len(self.store.list_stories()), 3)
+        self.assertEqual(self.store.get_story(harbor_id)["state"], "media_checked")
+        self.assertEqual(self.store.get_edition(initial.edition_id)["composition_status"], "waiting_on_blockers")
+        with closing(self.store.connect()) as connection:
+            research_attempts = connection.execute(
+                "SELECT COUNT(*) FROM execution_attempts WHERE story_id = ? AND stage = 'research-v2'",
+                (harbor_id,),
+            ).fetchone()[0]
+        self.assertEqual(research_attempts, 2)
 
     def test_multipauta_rejects_unaudited_or_invalid_exclusion_and_distinct_run_ids(self) -> None:
         first = self.motor.run_multipauta_demo("run-paralelo-a")
