@@ -31,4 +31,6 @@ O diretor autorizou documentar dois estudos gráficos comparáveis, **sem aprov�
 - [Mock B — GTA VI, capa colorida e retorno ao tema-base nas demais editorias](prototipos/mock-b-gta/README.md).
 - [Parecer provisório do fundador — revisão dos dois mocks e orientações de retomada](analises-fundador/PARECER-PROVISORIO-2026-10-17-MOCKS-A-B.md) — avaliação independente, NÃO identidade aprovada.
 
+- [Parecer provisório do fundador — Estrutura Vazia v0.1 (ZIP HTML + seis prévias)](analises-fundador/PARECER-PROVISORIO-2026-10-17-ESTRUTURA-VAZIA-V01.md) — inspeção funcional de layouts e questões de legibilidade mobile; não é identidade aprovada nem implementação da revista.
+
 **Estado operacional:** documentação em GitHub; arquivos PNG binários gerados e organizados no pacote de entrega ao diretor, mas **pendentes de transferência efetiva para o repositório**. Não alegar que os arquivos visuais estão presentes até validação por leitura do próprio GitHub. As imagens contêm IP/marcas reconhecíveis e informações fictícias, exigindo análise de direitos e revisão antes de uso público.
