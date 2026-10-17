@@ -1,0 +1,109 @@
+{
+  "scenario_id": "demo-motor-v0.1",
+  "scenario_label": "Simulação editorial totalmente fictícia",
+  "sources": [
+    {
+      "id": "source-neblina-studio",
+      "label": "Estúdio Neblina Fictício",
+      "reference": "mock://fontes/estudio-neblina/nota-01",
+      "kind": "comunicado fictício"
+    },
+    {
+      "id": "source-pixel-lab",
+      "label": "Laboratório Pixel Fictício",
+      "reference": "mock://fontes/laboratorio-pixel/relatorio-07",
+      "kind": "análise fictícia"
+    },
+    {
+      "id": "source-community",
+      "label": "Arquivo Comunitário Fictício",
+      "reference": "mock://fontes/arquivo-comunitario/nota-03",
+      "kind": "registro fictício"
+    }
+  ],
+  "items": [
+    {
+      "id": "news-moonlit-official",
+      "source_id": "source-neblina-studio",
+      "source_identifier": "mock://noticias/neblina/moonlit-circuit-coop",
+      "title": "Estúdio fictício anuncia modo cooperativo local em Moonlit Circuit",
+      "published_at": "2026-10-01T09:00:00Z",
+      "summary": "Comunicado fictício descreve uma atualização de teste para o jogo inventado Moonlit Circuit.",
+      "topic_key": "moonlit-circuit-coop",
+      "relevance": true
+    },
+    {
+      "id": "news-moonlit-duplicate",
+      "source_id": "source-neblina-studio",
+      "source_identifier": "mock://noticias/neblina/moonlit-circuit-coop",
+      "title": "Estúdio fictício anuncia modo cooperativo local em Moonlit Circuit",
+      "published_at": "2026-10-01T09:00:00Z",
+      "summary": "Comunicado fictício descreve uma atualização de teste para o jogo inventado Moonlit Circuit.",
+      "topic_key": "moonlit-circuit-coop",
+      "relevance": true
+    },
+    {
+      "id": "news-moonlit-lab",
+      "source_id": "source-pixel-lab",
+      "source_identifier": "mock://noticias/pixel-lab/moonlit-test-07",
+      "title": "Laboratório fictício relata limites técnicos do modo cooperativo de Moonlit Circuit",
+      "published_at": "2026-10-02T14:30:00Z",
+      "summary": "Relatório inventado descreve condições e limitações de uma compilação de teste fictícia.",
+      "topic_key": "moonlit-circuit-coop",
+      "relevance": true
+    },
+    {
+      "id": "news-irrelevant-merch",
+      "source_id": "source-community",
+      "source_identifier": "mock://noticias/comunidade/canecas-estacao-nuvem",
+      "title": "Arquivo fictício registra canecas de uma estação espacial imaginária",
+      "published_at": "2026-10-03T11:15:00Z",
+      "summary": "Nota inventada sobre um item de coleção sem relação com a pauta da demonstração.",
+      "topic_key": "estacao-nuvem-canecas",
+      "relevance": false
+    }
+  ],
+  "stories": [
+    {
+      "topic_key": "moonlit-circuit-coop",
+      "question": "O que o modo cooperativo local de Moonlit Circuit oferece e quais limites foram descritos nas fontes fictícias?"
+    }
+  ],
+  "research": {
+    "claims": [
+      {
+        "text": "O modo cooperativo é descrito como local.",
+        "source_item_ids": ["news-moonlit-official"]
+      },
+      {
+        "text": "O relatório fictício cita uma limitação na compilação de teste.",
+        "source_item_ids": ["news-moonlit-lab"]
+      }
+    ],
+    "uncertainties": [
+      "Os dados pertencem somente a um cenário fictício de demonstração."
+    ]
+  },
+  "assets": [
+    {
+      "id": "asset-original-demo",
+      "title": "Ilustração geométrica original de teste",
+      "permission_status": "permitido",
+      "usage_mode": "editorial_preview",
+      "media_type": "illustration_original",
+      "label": "Arte original e neutra, criada para esta simulação."
+    },
+    {
+      "id": "asset-pending-demo",
+      "title": "Ativo fictício com permissão pendente",
+      "permission_status": "pendente",
+      "usage_mode": "editorial_preview",
+      "media_type": "image",
+      "label": "Não usar. Serve apenas para testar o bloqueio por direitos."
+    }
+  ],
+  "story_assets": [
+    {"asset_id": "asset-original-demo", "required": true},
+    {"asset_id": "asset-pending-demo", "required": true}
+  ]
+}
