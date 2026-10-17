@@ -11,6 +11,12 @@ Status: **Motor Editorial v0.1 implementado, validado como protótipo local e in
 
 Este marco não ativa os blocos conceituais e não autoriza integrações reais de IA/notícias.
 
+## Segunda missão de engenharia — pronta para execução
+
+- [Especificação ENG-MOTOR-002](ESPECIFICACAO-MOTOR-EDITORIAL-V0.2-MULTIPAUTA.md): multipauta, fluxos independentes, montagem de uma edição com matérias múltiplas e salvaguardas herdadas.
+- [Ordem do construtor CODEX-002](ORDEM-CODEX-002-MOTOR-MULTIPAUTA.md) e [Issue #5](https://github.com/Saaimingo/Revista_Gamer/issues/5).
+- **Status: especificada e autorizada como protótipo offline; implementação e testes ainda não iniciados.** O Codex deve começar pela `main` atualizada, usar branch/PR novos, sem merge/publicação.
+
 ## Evolução futura
 
 O protótipo já possui estados, validações, tentativas limitadas, trilha de auditoria e aprovação humana interna. Ainda faltam agenda real, filas operacionais de produção, integrações, controle de acesso e backup; só implementar após nova especificação e autorização. Os agentes de IA são chamados sob demanda. Não construir um harness alternativo sem evidência de necessidade.
