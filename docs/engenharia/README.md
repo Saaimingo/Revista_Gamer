@@ -17,6 +17,10 @@ Este marco não ativa os blocos conceituais e não autoriza integrações reais 
 - [Ordem do construtor CODEX-002](ORDEM-CODEX-002-MOTOR-MULTIPAUTA.md) e [Issue #5](https://github.com/Saaimingo/Revista_Gamer/issues/5).
 - **Status: especificada e autorizada como protótipo offline; implementação e testes ainda não iniciados.** O Codex deve começar pela `main` atualizada, usar branch/PR novos, sem merge/publicação.
 
+## Estudo arquitetural em debate
+
+- [Análise provisória do fundador — orquestração orientada a eventos e referência n8n](ANALISE-PROVISORIA-FUNDADOR-ORQUESTRACAO-N8N-2026-10-17.md). **Não autoriza implementação, ativação de agentes reais, agendamento ou mudança na v0.2.**
+
 ## Evolução futura
 
 O protótipo já possui estados, validações, tentativas limitadas, trilha de auditoria e aprovação humana interna. Ainda faltam agenda real, filas operacionais de produção, integrações, controle de acesso e backup; só implementar após nova especificação e autorização. Os agentes de IA são chamados sob demanda. Não construir um harness alternativo sem evidência de necessidade.
