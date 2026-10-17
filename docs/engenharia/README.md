@@ -1,17 +1,19 @@
 # Setor: engenharia e Codex
 
-Status: **primeira implementação LOCAL autorizada (Motor v0.1); não há pipeline executável pronto nem autorização para implantação pública**.
+Status: **Motor Editorial v0.1 implementado, validado como protótipo local e integrado à `main`; nenhuma implantação pública ou operação real autorizada**.
 
-## Ordem técnica vigente
+## Primeiro marco técnico concluído
 
-- [Especificação Motor Editorial v0.1](ESPECIFICACAO-MOTOR-EDITORIAL-V0.1.md) — arquitetura e critérios de aceite.
-- [Ordem Codex 001: construir](ORDEM-CODEX-001-CONSTRUIR-MOTOR-V0.1.md) — executar código e testes, preparar PR, sem publicação.
+- [Especificação Motor Editorial v0.1](ESPECIFICACAO-MOTOR-EDITORIAL-V0.1.md) — contrato e critérios cumpridos no protótipo.
+- [Ordem Codex 001](ORDEM-CODEX-001-CONSTRUIR-MOTOR-V0.1.md) — concluída no [PR #3](https://github.com/Saaimingo/Revista_Gamer/pull/3), integrado à `main` em `525ae351d1e7375821435efeb1e012955785f69d`.
+- [Código do Motor](../../motor_editorial/README.md), [relatório](RELATORIO-IMPLANTACAO-MOTOR-V0.1.md) — simulação offline, 11 testes aprovados em Windows 11/Python 3.11.9 e Linux/Python 3.12.14 segundo evidências registradas pelo Codex.
+- Não são permitidos publicação, coleta real, API paga, produção editorial automatizada ou execução pública nesta fase.
 
-Este trabalho não ativa os blocos conceituais e não autoriza integrações reais de IA/notícias.
+Este marco não ativa os blocos conceituais e não autoriza integrações reais de IA/notícias.
 
-## Primeiro estágio
+## Evolução futura
 
-Implementar futuramente um orquestrador determinístico com agenda, fila, estado, validações, tentativas limitadas, trilha de auditoria e pontos de aprovação humana. Os agentes de IA são chamados sob demanda. Não construir um harness alternativo sem evidência de necessidade.
+O protótipo já possui estados, validações, tentativas limitadas, trilha de auditoria e aprovação humana interna. Ainda faltam agenda real, filas operacionais de produção, integrações, controle de acesso e backup; só implementar após nova especificação e autorização. Os agentes de IA são chamados sob demanda. Não construir um harness alternativo sem evidência de necessidade.
 
 Três funções operacionais candidatas: editor-pesquisador, redator que recebe perfil público de persona, revisor independente. O número definitivo depende de testes. Persona ≠ processo. Não multiplique modelos por personagem.
 
