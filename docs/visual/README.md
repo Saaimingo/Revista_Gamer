@@ -29,5 +29,6 @@ O diretor autorizou documentar dois estudos gráficos comparáveis, **sem aprov�
 - [Catálogo dos dois protótipos e situação dos PNGs](prototipos/README.md).
 - [Mock A — terror, capa escura e exemplo de anúncio](prototipos/mock-a-terror/README.md).
 - [Mock B — GTA VI, capa colorida e retorno ao tema-base nas demais editorias](prototipos/mock-b-gta/README.md).
+- [Parecer provisório do fundador — revisão dos dois mocks e orientações de retomada](analises-fundador/PARECER-PROVISORIO-2026-10-17-MOCKS-A-B.md) — avaliação independente, NÃO identidade aprovada.
 
 **Estado operacional:** documentação em GitHub; arquivos PNG binários gerados e organizados no pacote de entrega ao diretor, mas **pendentes de transferência efetiva para o repositório**. Não alegar que os arquivos visuais estão presentes até validação por leitura do próprio GitHub. As imagens contêm IP/marcas reconhecíveis e informações fictícias, exigindo análise de direitos e revisão antes de uso público.
