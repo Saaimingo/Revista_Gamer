@@ -52,4 +52,8 @@ STORY_LABELS = {
 EDITION_LABELS = {
     "awaiting_human_approval": "Aguardando aprovação humana",
     "approved_internally": "Aprovada internamente",
+    "preparing": "Em montagem",
+    "waiting_on_blockers": "Aguardando resolução de pautas",
+    "ready_for_approval": "Pronta para aprovação interna",
+    "legacy_v1": "Fluxo individual v0.1",
 }

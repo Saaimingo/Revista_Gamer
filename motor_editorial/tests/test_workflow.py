@@ -18,7 +18,7 @@ from unittest.mock import patch
 from motor_editorial.db import SCHEMA_VERSION, Store
 from motor_editorial.domain import InvalidApproval, InvalidTransition
 from motor_editorial.web import create_server
-from motor_editorial.workflow import APPROVAL_PHRASE, Motor
+from motor_editorial.workflow import APPROVAL_PHRASE, EXCLUSION_PHRASE, Motor
 
 
 class MotorWorkflowTests(unittest.TestCase):
@@ -56,6 +56,20 @@ class MotorWorkflowTests(unittest.TestCase):
             research_failures_to_inject=0,
             **motor_options,
         )
+
+    def approve_multipauta_demo(self):
+        result = self.motor.run_multipauta_demo()
+        self.motor.run_multipauta_demo()
+        stories = {row["topic_key"]: row for row in self.store.list_stories()}
+        garden = stories["garden-of-echoes-fotografia"]
+        self.motor.exclude_story_from_edition(
+            result.edition_id, garden["id"], "Diretoria de teste",
+            "Bloqueio editorial ficticio documentado.", EXCLUSION_PHRASE,
+        )
+        self.motor.approve_internally(
+            result.edition_id, "Diretoria de teste", APPROVAL_PHRASE
+        )
+        return result, stories
 
     def test_full_demo_is_offline_and_enforces_editorial_and_media_gates(self) -> None:
         # The deterministic pipeline must not open a network socket.
@@ -420,6 +434,467 @@ class MotorWorkflowTests(unittest.TestCase):
             server.shutdown()
             server.server_close()
             thread.join(timeout=3)
+
+    def test_multipauta_isolates_failures_resumes_and_composes_two_ordered_articles(self) -> None:
+        first = self.motor.run_multipauta_demo()
+        self.assertEqual(first.status, "waiting_on_blockers")
+        edition = self.store.get_edition(first.edition_id)
+        self.assertEqual(edition["composition_status"], "waiting_on_blockers")
+        stories = {row["topic_key"]: row for row in self.store.list_stories()}
+        self.assertEqual(len(stories), 3)
+        garden = stories["garden-of-echoes-fotografia"]
+        orbit = stories["orbit-racers-copa-nebular"]
+        harbor = stories["clockwork-harbor-cooperativo"]
+        self.assertEqual(orbit["state"], "media_checked")
+        self.assertEqual(garden["state"], "blocked_by_review")
+        self.assertEqual(garden["processing_status"], "intervention_required")
+        self.assertEqual(harbor["state"], "selected")
+        self.assertEqual(harbor["processing_status"], "recoverable_failure")
+        self.assertEqual(self.store.get_run(first.run_id)["status"], "running")
+        self.assertEqual(self.store.counts()["items"], 8)
+        with closing(self.store.connect()) as connection:
+            self.assertEqual(
+                connection.execute("SELECT COUNT(*) FROM source_items WHERE state = 'duplicate'").fetchone()[0],
+                1,
+            )
+            self.assertEqual(
+                connection.execute("SELECT COUNT(*) FROM source_items WHERE state = 'discarded'").fetchone()[0],
+                1,
+            )
+
+        # A second call resumes the failed research attempt without repeating completed work.
+        attempts_before = self.store.counts()["attempts"]
+        restarted_store = Store(self.root / "motor.sqlite3", self.root / "artifacts")
+        restarted_motor = Motor(restarted_store)
+        second = restarted_motor.run_multipauta_demo()
+        self.assertEqual(second.status, "waiting_on_blockers")
+        self.assertEqual(self.store.get_story(harbor["id"])["state"], "media_checked")
+        self.assertEqual(self.store.get_story(orbit["id"])["state"], "media_checked")
+        with closing(self.store.connect()) as connection:
+            retries = connection.execute(
+                "SELECT COUNT(*) FROM execution_attempts WHERE story_id = ? AND stage = 'research-v2'",
+                (harbor["id"],),
+            ).fetchone()[0]
+        self.assertEqual(retries, 2)
+        self.assertGreater(self.store.counts()["attempts"], attempts_before)
+        self.assertEqual(self.store.get_edition(first.edition_id)["composition_status"], "waiting_on_blockers")
+
+        with self.assertRaises(InvalidApproval):
+            self.motor.approve_internally(first.edition_id, "Diretoria", APPROVAL_PHRASE)
+        self.motor.exclude_story_from_edition(
+            first.edition_id, garden["id"], "Diretoria de teste",
+            "Revisao ficticia excedeu o limite desta demonstracao.", EXCLUSION_PHRASE,
+        )
+        edition = self.store.get_edition(first.edition_id)
+        self.assertEqual(edition["composition_status"], "ready_for_approval")
+        memberships = self.store.edition_members(first.edition_id)
+        excluded = next(row for row in memberships if row["story_id"] == garden["id"])
+        self.assertEqual(excluded["active"], 0)
+        self.assertIn("Revisao ficticia", excluded["exclusion_reason"])
+        self.assertEqual(self.store.get_story(garden["id"])["state"], "blocked_by_review")
+
+        preview = self.store.safe_artifact_path(edition["preview_path"]).read_text(encoding="utf-8")
+        self.assertEqual(preview.count('class="edition-story"'), 2)
+        self.assertLess(preview.index(orbit["id"]), preview.index(harbor["id"]))
+        self.assertIn(orbit["question"], preview)
+        self.assertIn(harbor["question"], preview)
+        self.assertNotIn(garden["question"], preview)
+        self.assertIn("Fontes fictícias da demonstração", preview)
+        self.assertIn("Placeholder interno", preview)
+        self.assertNotIn('data-asset-id="asset-v02-pending-cover"', preview)
+        events = self.store.list_events(f"{first.edition_id}:{garden['id']}")
+        self.assertTrue(any(event["action"] == "story_excluded_from_edition" for event in events))
+
+        with self.assertRaises(InvalidApproval):
+            self.motor.approve_internally(first.edition_id, "Diretoria", "aprovar")
+        self.motor.approve_internally(first.edition_id, "Diretoria", APPROVAL_PHRASE)
+        self.assertEqual(
+            self.store.get_edition(first.edition_id)["composition_status"], "approved_internally"
+        )
+        self.assertEqual(self.store.get_story(orbit["id"])["state"], "approved_internally")
+        self.assertEqual(self.store.get_story(harbor["id"])["state"], "approved_internally")
+        reopened = Store(self.root / "motor.sqlite3", self.root / "artifacts")
+        self.assertEqual(reopened.get_edition(first.edition_id)["composition_status"], "approved_internally")
+
+    def test_multipauta_rights_change_refreshes_preview_and_requires_new_approval(self) -> None:
+        result = self.motor.run_multipauta_demo()
+        self.motor.run_multipauta_demo()
+        stories = {row["topic_key"]: row for row in self.store.list_stories()}
+        garden = stories["garden-of-echoes-fotografia"]
+        self.motor.exclude_story_from_edition(
+            result.edition_id, garden["id"], "Diretoria",
+            "Bloqueio editorial ficticio documentado.", EXCLUSION_PHRASE,
+        )
+        with self.store.transaction() as connection:
+            connection.execute(
+                "UPDATE media_assets SET permission_status = 'bloqueado' WHERE id = 'asset-v02-orbit-art'"
+            )
+        with self.assertRaisesRegex(InvalidApproval, "previa multipauta foi atualizada"):
+            self.motor.approve_internally(result.edition_id, "Diretoria", APPROVAL_PHRASE)
+        edition = self.store.get_edition(result.edition_id)
+        preview = self.store.safe_artifact_path(edition["preview_path"]).read_text(encoding="utf-8")
+        self.assertNotIn('data-asset-id="asset-v02-orbit-art"', preview)
+        self.assertIn("bloqueado", preview)
+        self.assertEqual(edition["composition_status"], "ready_for_approval")
+        self.motor.approve_internally(result.edition_id, "Diretoria", APPROVAL_PHRASE)
+        self.assertEqual(self.store.get_edition(result.edition_id)["status"], "approved_internally")
+
+    def test_approved_multipauta_resumes_are_idempotent_and_preserve_approval(self) -> None:
+        result, stories = self.approve_multipauta_demo()
+        approved = self.store.get_edition(result.edition_id)
+        approval_snapshot = (
+            approved["status"], approved["composition_status"], approved["approved_by"],
+            approved["approved_at"], approved["composition_fingerprint"],
+        )
+        counts_before = self.store.counts()
+        events_before = tuple(
+            (row["entity_id"], row["action"], row["actor"], row["after_json"])
+            for row in self.store.list_events()
+        )
+
+        resumed_story = self.motor.run_multipauta_story(
+            result.run_id, stories["orbit-racers-copa-nebular"]["id"]
+        )
+        resumed_batch = self.motor.run_multipauta_demo()
+
+        self.assertEqual(resumed_story.status, "approved_internally")
+        self.assertEqual(resumed_batch.status, "approved_internally")
+        current = self.store.get_edition(result.edition_id)
+        self.assertEqual(
+            (
+                current["status"], current["composition_status"], current["approved_by"],
+                current["approved_at"], current["composition_fingerprint"],
+            ),
+            approval_snapshot,
+        )
+        self.assertEqual(self.store.counts(), counts_before)
+        self.assertEqual(
+            tuple(
+                (row["entity_id"], row["action"], row["actor"], row["after_json"])
+                for row in self.store.list_events()
+            ),
+            events_before,
+        )
+        self.assertTrue(
+            all(self.store.get_story(row["id"])["state"] == "approved_internally"
+                for row in stories.values() if row["topic_key"] != "garden-of-echoes-fotografia")
+        )
+
+    def test_revoked_media_after_approval_invalidates_edition_and_requires_reapproval(self) -> None:
+        result, stories = self.approve_multipauta_demo()
+        approved = self.store.get_edition(result.edition_id)
+        approved_fingerprint = approved["composition_fingerprint"]
+        approved_at = approved["approved_at"]
+        with self.store.transaction() as connection:
+            connection.execute(
+                "UPDATE media_assets SET permission_status = 'bloqueado' "
+                "WHERE id = 'asset-v02-orbit-art'"
+            )
+
+        resumed = self.motor.run_multipauta_demo()
+
+        self.assertEqual(resumed.status, "ready_for_approval")
+        edition = self.store.get_edition(result.edition_id)
+        self.assertEqual(edition["status"], "awaiting_human_approval")
+        self.assertEqual(edition["composition_status"], "ready_for_approval")
+        self.assertIsNone(edition["approved_by"])
+        self.assertIsNone(edition["approved_at"])
+        self.assertNotEqual(edition["composition_fingerprint"], approved_fingerprint)
+        self.assertNotEqual(edition["approved_at"], approved_at)
+        active_stories = [
+            row for row in stories.values()
+            if row["topic_key"] != "garden-of-echoes-fotografia"
+        ]
+        self.assertTrue(
+            all(self.store.get_story(row["id"])["state"] == "awaiting_human_approval"
+                for row in active_stories)
+        )
+        orbit_media = next(
+            row for row in self.store.story_detail(stories["orbit-racers-copa-nebular"]["id"])["media"]
+            if row["asset_id"] == "asset-v02-orbit-art"
+        )
+        self.assertEqual(orbit_media["decision"], "placeholder")
+        preview = self.store.safe_artifact_path(edition["preview_path"]).read_text(encoding="utf-8")
+        self.assertNotIn('data-asset-id="asset-v02-orbit-art"', preview)
+        self.assertIn("bloqueado", preview)
+        self.assertTrue(
+            any(event["action"] == "internal_approval_invalidated"
+                for event in self.store.list_events(result.edition_id))
+        )
+
+        self.motor.approve_internally(
+            result.edition_id, "Diretoria de revalidacao", APPROVAL_PHRASE
+        )
+        final_edition = self.store.get_edition(result.edition_id)
+        self.assertEqual(final_edition["status"], "approved_internally")
+        self.assertEqual(final_edition["approved_by"], "Diretoria de revalidacao")
+
+    def test_multipauta_preview_access_revalidates_media_after_approval(self) -> None:
+        result, stories = self.approve_multipauta_demo()
+        with self.store.transaction() as connection:
+            connection.execute(
+                "UPDATE media_assets SET permission_status = 'bloqueado' "
+                "WHERE id = 'asset-v02-orbit-art'"
+            )
+
+        server = create_server(self.motor, 0)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        base_url = f"http://127.0.0.1:{server.server_address[1]}"
+        try:
+            with urlopen(
+                base_url + f"/editions/{result.edition_id}/preview", timeout=3
+            ) as response:
+                self.assertEqual(response.status, 200)
+                preview = response.read().decode("utf-8")
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
+
+        edition = self.store.get_edition(result.edition_id)
+        self.assertEqual(edition["status"], "awaiting_human_approval")
+        self.assertEqual(edition["composition_status"], "ready_for_approval")
+        self.assertIsNone(edition["approved_by"])
+        self.assertIsNone(edition["approved_at"])
+        self.assertNotIn('data-asset-id="asset-v02-orbit-art"', preview)
+        self.assertIn("bloqueado", preview)
+        self.assertIn("Examine esta prévia", preview)
+        self.assertEqual(
+            self.store.get_story(stories["orbit-racers-copa-nebular"]["id"])["state"],
+            "awaiting_human_approval",
+        )
+        self.assertTrue(
+            any(event["action"] == "internal_approval_invalidated"
+                for event in self.store.list_events(result.edition_id))
+        )
+
+    def test_multipauta_batch_and_individual_resume_share_serialization_lock(self) -> None:
+        initial = self.motor.run_multipauta_demo()
+        stories = {row["topic_key"]: row for row in self.store.list_stories()}
+        orbit_id = stories["orbit-racers-copa-nebular"]["id"]
+        harbor_id = stories["clockwork-harbor-cooperativo"]["id"]
+        batch_paused = threading.Event()
+        release_batch = threading.Event()
+        individual_entered_while_batch_paused = threading.Event()
+        individual_started = threading.Event()
+        results = []
+        errors = []
+        original_run_story = self.motor._run_multipauta_story
+
+        def controlled_run_story(run_id, story_id, data):
+            if story_id == orbit_id and not batch_paused.is_set():
+                batch_paused.set()
+                if not release_batch.wait(timeout=5):
+                    raise AssertionError("A barreira de concorrencia nao foi liberada.")
+            elif story_id == harbor_id and batch_paused.is_set() and not release_batch.is_set():
+                individual_entered_while_batch_paused.set()
+                raise AssertionError("A retomada individual entrou durante a execucao em lote.")
+            return original_run_story(run_id, story_id, data)
+
+        def run_batch() -> None:
+            try:
+                results.append(self.motor.run_multipauta_demo())
+            except Exception as error:  # surfaced as assertion below
+                errors.append(error)
+
+        def run_individual() -> None:
+            try:
+                individual_started.set()
+                results.append(self.motor.run_multipauta_story(initial.run_id, harbor_id))
+            except Exception as error:  # surfaced as assertion below
+                errors.append(error)
+
+        with patch.object(self.motor, "_run_multipauta_story", side_effect=controlled_run_story):
+            batch_thread = threading.Thread(target=run_batch)
+            individual_thread = threading.Thread(target=run_individual)
+            batch_thread.start()
+            self.assertTrue(batch_paused.wait(timeout=3))
+            individual_thread.start()
+            self.assertTrue(individual_started.wait(timeout=3))
+            entered_while_paused = individual_entered_while_batch_paused.wait(timeout=0.2)
+            release_batch.set()
+            batch_thread.join(timeout=8)
+            individual_thread.join(timeout=8)
+
+        self.assertFalse(entered_while_paused)
+        self.assertFalse(batch_thread.is_alive())
+        self.assertFalse(individual_thread.is_alive())
+        self.assertEqual(errors, [])
+        self.assertEqual(len(results), 2)
+        self.assertTrue(all(result.edition_id == initial.edition_id for result in results))
+        self.assertEqual(len(self.store.list_editions()), 1)
+        self.assertEqual(len(self.store.list_stories()), 3)
+        self.assertEqual(self.store.get_story(harbor_id)["state"], "media_checked")
+        self.assertEqual(self.store.get_edition(initial.edition_id)["composition_status"], "waiting_on_blockers")
+        with closing(self.store.connect()) as connection:
+            research_attempts = connection.execute(
+                "SELECT COUNT(*) FROM execution_attempts WHERE story_id = ? AND stage = 'research-v2'",
+                (harbor_id,),
+            ).fetchone()[0]
+        self.assertEqual(research_attempts, 2)
+
+    def test_multipauta_rejects_unaudited_or_invalid_exclusion_and_distinct_run_ids(self) -> None:
+        first = self.motor.run_multipauta_demo("run-paralelo-a")
+        self.motor.run_multipauta_demo("run-paralelo-b")
+        first_ids = {row["id"] for row in self.store.list_stories() if row["run_id"] == "run-paralelo-a"}
+        second_ids = {row["id"] for row in self.store.list_stories() if row["run_id"] == "run-paralelo-b"}
+        self.assertEqual(len(first_ids), 3)
+        self.assertTrue(first_ids.isdisjoint(second_ids))
+        member = self.store.edition_members(first.edition_id)[1]
+        with self.assertRaises(InvalidApproval):
+            self.motor.exclude_story_from_edition(
+                first.edition_id, member["story_id"], "Diretoria", "Motivo valido para teste.", ""
+            )
+        with self.assertRaises(InvalidApproval):
+            self.motor.exclude_story_from_edition(
+                first.edition_id, member["story_id"], "Diretoria", "curto", EXCLUSION_PHRASE
+            )
+        self.assertEqual(
+            self.store.get_edition(first.edition_id)["composition_status"], "waiting_on_blockers"
+        )
+
+    def test_multipauta_concurrent_and_successive_calls_are_serialized_and_idempotent(self) -> None:
+        barrier = threading.Barrier(3)
+        results = []
+        errors = []
+
+        def run_once() -> None:
+            try:
+                barrier.wait(timeout=3)
+                results.append(self.motor.run_multipauta_demo())
+            except Exception as error:  # surfaced as assertion below
+                errors.append(error)
+
+        threads = [threading.Thread(target=run_once) for _ in range(2)]
+        for thread in threads:
+            thread.start()
+        barrier.wait(timeout=3)
+        for thread in threads:
+            thread.join(timeout=5)
+        self.assertEqual(errors, [])
+        self.assertEqual(len(results), 2)
+        self.assertTrue(all(result.status == "waiting_on_blockers" for result in results))
+        stories = self.store.list_stories()
+        self.assertEqual(len(stories), 3)
+        with closing(self.store.connect()) as connection:
+            counts = {
+                row["stage"]: row["total"] for row in connection.execute(
+                    "SELECT stage, COUNT(*) AS total FROM execution_attempts GROUP BY stage"
+                )
+            }
+        self.assertEqual(counts["triage-v2"], 1)
+        self.assertEqual(counts["ingest-v2"], 1)
+        self.assertEqual(counts["research-v2"], 4)
+        before = self.store.counts()
+        repeated = self.motor.run_multipauta_demo()
+        self.assertEqual(repeated.status, "waiting_on_blockers")
+        self.assertEqual(self.store.counts(), before)
+
+    def test_multipauta_panel_runs_exclusion_and_preview_only_on_loopback(self) -> None:
+        server = create_server(self.motor, 0)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        base_url = f"http://127.0.0.1:{server.server_address[1]}"
+        try:
+            self.assertEqual(server.server_address[0], "127.0.0.1")
+            with urlopen(base_url + "/", timeout=3) as response:
+                dashboard = response.read().decode("utf-8")
+            self.assertIn("Motor Editorial", dashboard)
+            csrf = re.search(r'name="csrf" value="([^"]+)"', dashboard).group(1)
+            demo_form = urlencode({"csrf": csrf}).encode("utf-8")
+            request = Request(
+                base_url + "/demo/run", data=demo_form,
+                headers={"Content-Type": "application/x-www-form-urlencoded"}, method="POST",
+            )
+            with urlopen(request, timeout=5) as response:
+                self.assertEqual(response.status, 200)
+                after_batch = response.read().decode("utf-8")
+            self.assertIn("Executar/retomar esta pauta", after_batch)
+            harbor = next(
+                row for row in self.store.list_stories()
+                if row["topic_key"] == "clockwork-harbor-cooperativo"
+            )
+            request = Request(
+                base_url + f"/stories/{harbor['id']}/run", data=demo_form,
+                headers={"Content-Type": "application/x-www-form-urlencoded"}, method="POST",
+            )
+            with urlopen(request, timeout=5) as response:
+                self.assertEqual(response.status, 200)
+            edition = self.store.list_editions()[0]
+            garden = next(
+                row for row in self.store.list_stories()
+                if row["topic_key"] == "garden-of-echoes-fotografia"
+            )
+            with self.assertRaises(HTTPError) as pending:
+                urlopen(base_url + f"/editions/{edition['id']}/preview", timeout=3)
+            self.assertEqual(pending.exception.code, 409)
+            exclude_form = urlencode({
+                "csrf": csrf, "actor": "Diretoria local",
+                "reason": "Intervencao editorial ficticia documentada.",
+                "confirmation": EXCLUSION_PHRASE,
+            }).encode("utf-8")
+            request = Request(
+                base_url + f"/editions/{edition['id']}/stories/{garden['id']}/exclude",
+                data=exclude_form,
+                headers={"Content-Type": "application/x-www-form-urlencoded"}, method="POST",
+            )
+            with urlopen(request, timeout=5) as response:
+                self.assertEqual(response.status, 200)
+            with urlopen(base_url + f"/editions/{edition['id']}/preview", timeout=3) as response:
+                preview = response.read().decode("utf-8")
+            self.assertEqual(preview.count('class="edition-story"'), 2)
+            with self.assertRaises(HTTPError) as no_publish:
+                urlopen(base_url + "/publish", timeout=3)
+            self.assertEqual(no_publish.exception.code, 404)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
+
+    def test_schema_v2_migration_adds_multipauta_columns_without_losing_membership(self) -> None:
+        legacy_db = self.root / "legacy-v2.sqlite3"
+        with closing(sqlite3.connect(legacy_db)) as connection:
+            with connection:
+                connection.executescript(
+                    """CREATE TABLE runs (id TEXT PRIMARY KEY);
+                       CREATE TABLE stories (
+                           id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES runs(id),
+                           topic_key TEXT NOT NULL, question TEXT NOT NULL, state TEXT NOT NULL,
+                           current_revision_number INTEGER NOT NULL DEFAULT 0,
+                           created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+                       );
+                       CREATE TABLE editions (
+                           id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES runs(id),
+                           status TEXT NOT NULL, preview_path TEXT NOT NULL, approved_by TEXT,
+                           approved_at TEXT, created_at TEXT NOT NULL, UNIQUE(run_id)
+                       );
+                       CREATE TABLE edition_stories (
+                           edition_id TEXT NOT NULL REFERENCES editions(id),
+                           story_id TEXT NOT NULL REFERENCES stories(id), position INTEGER NOT NULL,
+                           PRIMARY KEY (edition_id, story_id), UNIQUE(edition_id, position)
+                       );
+                       INSERT INTO runs VALUES ('legacy-run');
+                       INSERT INTO stories VALUES ('legacy-story', 'legacy-run', 'old-topic', 'Old question', 'media_checked', 0, 't', 't');
+                       INSERT INTO editions VALUES ('legacy-edition', 'legacy-run', 'awaiting_human_approval', 'old-preview.html', NULL, NULL, 't');
+                       INSERT INTO edition_stories VALUES ('legacy-edition', 'legacy-story', 1);
+                       PRAGMA user_version = 2;"""
+                )
+        migrated = Store(legacy_db, self.root / "legacy-v2-artifacts")
+        with closing(migrated.connect()) as connection:
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], SCHEMA_VERSION)
+            edition = connection.execute(
+                "SELECT composition_status FROM editions WHERE id = 'legacy-edition'"
+            ).fetchone()
+            member = connection.execute(
+                "SELECT active, required, story_id FROM edition_stories WHERE edition_id = 'legacy-edition'"
+            ).fetchone()
+            story_columns = {row["name"] for row in connection.execute("PRAGMA table_info(stories)")}
+        self.assertEqual(edition["composition_status"], "legacy_v1")
+        self.assertEqual(member["story_id"], "legacy-story")
+        self.assertEqual(member["active"], 1)
+        self.assertEqual(member["required"], 1)
+        self.assertIn("processing_status", story_columns)
 
 
 if __name__ == "__main__":
