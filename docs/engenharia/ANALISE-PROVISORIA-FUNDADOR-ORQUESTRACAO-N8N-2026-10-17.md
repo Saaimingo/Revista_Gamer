@@ -16,6 +16,13 @@ Esse mecanismo é requisito funcional para a operação futura, mas NÃO se conf
 - Portanto **não existe hoje, validado, um mecanismo operacional que acorde agentes de IA de verdade nem uma agenda de coleta três vezes ao dia**. Os contratos prevêem futura substituição de adaptadores e evolução de orquestração, mas falta especificação operacional específica para esse acionamento.
 - Preservar exigência de aprovação humana, versões atuais, fontes, evidências e direitos; nenhuma publicação/ativação real está autorizada.
 
+### 2.1. Esclarecimento arquitetural solicitado pelo diretor
+**Não se trata de uma funcionalidade inventada agora ou adicionada como ideia tardia.** A necessidade de orquestração já integra a concepção do Motor Editorial: a Bíblia do Projeto (seção 9) atribui expressamente ao Codex a construção da **orquestração**, e a especificação **v0.1, seção 3**, define a arquitetura como **“núcleo orquestrador + executores substituíveis”**. Seu executor recebe contexto estruturado e devolve resultados de cada etapa, permitindo a futura substituição de adaptadores simulados por executores reais sem reescrever a máquina de estados. A v0.2 preserva esse núcleo e amplia o fluxo para várias pautas independentes, embora proíba agentes e agendamento reais em seu escopo de teste.
+
+**A distinção correta é entre requisito arquitetural previsto e acionamento automático ainda não especificado/implementado.** Os contratos existentes antecipam o encadeamento de funções e executores substituíveis; ainda precisam de um contrato operacional específico para gatilhos de horário/evento, agendamento, fila durável, despacho, recuperação e ativação dos executores sob demanda. Essa lacuna deve ser fechada **antes de inserir o primeiro agente real no fluxo**, com critérios e testes graduais. É um componente obrigatório para a operação da fábrica, não uma prova de conceito opcional ou uma justificativa para reescrever a v0.2.
+
+O **Motor Editorial**, não um agente, decide por regras verificáveis qual executor deve ser acionado, quando e com qual contexto. O n8n foi citado como exemplo funcional de referência, não como escolha de dependência ou como sistema central. O GitHub também foi apenas analogia de troca de mensagens entre departamentos; não é a fila/central de orquestração da produção.
+
 ## 3. Estudo de referência — como o n8n resolve conceitos equivalentes
 Pesquisa na documentação oficial do n8n:
 - **Schedule Trigger:** dispara workflows em horários/intervalos configuráveis e com timezone; contempla política de execução perdida conforme configuração: https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.scheduletrigger/
@@ -50,7 +57,7 @@ Pesquisa na documentação oficial do n8n:
 ## 6. Fronteiras e encaminhamento
 - **Agora:** concluir, revisar e integrar o PR #6 somente após corrigir o bloqueio editorial identificado; este documento não altera o PR nem ordena o Codex.
 - **Depois da v0.2:** discutir arquitetura e fazer avaliação comparativa curta entre (a) n8n como orquestrador externo, (b) despacho local com SQLite/agendador Python e (c) outra ferramenta madura leve se houver justificativa. Decidir por evidências, não por moda.
-- **Só com aprovação posterior:** converter proposta em especificação e testes de engenharia; definir a menor prova de conceito. Não ativar coleta real, LLMs, serviço pago, publicação, nem denominar automaticamente v0.3.
+- **Só com aprovação posterior:** formalizar a arquitetura prevista em especificação, contratos de disparo e testes graduais; planejar sua implementação como requisito da integração real dos agentes, não como experimento opcional. Não ativar coleta real, LLMs, serviço pago, publicação, nem denominar automaticamente v0.3.
 - **Decisão pendente:** confirmar arquitetura exata, agendamento, política de coletas perdidas, executor de IA e limites.
 
 **Síntese do debate:** o diretor considera o acionamento automático encadeado uma capacidade essencial para a fábrica editorial. O fundador concorda com a necessidade e recomenda reutilizar o núcleo existente, estudando a mecânica do n8n como referência antes de escolher implementações.
