@@ -1,0 +1,185 @@
+{
+  "scenario_id": "demo-motor-v0.2-multipauta",
+  "scenario_label": "Demonstração multipauta offline com dados inteiramente fictícios",
+  "sources": [
+    {
+      "id": "source-v02-studio",
+      "label": "Estúdio Aurora Fictício",
+      "reference": "mock://fontes/aurora/boletins",
+      "kind": "comunicado fictício"
+    },
+    {
+      "id": "source-v02-lab",
+      "label": "Laboratório Prisma Fictício",
+      "reference": "mock://fontes/prisma/relatorios",
+      "kind": "análise fictícia"
+    },
+    {
+      "id": "source-v02-archive",
+      "label": "Arquivo Comunitário Fictício",
+      "reference": "mock://fontes/arquivo-ficticio/registros",
+      "kind": "registro fictício"
+    }
+  ],
+  "items": [
+    {
+      "id": "news-v02-orbit-release",
+      "source_id": "source-v02-studio",
+      "source_identifier": "mock://ficcao/aurora/orbit-racers-copa-nebular",
+      "title": "Comunicado fictício descreve a Copa Nebular de Orbit Racers",
+      "published_at": "2026-10-10T09:00:00Z",
+      "summary": "Uma nota inventada apresenta um torneio local no jogo fictício Orbit Racers.",
+      "topic_key": "orbit-racers-copa-nebular",
+      "relevance": true
+    },
+    {
+      "id": "news-v02-orbit-lab",
+      "source_id": "source-v02-lab",
+      "source_identifier": "mock://ficcao/prisma/orbit-racers-medicoes",
+      "title": "Relatório fictício registra condições de teste de Orbit Racers",
+      "published_at": "2026-10-11T13:20:00Z",
+      "summary": "O documento imaginário descreve medições limitadas a uma compilação simulada.",
+      "topic_key": "orbit-racers-copa-nebular",
+      "relevance": true
+    },
+    {
+      "id": "news-v02-garden-release",
+      "source_id": "source-v02-studio",
+      "source_identifier": "mock://ficcao/aurora/garden-of-echoes-camera",
+      "title": "Nota fictícia apresenta o modo fotográfico de Garden of Echoes",
+      "published_at": "2026-10-10T10:00:00Z",
+      "summary": "Comunicado criado para o teste descreve filtros e enquadramentos do jogo inventado Garden of Echoes.",
+      "topic_key": "garden-of-echoes-fotografia",
+      "relevance": true
+    },
+    {
+      "id": "news-v02-garden-lab",
+      "source_id": "source-v02-lab",
+      "source_identifier": "mock://ficcao/prisma/garden-of-echoes-interface",
+      "title": "Observação fictícia compara a interface fotográfica de Garden of Echoes",
+      "published_at": "2026-10-12T15:30:00Z",
+      "summary": "Uma análise inventada lista opções da interface sem representar produto ou teste real.",
+      "topic_key": "garden-of-echoes-fotografia",
+      "relevance": true
+    },
+    {
+      "id": "news-v02-harbor-release",
+      "source_id": "source-v02-studio",
+      "source_identifier": "mock://ficcao/aurora/clockwork-harbor-cooperativo",
+      "title": "Boletim fictício descreve cooperação local em Clockwork Harbor",
+      "published_at": "2026-10-11T08:30:00Z",
+      "summary": "A nota imaginária descreve uma opção cooperativa local em uma atualização simulada.",
+      "topic_key": "clockwork-harbor-cooperativo",
+      "relevance": true
+    },
+    {
+      "id": "news-v02-harbor-archive",
+      "source_id": "source-v02-archive",
+      "source_identifier": "mock://ficcao/arquivo/clockwork-harbor-notas",
+      "title": "Registro fictício lista limites de uma sessão de Clockwork Harbor",
+      "published_at": "2026-10-13T12:00:00Z",
+      "summary": "O registro simulado limita suas observações a uma sessão hipotética.",
+      "topic_key": "clockwork-harbor-cooperativo",
+      "relevance": true
+    },
+    {
+      "id": "news-v02-orbit-duplicate",
+      "source_id": "source-v02-studio",
+      "source_identifier": "mock://ficcao/aurora/orbit-racers-copa-nebular",
+      "title": "Comunicado fictício descreve a Copa Nebular de Orbit Racers",
+      "published_at": "2026-10-10T09:00:00Z",
+      "summary": "Uma nota inventada apresenta um torneio local no jogo fictício Orbit Racers.",
+      "topic_key": "orbit-racers-copa-nebular",
+      "relevance": true
+    },
+    {
+      "id": "news-v02-irrelevant",
+      "source_id": "source-v02-archive",
+      "source_identifier": "mock://ficcao/arquivo/itens-de-escritorio",
+      "title": "Catálogo fictício registra adesivos de uma estação imaginária",
+      "published_at": "2026-10-14T17:00:00Z",
+      "summary": "Nota inventada sobre adesivos sem relação com as três pautas fictícias.",
+      "topic_key": "estacao-imaginaria-adesivos",
+      "relevance": false
+    }
+  ],
+  "stories": [
+    {
+      "topic_key": "orbit-racers-copa-nebular",
+      "question": "O que a Copa Nebular fictícia propõe e quais condições de teste foram registradas?",
+      "research": {
+        "claims": [
+          {"text": "A nota descreve um torneio local fictício.", "source_item_ids": ["news-v02-orbit-release"]},
+          {"text": "As medições se limitam à compilação simulada.", "source_item_ids": ["news-v02-orbit-lab"]}
+        ],
+        "uncertainties": ["Todos os dados e o jogo são inventados para esta demonstração."]
+      },
+      "draft_v1": "Reportagem fictícia para validação do fluxo editorial.\n\nA nota descreve o torneio local [news-v02-orbit-release]. Uma frase sem apoio afirma desempenho idêntico em todos os aparelhos.\n\nO relatório limita suas medições a uma compilação simulada [news-v02-orbit-lab].",
+      "draft_v2": "Reportagem fictícia para validação do fluxo editorial.\n\nA nota descreve o torneio local [news-v02-orbit-release].\n\nO relatório limita suas medições a uma compilação simulada [news-v02-orbit-lab]. Os dados não são generalizados.",
+      "story_assets": [
+        {"asset_id": "asset-v02-orbit-art", "required": true},
+        {"asset_id": "asset-v02-pending-cover", "required": true}
+      ]
+    },
+    {
+      "topic_key": "garden-of-echoes-fotografia",
+      "question": "Quais opções do modo fotográfico aparecem nas fontes fictícias de Garden of Echoes?",
+      "research": {
+        "claims": [
+          {"text": "A nota inventada menciona filtros e enquadramentos.", "source_item_ids": ["news-v02-garden-release"]},
+          {"text": "A observação lista opções de interface.", "source_item_ids": ["news-v02-garden-lab"]}
+        ],
+        "uncertainties": ["As fontes simuladas não descrevem comportamento de um jogo real."]
+      },
+      "draft_v1": "Matéria inteiramente inventada sobre um jogo inexistente.\n\nA nota menciona filtros [news-v02-garden-release]. O primeiro rascunho afirma sem apoio desempenho idêntico em todos os aparelhos.\n\nA observação registra opções de interface [news-v02-garden-lab].",
+      "draft_v2": "Matéria inteiramente inventada sobre um jogo inexistente.\n\nA nota menciona filtros [news-v02-garden-release].\n\nA observação registra opções de interface [news-v02-garden-lab]. A revisão de demonstração manterá a frase não sustentada: desempenho idêntico em todos os aparelhos.",
+      "story_assets": [
+        {"asset_id": "asset-v02-pending-cover", "required": true}
+      ]
+    },
+    {
+      "topic_key": "clockwork-harbor-cooperativo",
+      "question": "O que os registros inventados dizem sobre a cooperação local de Clockwork Harbor?",
+      "research_failures_to_inject": 1,
+      "research": {
+        "claims": [
+          {"text": "O boletim menciona cooperação local.", "source_item_ids": ["news-v02-harbor-release"]},
+          {"text": "O registro limita as observações a uma sessão hipotética.", "source_item_ids": ["news-v02-harbor-archive"]}
+        ],
+        "uncertainties": ["A falha inicial é injetada de forma determinística e não representa indisponibilidade externa."]
+      },
+      "draft_v1": "Matéria de ficção construída para o teste.\n\nO boletim menciona cooperação local [news-v02-harbor-release]. O primeiro rascunho faz uma afirmação sem apoio sobre desempenho idêntico em todos os aparelhos.\n\nO registro limita as observações a uma sessão hipotética [news-v02-harbor-archive].",
+      "draft_v2": "Matéria de ficção construída para o teste.\n\nO boletim menciona cooperação local [news-v02-harbor-release].\n\nO registro limita as observações a uma sessão hipotética [news-v02-harbor-archive]. Nenhuma conclusão é generalizada.",
+      "story_assets": [
+        {"asset_id": "asset-v02-harbor-art", "required": true},
+        {"asset_id": "asset-v02-pending-cover", "required": false}
+      ]
+    }
+  ],
+  "assets": [
+    {
+      "id": "asset-v02-orbit-art",
+      "title": "Ilustração geométrica fictícia de Orbit Racers",
+      "permission_status": "permitido",
+      "usage_mode": "editorial_preview",
+      "media_type": "illustration_original",
+      "label": "Arte geométrica neutra criada somente para esta simulação."
+    },
+    {
+      "id": "asset-v02-harbor-art",
+      "title": "Ilustração geométrica fictícia de Clockwork Harbor",
+      "permission_status": "permitido",
+      "usage_mode": "editorial_preview",
+      "media_type": "illustration_original",
+      "label": "Arte geométrica neutra criada somente para esta simulação."
+    },
+    {
+      "id": "asset-v02-pending-cover",
+      "title": "Imagem de capa simulada com autorização pendente",
+      "permission_status": "pendente",
+      "usage_mode": "editorial_preview",
+      "media_type": "image",
+      "label": "Nenhum arquivo visual foi fornecido; serve para validar a política de direitos."
+    }
+  ]
+}

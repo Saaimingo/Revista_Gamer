@@ -1,6 +1,6 @@
 # Setor: engenharia e Codex
 
-Status: **Motor Editorial v0.1 implementado, validado como protótipo local e integrado à `main`; nenhuma implantação pública ou operação real autorizada**.
+Status: **Motor Editorial v0.2 implementado na branch codex/motor-editorial-v0.2-multipauta, validacao local em Windows 11 concluida; PR pendente de revisao arquitetural.**
 
 ## Primeiro marco técnico concluído
 
@@ -11,11 +11,11 @@ Status: **Motor Editorial v0.1 implementado, validado como protótipo local e in
 
 Este marco não ativa os blocos conceituais e não autoriza integrações reais de IA/notícias.
 
-## Segunda missão de engenharia — pronta para execução
+## Segunda missao de engenharia - implementacao CODEX-002
 
 - [Especificação ENG-MOTOR-002](ESPECIFICACAO-MOTOR-EDITORIAL-V0.2-MULTIPAUTA.md): multipauta, fluxos independentes, montagem de uma edição com matérias múltiplas e salvaguardas herdadas.
 - [Ordem do construtor CODEX-002](ORDEM-CODEX-002-MOTOR-MULTIPAUTA.md) e [Issue #5](https://github.com/Saaimingo/Revista_Gamer/issues/5).
-- **Status: especificada e autorizada como protótipo offline; implementação e testes ainda não iniciados.** O Codex deve começar pela `main` atualizada, usar branch/PR novos, sem merge/publicação.
+- **Status: implementacao e testes concluidos; branch codex/motor-editorial-v0.2-multipauta pronta para PR.** O prototipo continua offline e sem publicacao.
 
 ## Evolução futura
 

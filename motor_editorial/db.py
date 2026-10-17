@@ -15,7 +15,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from .domain import InvalidApproval, InvalidTransition, STORY_TRANSITIONS
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 def utc_now() -> str:
@@ -139,6 +139,7 @@ class Store:
                         'awaiting_human_approval', 'approved_internally'
                     )),
                     current_revision_number INTEGER NOT NULL DEFAULT 0,
+                    processing_status TEXT NOT NULL DEFAULT 'in_progress',
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
                     UNIQUE(run_id, topic_key)
@@ -215,6 +216,11 @@ class Store:
                         'awaiting_human_approval', 'approved_internally'
                     )),
                     preview_path TEXT NOT NULL,
+                    composition_status TEXT NOT NULL DEFAULT 'legacy_v1' CHECK (composition_status IN (
+                        'legacy_v1', 'preparing', 'waiting_on_blockers',
+                        'ready_for_approval', 'approved_internally'
+                    )),
+                    composition_fingerprint TEXT,
                     approved_by TEXT,
                     approved_at TEXT,
                     created_at TEXT NOT NULL,
@@ -225,6 +231,11 @@ class Store:
                     edition_id TEXT NOT NULL REFERENCES editions(id),
                     story_id TEXT NOT NULL REFERENCES stories(id),
                     position INTEGER NOT NULL,
+                    required INTEGER NOT NULL DEFAULT 1 CHECK (required IN (0, 1)),
+                    active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+                    exclusion_reason TEXT,
+                    excluded_by TEXT,
+                    excluded_at TEXT,
                     PRIMARY KEY (edition_id, story_id),
                     UNIQUE(edition_id, position)
                 );
@@ -284,6 +295,52 @@ class Store:
                            ADD COLUMN required INTEGER NOT NULL DEFAULT 1
                            CHECK (required IN (0, 1))"""
                     )
+                edition_columns = {
+                    row["name"] for row in connection.execute(
+                        "PRAGMA table_info(editions)"
+                    ).fetchall()
+                }
+                if "composition_status" not in edition_columns:
+                    connection.execute(
+                        """ALTER TABLE editions ADD COLUMN composition_status TEXT NOT NULL
+                           DEFAULT 'legacy_v1' CHECK (composition_status IN (
+                               'legacy_v1', 'preparing', 'waiting_on_blockers',
+                               'ready_for_approval', 'approved_internally'
+                           ))"""
+                    )
+                if "composition_fingerprint" not in edition_columns:
+                    connection.execute(
+                        "ALTER TABLE editions ADD COLUMN composition_fingerprint TEXT"
+                    )
+                story_columns = {
+                    row["name"] for row in connection.execute(
+                        "PRAGMA table_info(stories)"
+                    ).fetchall()
+                }
+                if "processing_status" not in story_columns:
+                    connection.execute(
+                        "ALTER TABLE stories ADD COLUMN processing_status TEXT NOT NULL DEFAULT 'in_progress'"
+                    )
+                membership_columns = {
+                    row["name"] for row in connection.execute(
+                        "PRAGMA table_info(edition_stories)"
+                    ).fetchall()
+                }
+                if "required" not in membership_columns:
+                    connection.execute(
+                        """ALTER TABLE edition_stories ADD COLUMN required INTEGER NOT NULL
+                           DEFAULT 1 CHECK (required IN (0, 1))"""
+                    )
+                if "active" not in membership_columns:
+                    connection.execute(
+                        """ALTER TABLE edition_stories ADD COLUMN active INTEGER NOT NULL
+                           DEFAULT 1 CHECK (active IN (0, 1))"""
+                    )
+                for column in ("exclusion_reason", "excluded_by", "excluded_at"):
+                    if column not in membership_columns:
+                        connection.execute(
+                            f"ALTER TABLE edition_stories ADD COLUMN {column} TEXT"
+                        )
             connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
     @staticmethod
@@ -468,6 +525,16 @@ class Store:
                 "SELECT * FROM editions WHERE run_id = ?", (run_id,)
             ).fetchone()
 
+    def edition_members(self, edition_id: str, *, active_only: bool = False) -> list[sqlite3.Row]:
+        with closing(self.connect()) as connection:
+            where = "WHERE es.edition_id = ?" + (" AND es.active = 1" if active_only else "")
+            return connection.execute(
+                """SELECT es.*, s.topic_key, s.question, s.state, s.current_revision_number
+                   FROM edition_stories es JOIN stories s ON s.id = es.story_id """
+                + where + " ORDER BY es.position",
+                (edition_id,),
+            ).fetchall()
+
     def get_story(self, story_id: str) -> sqlite3.Row | None:
         with closing(self.connect()) as connection:
             return connection.execute("SELECT * FROM stories WHERE id = ?", (story_id,)).fetchone()
@@ -557,10 +624,20 @@ class Store:
                    GROUP BY state ORDER BY state"""
             ).fetchall()
             stories = connection.execute(
-                "SELECT * FROM stories ORDER BY created_at, id"
+                """SELECT st.*,
+                          EXISTS(SELECT 1 FROM edition_stories es
+                                 JOIN editions ed ON ed.id = es.edition_id
+                                 WHERE es.story_id = st.id
+                                   AND ed.composition_status != 'legacy_v1') AS multipauta_member
+                   FROM stories st ORDER BY st.created_at, st.id"""
             ).fetchall()
             editions = connection.execute(
                 "SELECT * FROM editions ORDER BY created_at, id"
+            ).fetchall()
+            memberships = connection.execute(
+                """SELECT es.*, s.question, s.state, s.current_revision_number
+                   FROM edition_stories es JOIN stories s ON s.id = es.story_id
+                   ORDER BY es.edition_id, es.position"""
             ).fetchall()
             attempts = connection.execute(
                 "SELECT * FROM execution_attempts ORDER BY started_at DESC, id DESC LIMIT 20"
@@ -573,6 +650,7 @@ class Store:
                 "items": items,
                 "stories": stories,
                 "editions": editions,
+                "edition_memberships": memberships,
                 "attempts": attempts,
                 "events": events,
             }
