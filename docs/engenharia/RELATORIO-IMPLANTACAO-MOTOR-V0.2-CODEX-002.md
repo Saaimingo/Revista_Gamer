@@ -1,6 +1,6 @@
 # Relatório de implantação local — Motor Editorial v0.2 / CODEX-002
 
-**Estado:** implementação concluída na branch `codex/motor-editorial-v0.2-multipauta`; PR para revisão arquitetural a ser aberto. Não integrado à `main`.
+**Estado:** implementação concluída na branch `codex/motor-editorial-v0.2-multipauta`; [PR #6](https://github.com/Saaimingo/Revista_Gamer/pull/6) aberto para revisão arquitetural. Não integrado à `main`.
 
 **Base:** `main` em `f8f959a6548c0b41f4b594beee682e543a2a475c`.
 
@@ -53,4 +53,4 @@ A demonstração local permanece aguardando uma decisão humana real sobre Garde
 
 - É um protótipo offline com fixtures fictícias. A checagem demonstra gates técnicos; não comprova direitos de ativos reais, apuração jornalística ou qualidade editorial de produção.
 - A aprovação é interna e local. Não há autenticação de usuário, serviço externo, IA, ingestão real, rota de publicação ou operação de produção.
-- Revisão arquitetural do PR é a próxima etapa. Não houve merge nem publicação.
+- Revisão arquitetural do [PR #6](https://github.com/Saaimingo/Revista_Gamer/pull/6) é a próxima etapa. Não houve merge nem publicação.
