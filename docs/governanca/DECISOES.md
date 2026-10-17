@@ -1,6 +1,6 @@
 # Registro de decisões e hipóteses
 
-Atualizado: **2026-10-15**. Este registro resume decisões relatadas em conversa; antes de tratar arquivos derivados como especificação congelada, submetê-los à direção para aprovação.
+Atualizado: **2026-10-16**. Este registro resume decisões relatadas em conversa; antes de tratar arquivos derivados como especificação congelada, submetê-los à direção para aprovação.
 
 ## Diretrizes consolidadas com o fundador
 
@@ -16,6 +16,7 @@ Atualizado: **2026-10-15**. Este registro resume decisões relatadas em conversa
 - **D-010** Este repositório será central de documentos e comunicação assíncrona entre blocos; não há sincronização automática entre chats.
 - **D-011** O diretor fixa a visão e limites; o chat fundador responde pela arquitetura; o Codex é engenheiro construtor, autorizado a resolver escolhas técnicas usuais e obrigado a sinalizar inviabilidade/riscos materiais. Não devolver escolhas triviais ao diretor.
 - **D-012** Autorizada a **construção do Motor Editorial v0.1 exclusivamente como protótipo local**, com fluxos simulados, testes e aprovação humana interna. NÃO estão autorizados deploy público, coleta agendada real, IA de produção, compra de serviços nem a primeira edição real. Contrato: `docs/engenharia/ESPECIFICACAO-MOTOR-EDITORIAL-V0.1.md`. Ordem: `docs/engenharia/ORDEM-CODEX-001-CONSTRUIR-MOTOR-V0.1.md`.
+- **D-013** Motor Editorial v0.1 **validado como protótipo local** com evidências no Windows 11/Python 3.11.9 e Linux/Python 3.12.14, revisão arquitetural favorável e [PR #3](https://github.com/Saaimingo/Revista_Gamer/pull/3) integrado à `main` no commit `525ae351d1e7375821435efeb1e012955785f69d`. Essa integração é somente baseline de código e não autoriza operação real, dados privados em repositório público, coleta programada, serviços pagos, publicação nem v0.2 sem nova missão.
 
 ## Hipóteses de trabalho, não decisões irrevogáveis
 
