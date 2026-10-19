@@ -7,7 +7,7 @@
 - **Data:** 2026-10-19
 - **Branch:** `codex/motor-editorial-orquestracao-agentes-plus`
 - **Base:** `main` em `d9fbb6e`; PR #6 integrado em `794e9fcc20f5944031370bd7ddb93f8b323d9528`
-- **PR desta etapa:** será registrado após validação final; não haverá merge
+- **PR desta etapa:** [#8 — CODEX-003: orquestração durável e integração SIWC](https://github.com/Saaimingo/Revista_Gamer/pull/8), aberto como draft; sem merge
 
 ## Resultado implementado
 
