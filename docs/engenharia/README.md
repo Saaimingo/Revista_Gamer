@@ -21,11 +21,19 @@ Este marco não ativa os blocos conceituais e não autoriza integrações reais 
 
 - [Especificação aprovada ENG-CODEX-003](ESPECIFICACAO-CODEX-003-ORQUESTRACAO-PLUS.md): fila SQLite, dispatcher, executores, perfis versionados, retomada, agenda desativada por padrão e prova local SIWC de uma tarefa sintética.
 - [Relatório técnico ENG-CODEX-003](RELATORIO-ORQUESTRACAO-AGENTES-PLUS.md): implementação, evidências de teste, status de autenticação real, elegibilidade remota e migração futura para Debian 12.
-- **PR #8 aberto como draft**, sem merge: [CODEX-003: orquestração durável e integração SIWC](https://github.com/Saaimingo/Revista_Gamer/pull/8).
+- **PR #8 aberto para revisão (OPEN, não draft)**, sem merge: [CODEX-003: orquestração durável e integração SIWC](https://github.com/Saaimingo/Revista_Gamer/pull/8).
 - [Unidade systemd de exemplo](../../deploy/systemd/revista-gamer-orchestrator.service.example): preparar operação contínua futura; não instalada nem habilitada.
 - [Anteprojeto de 2026-10-19](ANTEPROJETO-ORQUESTRACAO-AGENTES-E-PLUS-2026-10-19.md) permanece como registro da proposta e dos pontos debatidos; foi sucedido, para este escopo, pela especificação aprovada acima.
 
 O trabalho fica isolado em branch/PR. Somente a prova técnica SIWC local pode chamar o provedor, após consentimento do diretor. Agenda Plus, conteúdo editorial real, hospedagem remota e publicação não são ativados por esta etapa.
+
+## Quarta missão — ENG-CODEX-004: Luna Max e experimento editorial controlado
+
+- Ordem executada a partir da [Issue #9](https://github.com/Saaimingo/Revista_Gamer/issues/9), em branch separada baseada no head do PR #8.
+- O catálogo autenticado SIWC listou `gpt-6-luna`; uma inferência sintética com `reasoning.effort=max` concluiu e retornou modelo/esforço compatíveis. O gate foi liberado.
+- Uma amostra real de capa percorreu seis etapas SIWC; ficou aguardando revisão humana e não foi publicada. Métricas, pacote de fontes e rascunho estão no [relatório ENG-CODEX-004](RELATORIO-ENG-CODEX-004-EXECUCAO-LUNA-MAX-2026-10-19.md) e em `evidencias/`.
+- **[PR #10](https://github.com/Saaimingo/Revista_Gamer/pull/10) aberto para revisão**, separado e sem merge; sua base é a branch do PR #8. O PR #8 também continua aberto e sem merge.
+- A elegibilidade SIWC de app privado hospedado/VPS continua não confirmada. Nenhuma agenda, serviço Debian/VPS ou publicação foi ativada.
 
 ## Evolução futura
 
