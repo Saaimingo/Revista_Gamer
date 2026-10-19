@@ -6,7 +6,7 @@
 - **Branch:** `codex/eng-codex-004-luna-max`, separada e baseada no head do PR #8
 - **Base:** `82af287abd076a24fd763011e82d7656596003c1` (`codex/motor-editorial-orquestracao-agentes-plus`)
 - **PR #8:** aberto para revisão, sem merge
-- **PR desta entrega:** será aberto separadamente, com base no PR #8 e sem merge
+- **PR desta entrega:** [#10 — ENG-CODEX-004](https://github.com/Saaimingo/Revista_Gamer/pull/10), aberto separadamente, com base no PR #8 e sem merge
 
 ## Resultado
 

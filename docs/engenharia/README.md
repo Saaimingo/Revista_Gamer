@@ -32,7 +32,7 @@ O trabalho fica isolado em branch/PR. Somente a prova técnica SIWC local pode c
 - Ordem executada a partir da [Issue #9](https://github.com/Saaimingo/Revista_Gamer/issues/9), em branch separada baseada no head do PR #8.
 - O catálogo autenticado SIWC listou `gpt-6-luna`; uma inferência sintética com `reasoning.effort=max` concluiu e retornou modelo/esforço compatíveis. O gate foi liberado.
 - Uma amostra real de capa percorreu seis etapas SIWC; ficou aguardando revisão humana e não foi publicada. Métricas, pacote de fontes e rascunho estão no [relatório ENG-CODEX-004](RELATORIO-ENG-CODEX-004-EXECUCAO-LUNA-MAX-2026-10-19.md) e em `evidencias/`.
-- O PR desta etapa é separado, aberto para revisão e sem merge. O PR #8 continua aberto e sem merge.
+- **[PR #10](https://github.com/Saaimingo/Revista_Gamer/pull/10) aberto para revisão**, separado e sem merge; sua base é a branch do PR #8. O PR #8 também continua aberto e sem merge.
 - A elegibilidade SIWC de app privado hospedado/VPS continua não confirmada. Nenhuma agenda, serviço Debian/VPS ou publicação foi ativada.
 
 ## Evolução futura
