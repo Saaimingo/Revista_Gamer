@@ -1,6 +1,6 @@
 # Setor: personagens e assinaturas
 
-**Status: proposta de estrutura; DNAs ainda não aprovados.**
+**Status:** DNAs completos ainda em desenvolvimento. **Ranzinza**: nome e retrato-base Protótipo A aprovados pela direção em 19/10/2026; voz e DNA editorial completo pendentes.
 
 ## Missão
 
@@ -8,11 +8,11 @@ Criar perfis públicos de jornalistas virtuais reconhecíveis, com nomes, retrat
 
 ## Primeiros perfis em elaboração
 
-- [Ranzinza](RANZINZA.md): exigente e rigoroso em hardware, custo/benefício, evidências.
+- [Ranzinza](RANZINZA.md): nome e referência visual Protótipo A aprovados; exigente e rigoroso em hardware, custo/benefício e evidências; DNA e voz pendentes.
 - [Gamer](GAMER.md): jogos, recepção crítica e comunidade, tom adulto descontraído.
 - [Historiador](HISTORIADOR.md): bastidores, memória, indústria e nostalgia, investigação histórica.
 
-Nomes são **codinomes de trabalho**. Não existem vozes, rostos ou frases aprovadas ainda.
+Gamer e Historiador seguem como **codinomes de trabalho**. O nome **Ranzinza** e seu **Protótipo A** foram aprovados, com os arquivos PNG originais ainda pendentes de confirmação de upload para o repositório. Nenhuma voz ou frase/bordão foi aprovada.
 
 ## Entregas do setor
 
