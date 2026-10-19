@@ -15,7 +15,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from .domain import InvalidApproval, InvalidTransition, STORY_TRANSITIONS
 
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 
 def utc_now() -> str:
@@ -274,6 +274,70 @@ class Store:
                     ON audit_events(entity_type, entity_id, sequence);
                 CREATE INDEX IF NOT EXISTS ix_attempt_key
                     ON execution_attempts(idempotency_key, attempt_number);
+
+                CREATE TABLE IF NOT EXISTS agent_tasks (
+                    id TEXT PRIMARY KEY,
+                    task_type TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    profile_id TEXT NOT NULL,
+                    profile_version TEXT NOT NULL,
+                    profile_hash TEXT NOT NULL,
+                    executor_id TEXT NOT NULL,
+                    state TEXT NOT NULL CHECK (state IN (
+                        'queued', 'running', 'retry_wait', 'succeeded',
+                        'failed', 'blocked', 'uncertain', 'cancelled'
+                    )),
+                    idempotency_key TEXT NOT NULL UNIQUE,
+                    attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+                    max_attempts INTEGER NOT NULL DEFAULT 3 CHECK (max_attempts >= 1),
+                    created_at TEXT NOT NULL,
+                    available_at TEXT NOT NULL,
+                    lease_until TEXT,
+                    started_at TEXT,
+                    completed_at TEXT,
+                    external_request_started INTEGER NOT NULL DEFAULT 0
+                        CHECK (external_request_started IN (0, 1)),
+                    error_code TEXT,
+                    error_summary TEXT,
+                    result_json TEXT,
+                    schedule_id TEXT,
+                    FOREIGN KEY (schedule_id) REFERENCES agent_schedules(id)
+                );
+                CREATE INDEX IF NOT EXISTS ix_agent_tasks_ready
+                    ON agent_tasks(state, available_at, created_at);
+                CREATE INDEX IF NOT EXISTS ix_agent_tasks_lease
+                    ON agent_tasks(state, lease_until);
+
+                CREATE TABLE IF NOT EXISTS agent_task_events (
+                    sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+                    task_id TEXT NOT NULL REFERENCES agent_tasks(id),
+                    occurred_at TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    attempt_number INTEGER NOT NULL,
+                    detail_json TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS ix_agent_task_events_task
+                    ON agent_task_events(task_id, sequence);
+
+                CREATE TABLE IF NOT EXISTS agent_schedules (
+                    id TEXT PRIMARY KEY,
+                    task_type TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    profile_id TEXT NOT NULL,
+                    profile_version TEXT NOT NULL,
+                    profile_hash TEXT NOT NULL,
+                    executor_id TEXT NOT NULL,
+                    interval_seconds INTEGER NOT NULL CHECK (interval_seconds >= 1),
+                    timezone TEXT NOT NULL DEFAULT 'UTC',
+                    misfire_policy TEXT NOT NULL CHECK (misfire_policy IN (
+                        'skip', 'run_once'
+                    )),
+                    enabled INTEGER NOT NULL DEFAULT 0 CHECK (enabled IN (0, 1)),
+                    next_run_at TEXT NOT NULL,
+                    last_enqueued_at TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
                 """
             )
             version = connection.execute("PRAGMA user_version").fetchone()[0]
