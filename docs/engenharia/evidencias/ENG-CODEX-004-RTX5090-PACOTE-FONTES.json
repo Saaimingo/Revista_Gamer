@@ -1,0 +1,73 @@
+{
+  "article_type": "cover",
+  "topic": "O que se sabe sobre os relatos de interrupção da produção da GeForce RTX 5090 e a possível destinação de GB202 a produtos profissionais",
+  "research_note": "Pesquisa documental em 2026-10-19. Nenhuma entrevista, teste de hardware ou benchmark próprio foi realizado. As alegações sobre a alocação de GB202 seguem não confirmadas em comunicado oficial localizado nesta pesquisa.",
+  "sources": [
+    {
+      "id": "S1",
+      "title": "GeForce RTX 5090 — especificações oficiais",
+      "publisher": "NVIDIA",
+      "url": "https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5090/",
+      "published_at": "página de produto consultada em 2026-10-19",
+      "accessed_at": "2026-10-19",
+      "kind": "official",
+      "confidence": "high",
+      "evidence": "A página oficial identifica a RTX 5090 como produto Blackwell e lista 32 GB GDDR7, 21.760 CUDA cores e 575 W para a edição de referência. A existência da página e de um link de compra não prova estoque nem continuidade de fabricação."
+    },
+    {
+      "id": "S2",
+      "title": "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+      "publisher": "NVIDIA",
+      "url": "https://www.nvidia.com/en-us/products/workstations/professional-desktop-gpus/rtx-pro-6000/",
+      "published_at": "página de produto consultada em 2026-10-19",
+      "accessed_at": "2026-10-19",
+      "kind": "official",
+      "confidence": "high",
+      "evidence": "A página oficial descreve a RTX PRO 6000 Blackwell com 96 GB GDDR7 ECC e consumo máximo de 600 W. Ela não identifica publicamente o die como GB202 nem confirma redirecionamento de chips da linha GeForce."
+    },
+    {
+      "id": "S3",
+      "title": "Nvidia reportedly halts GeForce RTX 5090 production in favor of AI data center and professional GPUs",
+      "publisher": "Tom's Hardware",
+      "url": "https://www.tomshardware.com/pc-components/gpus/nvidia-reportedly-halts-geforce-rtx-5090-production-in-favor-of-ai-data-center-and-professional-gpus-impending-supply-drought-expected-to-drive-up-prices-rtx-5080-24gb-rumored-as-new-gaming-flagship",
+      "published_at": "2026-10-10",
+      "accessed_at": "2026-10-19",
+      "kind": "secondary",
+      "confidence": "high",
+      "evidence": "A reportagem atribui a alegação a um aviso vazado de fábrica citado por @hongxing2020 e a uma publicação de outro leaker. O texto classifica a informação como não verificada e diz que a NVIDIA não havia respondido ao pedido de comentário quando foi publicado."
+    },
+    {
+      "id": "S4",
+      "title": "RTX 5090 Reportedly Loses Its GB202 Supply as NVIDIA Steers the Die to RTX Pro Cards",
+      "publisher": "Hardware Busters",
+      "url": "https://hwbusters.com/news/rtx-5090-reportedly-loses-its-gb202-supply-as-nvidia-steers-the-die-to-rtx-pro-cards/",
+      "published_at": "2026-10-10",
+      "accessed_at": "2026-10-19",
+      "kind": "secondary",
+      "confidence": "high",
+      "evidence": "A publicação observa que as matérias sobre a suposta mudança parecem remontar a uma única postagem de leaker e recomenda tratar o relato como rumor até confirmação da NVIDIA ou de parceiros de placa."
+    },
+    {
+      "id": "S5",
+      "title": "Nvidia reportedly insists the RTX 5090 isn't dead despite severe shortages and removed listings at multiple retailers",
+      "publisher": "Tom's Hardware",
+      "url": "https://www.tomshardware.com/pc-components/gpus/nvidia-reportedly-insists-the-rtx-5090-isnt-dead-despite-severe-shortages-and-removed-listings-at-multiple-retailers-flagship-gpu-is-missing-from-nvidias-store-and-commands-usd8-500-on-amazon",
+      "published_at": "2026-10-17",
+      "accessed_at": "2026-10-19",
+      "kind": "secondary",
+      "confidence": "medium",
+      "evidence": "A reportagem diz que Jeff Fisher, vice-presidente sênior da NVIDIA, teria dito após um evento que a produção não foi descontinuada e que a empresa continuaria a enviar a placa, embora a oferta estivesse limitada. A fala é atribuída a relatos de 4Gamers e SJTV; esta pesquisa não localizou transcrição ou comunicado oficial escrito da NVIDIA."
+    },
+    {
+      "id": "S6",
+      "title": "Are we seeing the first signs of Nvidia abandoning PC gamers?",
+      "publisher": "TechRadar",
+      "url": "https://www.techradar.com/computing/gpu/are-we-seeing-the-first-signs-of-nvidia-abandoning-pc-gamers-as-the-rtx-5090-seemingly-disappears-from-shelves-im-getting-more-worried-about-geforce-gpus",
+      "published_at": "2026-10-17",
+      "accessed_at": "2026-10-19",
+      "kind": "secondary",
+      "confidence": "medium",
+      "evidence": "Artigo de opinião que discute a alegação de redirecionamento de GB202 e indica listagens ausentes em varejo e no marketplace. Serve como registro de interpretação e disponibilidade observada, não como confirmação de decisão de fabricação da NVIDIA."
+    }
+  ]
+}

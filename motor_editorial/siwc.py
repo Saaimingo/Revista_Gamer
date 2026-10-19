@@ -21,6 +21,7 @@ import urllib.request
 import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any, Callable, Iterator, Mapping
@@ -44,6 +45,7 @@ TOKEN_FILE_NAME = "siwc-credentials.bin"
 HOST_ID_FILE_NAME = "siwc-host-id.txt"
 
 SIWC_PROBE_TASK_TYPE = "siwc.integration_probe"
+SIWC_REASONING_EFFORTS = frozenset({"none", "low", "medium", "high", "xhigh", "max"})
 SIWC_PROBE_PROFILE = AgentProfile(
     profile_id="internal-siwc-integration-probe",
     version="1.0.0",
@@ -572,15 +574,29 @@ class SIWCClient:
             for row in models if isinstance(row, dict) and row.get("slug")
         ]
 
-    def inference_stream(self, model: str, context: TaskExecutionContext) -> dict[str, Any]:
+    def _responses_json_stream(
+        self,
+        *,
+        model: str,
+        reasoning_effort: str,
+        instructions: str,
+        input_text: str,
+        stage: str,
+        context: TaskExecutionContext,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        if reasoning_effort not in SIWC_REASONING_EFFORTS:
+            raise SIWCError("reasoning_effort_invalid", "Nível de raciocínio não permitido para a chamada SIWC.")
         request_body = json.dumps({
             "model": model,
-            "instructions": SIWC_PROBE_PROFILE.instructions,
-            "input": [{"role": "user", "content": SIWC_PROBE_PROMPT}],
+            "reasoning": {"effort": reasoning_effort},
+            "instructions": instructions,
+            "input": [{"role": "user", "content": input_text}],
             "store": False,
             "stream": True,
         }, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
         token = self.access_token()
+        started_at = time.monotonic()
+        started_at_utc = datetime.now(timezone.utc)
         request = urllib.request.Request(
             f"{API_BASE}/responses", data=request_body,
             headers={
@@ -592,6 +608,8 @@ class SIWCClient:
         )
         output: list[str] = []
         completed: dict[str, Any] | None = None
+        completed_at_utc: datetime | None = None
+        duration_ms: float | None = None
         try:
             context.mark_external_started()
             response = urllib.request.urlopen(request, timeout=self.timeout)
@@ -616,6 +634,8 @@ class SIWCClient:
                         raise _provider_code_failure(code, status=None)
                     elif event_type == "response.completed":
                         completed = event.get("response") or {}
+                        completed_at_utc = datetime.now(timezone.utc)
+                        duration_ms = round((time.monotonic() - started_at) * 1000, 3)
         except urllib.error.HTTPError as error:
             raise _provider_http_failure(error.code, error.read(65536)) from None
         except SIWCError:
@@ -638,19 +658,69 @@ class SIWCClient:
         try:
             parsed = json.loads(text)
         except json.JSONDecodeError:
-            raise TaskFailure("probe_invalid_output", "A resposta real não correspondeu ao JSON esperado.") from None
-        expected = {"status": "ok", "message": "teste de integração aprovado"}
-        if parsed != expected:
-            raise TaskFailure("probe_unexpected_output", "A resposta real não passou na validação do teste técnico.")
+            raise TaskFailure("siwc_invalid_json_output", "A resposta SIWC não correspondeu a JSON válido.") from None
+        if not isinstance(parsed, dict):
+            raise TaskFailure("siwc_invalid_json_output", "A resposta SIWC precisa ser um objeto JSON.")
+        returned_model = completed.get("model")
+        if not isinstance(returned_model, str) or not returned_model:
+            raise TaskFailure("siwc_model_unreported", "A resposta concluída não informou o modelo efetivo.")
+        if returned_model != model and not returned_model.startswith(model + "-"):
+            raise TaskFailure("siwc_model_mismatch", "O modelo efetivo retornado não corresponde ao solicitado.")
+        returned_reasoning = completed.get("reasoning")
+        returned_effort = returned_reasoning.get("effort") if isinstance(returned_reasoning, dict) else None
+        if returned_effort != reasoning_effort:
+            raise TaskFailure(
+                "siwc_reasoning_effort_mismatch",
+                "O esforço efetivo retornado não corresponde ao solicitado.",
+            )
+        if completed_at_utc is None or duration_ms is None:
+            raise TaskFailure("probe_timing_missing", "A conclusão SIWC não teve marcação local de tempo.")
         response_id = completed.get("id")
         usage = completed.get("usage")
-        return {
-            "status": "ok", "message": parsed["message"],
-            "provider": "openai-siwc", "endpoint": "/v1/responses",
-            "model": model, "response_id": response_id,
+        metadata = {
+            "status": "ok", "provider": "openai-siwc", "endpoint": "/v1/responses",
+            "stage": stage,
+            "model_requested": model, "model": returned_model,
+            "reasoning_effort_requested": reasoning_effort,
+            "reasoning_effort": returned_effort,
+            "request_started_at": started_at_utc.isoformat(timespec="milliseconds"),
+            "completed_at": completed_at_utc.isoformat(timespec="milliseconds"),
+            "duration_ms": duration_ms,
+            "external_call_count": 1, "response_id": response_id,
             "usage": usage if isinstance(usage, dict) else None,
             "response_sha256": stable_hash(text),
         }
+        return parsed, metadata
+
+    def inference_stream(
+        self, model: str, reasoning_effort: str, context: TaskExecutionContext,
+    ) -> dict[str, Any]:
+        parsed, metadata = self._responses_json_stream(
+            model=model, reasoning_effort=reasoning_effort,
+            instructions=SIWC_PROBE_PROFILE.instructions,
+            input_text=SIWC_PROBE_PROMPT, stage="integration_probe", context=context,
+        )
+        expected = {"status": "ok", "message": "teste de integração aprovado"}
+        if parsed != expected:
+            raise TaskFailure("probe_unexpected_output", "A resposta real não passou na validação do teste técnico.")
+        return {**metadata, "message": parsed["message"]}
+
+    def editorial_stream(
+        self,
+        *,
+        model: str,
+        reasoning_effort: str,
+        instructions: str,
+        input_text: str,
+        stage: str,
+        context: TaskExecutionContext,
+    ) -> dict[str, Any]:
+        parsed, metadata = self._responses_json_stream(
+            model=model, reasoning_effort=reasoning_effort,
+            instructions=instructions, input_text=input_text,
+            stage=stage, context=context,
+        )
+        return {**metadata, "structured_output": parsed}
 
 
 def _provider_http_failure(status: int, body: bytes) -> TaskFailure:
@@ -728,13 +798,36 @@ class SIWCExecutor:
                 "O executor SIWC aceita somente o perfil versionado de prova técnica.",
                 blocked=True,
             )
-        model = str(task.payload.get("model") or self.model or "").strip()
+        model = str(task.payload.get("model") or "").strip()
         if not model:
             raise TaskFailure(
                 "model_missing", "A tarefa SIWC não tem um modelo escolhido no catálogo da conta.",
                 blocked=True,
             )
+        if self.model is not None and model != self.model:
+            raise TaskFailure(
+                "model_fallback_forbidden", "A tarefa solicitou um modelo diferente da configuração explícita.",
+                blocked=True,
+            )
+        reasoning_effort = str(task.payload.get("reasoning_effort") or "").strip()
+        if reasoning_effort not in SIWC_REASONING_EFFORTS:
+            raise TaskFailure(
+                "reasoning_effort_missing", "A tarefa SIWC precisa declarar explicitamente reasoning_effort.",
+                blocked=True,
+            )
         try:
-            return self.client.inference_stream(model, context)
+            listed = {
+                str(item["slug"]) for item in self.client.models()
+                if item.get("visibility") == "list"
+            }
+            if model not in listed:
+                raise TaskFailure(
+                    "model_not_in_account_catalog",
+                    "O modelo solicitado não aparece no catálogo atual desta conta SIWC.",
+                    blocked=True,
+                )
+            return self.client.inference_stream(model, reasoning_effort, context)
+        except TaskFailure:
+            raise
         except SIWCError as error:
             raise TaskFailure(error.code, error.message, blocked=True) from None

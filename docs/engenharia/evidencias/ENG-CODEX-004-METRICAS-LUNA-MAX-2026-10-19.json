@@ -1,0 +1,181 @@
+{
+  "experiment": "ENG-CODEX-004",
+  "issue": 9,
+  "run_id": "461f354e-abcb-42f7-bb29-dfa2530d15f8",
+  "state": "awaiting_human_review",
+  "started_at": "2026-10-19T20:10:48.688+00:00",
+  "completed_at": "2026-10-19T20:16:59.101+00:00",
+  "pipeline_wall_duration_ms": 370407.0,
+  "model": "gpt-6-luna",
+  "reasoning_effort": "max",
+  "executor_id": "siwc-editorial",
+  "profile_id": "internal-controlled-editorial-experiment",
+  "profile_version": "1.0.0",
+  "profile_sha256": "e076e792fb1e204f86e5a21ed4787884eaf19f2b2cb656b81bfa9e5dc43e9397",
+  "article_type": "cover",
+  "source_count": 6,
+  "catalog_checks": {
+    "count": 7,
+    "purpose": "one pipeline preflight plus one model catalog check per stage",
+    "duration_instrumented": false
+  },
+  "inference": {
+    "endpoint": "/v1/responses",
+    "store": false,
+    "stream": true,
+    "calls_completed": 6,
+    "calls_attempted": 6,
+    "automatic_retries": 0
+  },
+  "usage_totals": {
+    "input_tokens": 21726,
+    "output_tokens": 17593,
+    "reasoning_tokens": 9623,
+    "cached_tokens": 0,
+    "cache_write_tokens": 0,
+    "total_tokens": 39319
+  },
+  "stages": [
+    {
+      "stage": "source_analysis",
+      "task_id": "b964c345-7f77-45be-9eb8-e290188c1c50",
+      "state": "succeeded",
+      "attempts": 1,
+      "max_attempts": 1,
+      "model": "gpt-6-luna",
+      "reasoning_effort": "max",
+      "request_started_at": "2026-10-19T20:10:49.479+00:00",
+      "completed_at": "2026-10-19T20:11:29.416+00:00",
+      "duration_ms": 39922.0,
+      "usage": {
+        "input_tokens": 1342,
+        "output_tokens": 1919,
+        "total_tokens": 3261
+      },
+      "reasoning_tokens": 903,
+      "cached_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "stage": "outline",
+      "task_id": "ac6d76d5-a0ad-47cb-a0a2-18fc3365965c",
+      "state": "succeeded",
+      "attempts": 1,
+      "max_attempts": 1,
+      "model": "gpt-6-luna",
+      "reasoning_effort": "max",
+      "request_started_at": "2026-10-19T20:11:30.396+00:00",
+      "completed_at": "2026-10-19T20:11:48.005+00:00",
+      "duration_ms": 17610.0,
+      "usage": {
+        "input_tokens": 2127,
+        "output_tokens": 777,
+        "total_tokens": 2904
+      },
+      "reasoning_tokens": 195,
+      "cached_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "stage": "draft",
+      "task_id": "04105ecb-1ec5-4ff7-aedc-4e94451ffe43",
+      "state": "succeeded",
+      "attempts": 1,
+      "max_attempts": 1,
+      "model": "gpt-6-luna",
+      "reasoning_effort": "max",
+      "request_started_at": "2026-10-19T20:11:48.962+00:00",
+      "completed_at": "2026-10-19T20:12:41.278+00:00",
+      "duration_ms": 52328.0,
+      "usage": {
+        "input_tokens": 2668,
+        "output_tokens": 2427,
+        "total_tokens": 5095
+      },
+      "reasoning_tokens": 767,
+      "cached_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "stage": "fact_check",
+      "task_id": "b61fb2cb-1fdf-4e44-85dd-db10ceda19a1",
+      "state": "succeeded",
+      "attempts": 1,
+      "max_attempts": 1,
+      "model": "gpt-6-luna",
+      "reasoning_effort": "max",
+      "request_started_at": "2026-10-19T20:12:42.186+00:00",
+      "completed_at": "2026-10-19T20:15:28.601+00:00",
+      "duration_ms": 166407.0,
+      "usage": {
+        "input_tokens": 2977,
+        "output_tokens": 8216,
+        "total_tokens": 11193
+      },
+      "reasoning_tokens": 4989,
+      "cached_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "stage": "review",
+      "task_id": "82bd1c9b-50ee-4919-971a-22a4f7c0716b",
+      "state": "succeeded",
+      "attempts": 1,
+      "max_attempts": 1,
+      "model": "gpt-6-luna",
+      "reasoning_effort": "max",
+      "request_started_at": "2026-10-19T20:15:29.657+00:00",
+      "completed_at": "2026-10-19T20:16:09.512+00:00",
+      "duration_ms": 39859.0,
+      "usage": {
+        "input_tokens": 6149,
+        "output_tokens": 1906,
+        "total_tokens": 8055
+      },
+      "reasoning_tokens": 1552,
+      "cached_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    {
+      "stage": "correction",
+      "task_id": "9c4b073f-63f6-4834-844d-55fcb160392f",
+      "state": "succeeded",
+      "attempts": 1,
+      "max_attempts": 1,
+      "model": "gpt-6-luna",
+      "reasoning_effort": "max",
+      "request_started_at": "2026-10-19T20:16:10.392+00:00",
+      "completed_at": "2026-10-19T20:16:58.967+00:00",
+      "duration_ms": 48579.0,
+      "usage": {
+        "input_tokens": 6463,
+        "output_tokens": 2348,
+        "total_tokens": 8811
+      },
+      "reasoning_tokens": 1217,
+      "cached_tokens": 0,
+      "cache_write_tokens": 0
+    }
+  ],
+  "article": {
+    "word_count": 578,
+    "target_words": [
+      900,
+      1200
+    ],
+    "target_met": false
+  },
+  "review": {
+    "verdict": "revise",
+    "finding_count": 3,
+    "human_review_required": true
+  },
+  "human_review_required": true,
+  "publication_state": "not_published",
+  "limitations": [
+    "Source collection time was not instrumented.",
+    "Remaining Plus quota and reset time are not exposed by the observed SIWC responses.",
+    "No long-form or brief sample was generated; the cover sample does not support category-specific averages.",
+    "The generation service does not accept max_output_tokens in the documented SIWC preview; word goals are prompts and local validation only."
+  ]
+}

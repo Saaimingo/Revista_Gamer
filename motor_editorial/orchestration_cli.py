@@ -7,7 +7,10 @@ import json
 import os
 import sys
 import threading
+import time
 import uuid
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from .orchestration import (
@@ -25,7 +28,20 @@ from .siwc import (
     SIWCExecutor,
     SIWC_PROBE_PROFILE,
     SIWC_PROBE_TASK_TYPE,
+    SIWC_REASONING_EFFORTS,
     begin_login,
+)
+from .editorial import (
+    EDITORIAL_EXECUTOR_ID,
+    EDITORIAL_MODEL,
+    EDITORIAL_PROFILE,
+    EDITORIAL_REASONING_EFFORT,
+    EDITORIAL_STAGES,
+    STAGE_DEPENDENCIES,
+    EDITORIAL_TASK_TYPE,
+    SIWCEditorialExecutor,
+    WORD_TARGETS,
+    normalize_source_packet,
 )
 
 
@@ -77,7 +93,17 @@ def add_commands(commands: argparse._SubParsersAction) -> None:
     siwc_commands.add_parser("status", help="Mostrar estado local sem divulgar tokens ou identidade.")
     siwc_commands.add_parser("models", help="Consultar modelos listados para a conta autorizada.")
     probe = siwc_commands.add_parser("probe", help="Fazer uma única inferência técnica sintética.")
-    probe.add_argument("--model", help="Slug visto em `siwc models`; padrão: primeiro modelo listado.")
+    probe.add_argument("--model", required=True, help="Slug exato visto em `siwc models`; sem seleção automática.")
+    probe.add_argument(
+        "--reasoning-effort", required=True, choices=sorted(SIWC_REASONING_EFFORTS),
+        help="Esforço explicitamente solicitado e conferido no objeto Responses concluído.",
+    )
+
+    editorial = commands.add_parser("editorial", help="Experimento editorial local com fonte e revisão humana obrigatórias.")
+    editorial_commands = editorial.add_subparsers(dest="editorial_command", required=True)
+    editorial_run = editorial_commands.add_parser("run", help="Executar o pipeline limitado de uma matéria sem publicar.")
+    editorial_run.add_argument("--packet", required=True, type=Path, help="JSON pesquisado e estruturado com fontes.")
+    editorial_run.add_argument("--run-id", help="UUID para retomar os checkpoints do mesmo pacote e da mesma execução.")
 
 
 def _json_payload(raw: str) -> dict[str, Any]:
@@ -92,10 +118,148 @@ def _dispatcher(queue: AgentQueue, *, siwc_client: SIWCClient | None = None) -> 
     profiles = {
         (VALIDATION_PROFILE.profile_id, VALIDATION_PROFILE.version): VALIDATION_PROFILE,
         (SIWC_PROBE_PROFILE.profile_id, SIWC_PROBE_PROFILE.version): SIWC_PROBE_PROFILE,
+        (EDITORIAL_PROFILE.profile_id, EDITORIAL_PROFILE.version): EDITORIAL_PROFILE,
     }
     if siwc_client is not None:
         executors["siwc-responses"] = SIWCExecutor(siwc_client, model=None)
+        executors[EDITORIAL_EXECUTOR_ID] = SIWCEditorialExecutor(siwc_client)
     return TaskDispatcher(queue, executors=executors, profiles=profiles)
+
+
+def _editorial_run(args: argparse.Namespace, store: Any) -> int:
+    raw_packet = json.loads(args.packet.read_text(encoding="utf-8"))
+    packet = normalize_source_packet(raw_packet)
+    run_id = str(uuid.UUID(args.run_id)) if args.run_id else str(uuid.uuid4())
+    client = SIWCClient(CredentialStore())
+    visible = {
+        str(item["slug"]) for item in client.models()
+        if item.get("visibility") == "list"
+    }
+    if EDITORIAL_MODEL not in visible:
+        raise SIWCError(
+            "editorial_model_not_in_account_catalog",
+            "gpt-6-luna não aparece no catálogo atual desta conta; nenhuma etapa editorial foi executada.",
+        )
+
+    queue = AgentQueue(store)
+    dispatcher = _dispatcher(queue, siwc_client=client)
+    started_at = datetime.now(timezone.utc)
+    started_clock = time.monotonic()
+    outputs: dict[str, Any] = {}
+    stage_rows: list[dict[str, Any]] = []
+    final_state = "awaiting_human_review"
+    for stage in EDITORIAL_STAGES:
+        payload = {
+            "run_id": run_id,
+            "stage": stage,
+            "packet": packet,
+            "previous_outputs": {
+                dependency: outputs[dependency]
+                for dependency in STAGE_DEPENDENCIES[stage]
+                if dependency in outputs
+            },
+            "model": EDITORIAL_MODEL,
+            "reasoning_effort": EDITORIAL_REASONING_EFFORT,
+        }
+        task_id = queue.enqueue(
+            task_type=EDITORIAL_TASK_TYPE, payload=payload,
+            profile=EDITORIAL_PROFILE, executor_id=EDITORIAL_EXECUTOR_ID,
+            idempotency_key=f"editorial:{run_id}:{stage}", max_attempts=1,
+        )
+        task = queue.get(task_id)
+        if task is None:
+            raise RuntimeError("Checkpoint editorial desapareceu da fila SQLite.")
+        if task.state != "succeeded":
+            dispatcher.dispatch_one(task_id)
+            task = queue.get(task_id)
+        state = task.state if task else "missing"
+        result = task.result if task else None
+        stage_rows.append({
+            "stage": stage, "task_id": task_id, "state": state,
+            "model": result.get("model") if result else None,
+            "reasoning_effort": result.get("reasoning_effort") if result else None,
+            "request_started_at": result.get("request_started_at") if result else None,
+            "completed_at": result.get("completed_at") if result else None,
+            "duration_ms": result.get("duration_ms") if result else None,
+            "usage": result.get("usage") if result else None,
+            "error_code": (
+                queue.events(task_id)[-1]["detail"].get("error_code")
+                if task and task.state not in {"succeeded", "running", "queued", "retry_wait"}
+                and queue.events(task_id) else None
+            ),
+        })
+        if state != "succeeded" or not result:
+            final_state = "blocked"
+            break
+        outputs[stage] = result.get("structured_output")
+
+    final_output = outputs.get("correction")
+    final_body = str(final_output.get("body_markdown", "")) if isinstance(final_output, dict) else ""
+    final_word_count = len(final_body.split()) if final_body else None
+    word_target = WORD_TARGETS[packet["article_type"]]
+    length_target_met = (
+        final_word_count is not None and word_target[0] <= final_word_count <= word_target[1]
+    )
+    finished_at = datetime.now(timezone.utc)
+    report = {
+        "run_id": run_id,
+        "state": final_state,
+        "started_at": started_at.isoformat(timespec="milliseconds"),
+        "completed_at": finished_at.isoformat(timespec="milliseconds"),
+        "duration_ms": round((time.monotonic() - started_clock) * 1000, 3),
+        "model": EDITORIAL_MODEL,
+        "reasoning_effort": EDITORIAL_REASONING_EFFORT,
+        "executor_id": EDITORIAL_EXECUTOR_ID,
+        "profile_id": EDITORIAL_PROFILE.profile_id,
+        "profile_version": EDITORIAL_PROFILE.version,
+        "profile_sha256": EDITORIAL_PROFILE.content_hash,
+        "article_type": packet["article_type"],
+        "topic": packet["topic"],
+        "source_count": len(packet["sources"]),
+        "stages": stage_rows,
+        "outputs": outputs,
+        "final_article": final_output,
+        "word_count": final_word_count,
+        "word_target_range": list(word_target),
+        "length_target_met": length_target_met,
+        "human_review_required": True,
+        "publication_state": "not_published",
+    }
+    artifact_dir = Path(store.artifact_dir) / "codex004"
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    artifact_path = artifact_dir / f"{run_id}.json"
+    artifact_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    usage_totals: dict[str, int] = {}
+    for row in stage_rows:
+        usage = row.get("usage")
+        if not isinstance(usage, dict):
+            continue
+        for field in ("input_tokens", "output_tokens", "total_tokens"):
+            if isinstance(usage.get(field), int):
+                usage_totals[field] = usage_totals.get(field, 0) + usage[field]
+        details = usage.get("output_tokens_details")
+        if isinstance(details, dict) and isinstance(details.get("reasoning_tokens"), int):
+            usage_totals["reasoning_tokens"] = usage_totals.get("reasoning_tokens", 0) + details["reasoning_tokens"]
+        details = usage.get("input_tokens_details")
+        if isinstance(details, dict):
+            for field in ("cached_tokens", "cache_write_tokens"):
+                if isinstance(details.get(field), int):
+                    usage_totals[field] = usage_totals.get(field, 0) + details[field]
+    print(json.dumps({
+        "run_id": run_id, "state": final_state, "artifact": str(artifact_path),
+        "model": EDITORIAL_MODEL, "reasoning_effort": EDITORIAL_REASONING_EFFORT,
+        "executor_id": EDITORIAL_EXECUTOR_ID,
+        "profile_id": EDITORIAL_PROFILE.profile_id,
+        "profile_version": EDITORIAL_PROFILE.version,
+        "profile_sha256": EDITORIAL_PROFILE.content_hash,
+        "calls_completed": sum(1 for row in stage_rows if row["state"] == "succeeded"),
+        "calls_attempted": len(stage_rows), "usage_totals": usage_totals,
+        "word_count": final_word_count, "word_target_range": list(word_target),
+        "length_target_met": length_target_met,
+        "stages": stage_rows, "human_review_required": True,
+        "publication_state": "not_published",
+    }, ensure_ascii=False, indent=2))
+    return 0 if final_state == "awaiting_human_review" else 2
 
 
 def _handle_agents(args: argparse.Namespace, queue: AgentQueue) -> int:
@@ -235,13 +399,18 @@ def _handle_siwc(args: argparse.Namespace, store: Any) -> int:
         visible = [item for item in client.models() if item.get("visibility") == "list"]
         if not visible:
             raise SIWCError("no_models_available", "A conta não retornou modelos listados para uso.")
-        model = args.model or str(visible[0]["slug"])
+        model = str(args.model).strip()
         if model not in {str(item["slug"]) for item in visible}:
             raise ValueError("O modelo informado não consta na lista visível desta conta.")
+        reasoning_effort = str(args.reasoning_effort)
         queue = AgentQueue(store)
         task_id = queue.enqueue(
             task_type=SIWC_PROBE_TASK_TYPE,
-            payload={"purpose": "single_non_editorial_integration_probe", "model": model},
+            payload={
+                "purpose": "single_non_editorial_integration_probe",
+                "model": model,
+                "reasoning_effort": reasoning_effort,
+            },
             profile=SIWC_PROBE_PROFILE,
             executor_id="siwc-responses",
             idempotency_key=f"siwc-probe:{uuid.uuid4()}",
@@ -259,6 +428,12 @@ def _handle_siwc(args: argparse.Namespace, store: Any) -> int:
     return 2
 
 
+def _handle_editorial(args: argparse.Namespace, store: Any) -> int:
+    if args.editorial_command == "run":
+        return _editorial_run(args, store)
+    return 2
+
+
 def handle(args: argparse.Namespace, store: Any) -> int | None:
     if args.command == "agents":
         return _handle_agents(args, AgentQueue(store))
@@ -266,4 +441,6 @@ def handle(args: argparse.Namespace, store: Any) -> int | None:
         return _handle_scheduler(args, AgentQueue(store))
     if args.command == "siwc":
         return _handle_siwc(args, store)
+    if args.command == "editorial":
+        return _handle_editorial(args, store)
     return None
