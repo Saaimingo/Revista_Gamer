@@ -580,6 +580,43 @@ class MotorWorkflowTests(unittest.TestCase):
                 for row in stories.values() if row["topic_key"] != "garden-of-echoes-fotografia")
         )
 
+    def test_rejected_current_revision_after_approval_keeps_edition_blocked_on_resume(self) -> None:
+        result, stories = self.approve_multipauta_demo()
+        orbit = stories["orbit-racers-copa-nebular"]
+        with self.store.transaction() as connection:
+            connection.execute(
+                "UPDATE stories SET current_revision_number = 1 WHERE id = ?",
+                (orbit["id"],),
+            )
+            rejected_revision = connection.execute(
+                """SELECT ar.status, rr.approved FROM article_revisions ar
+                   LEFT JOIN review_results rr ON rr.revision_id = ar.id
+                   WHERE ar.story_id = ? AND ar.version = 1
+                   ORDER BY rr.pass_number DESC LIMIT 1""",
+                (orbit["id"],),
+            ).fetchone()
+        self.assertNotEqual(rejected_revision["status"], "approved")
+        self.assertNotEqual(rejected_revision["approved"], 1)
+
+        self.assertTrue(self.motor.revalidate_edition_preview_for_access(result.edition_id))
+        invalidated = self.store.get_edition(result.edition_id)
+        self.assertEqual(invalidated["status"], "awaiting_human_approval")
+        self.assertEqual(invalidated["composition_status"], "waiting_on_blockers")
+        self.assertIsNone(invalidated["approved_by"])
+        self.assertIsNone(invalidated["approved_at"])
+
+        resumed = self.motor.run_multipauta_demo()
+        edition = self.store.get_edition(result.edition_id)
+        self.assertEqual(resumed.status, "waiting_on_blockers")
+        self.assertEqual(edition["composition_status"], "waiting_on_blockers")
+        self.assertEqual(edition["status"], "awaiting_human_approval")
+        self.assertEqual(self.store.get_story(orbit["id"])["current_revision_number"], 1)
+        self.assertEqual(self.store.get_story(orbit["id"])["state"], "approved_internally")
+        self.assertTrue(
+            any(event["action"] == "internal_approval_invalidated"
+                for event in self.store.list_events(result.edition_id))
+        )
+
     def test_revoked_media_after_approval_invalidates_edition_and_requires_reapproval(self) -> None:
         result, stories = self.approve_multipauta_demo()
         approved = self.store.get_edition(result.edition_id)

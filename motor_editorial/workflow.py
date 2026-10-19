@@ -245,10 +245,16 @@ class Motor:
         eligible_states = {
             "media_checked", "awaiting_human_approval", "approved_internally"
         }
-        blockers = [
-            row for row in active_members
-            if row["required"] and row["state"] not in eligible_states
-        ]
+        with closing(self.store.connect()) as connection:
+            blockers = [
+                row for row in active_members
+                if row["required"] and (
+                    row["state"] not in eligible_states
+                    or not self._has_approved_current_revision(
+                        connection, row["story_id"], row["current_revision_number"]
+                    )
+                )
+            ]
         if edition["composition_status"] == "ready_for_approval":
             self._set_run_status(actual_run_id, "awaiting_approval")
             return SimulationResult(
@@ -932,6 +938,23 @@ class Motor:
             })
         return stable_hash(json_dumps(payload))
 
+    @staticmethod
+    def _has_approved_current_revision(
+        connection: Any, story_id: str, revision_number: int
+    ) -> bool:
+        latest = connection.execute(
+            """SELECT ar.status, rr.approved FROM article_revisions ar
+               LEFT JOIN review_results rr ON rr.revision_id = ar.id
+               WHERE ar.story_id = ? AND ar.version = ?
+               ORDER BY rr.pass_number DESC LIMIT 1""",
+            (story_id, revision_number),
+        ).fetchone()
+        return bool(
+            latest is not None
+            and latest["status"] == "approved"
+            and latest["approved"] == 1
+        )
+
     def _revalidate_approved_multipauta_edition(self, edition_id: str) -> bool:
         """Invalidate a prior human approval if its saved composition is no longer current."""
         with self.store.transaction() as connection:
@@ -963,14 +986,9 @@ class Motor:
             review_is_current = True
             media_is_eligible = True
             for member in members:
-                latest = connection.execute(
-                    """SELECT ar.status, rr.approved FROM article_revisions ar
-                       LEFT JOIN review_results rr ON rr.revision_id = ar.id
-                       WHERE ar.story_id = ? AND ar.version = ?
-                       ORDER BY rr.pass_number DESC LIMIT 1""",
-                    (member["story_id"], member["current_revision_number"]),
-                ).fetchone()
-                if latest is None or latest["status"] != "approved" or latest["approved"] != 1:
+                if not self._has_approved_current_revision(
+                    connection, member["story_id"], member["current_revision_number"]
+                ):
                     review_is_current = False
                 blocked_required_media = connection.execute(
                     """SELECT 1 FROM media_decisions
@@ -1141,16 +1159,21 @@ class Motor:
                 "SELECT * FROM editions WHERE id = ?", (edition_id,)
             ).fetchone()
             members = connection.execute(
-                """SELECT es.*, s.state FROM edition_stories es
+                """SELECT es.*, s.state, s.current_revision_number FROM edition_stories es
                    JOIN stories s ON s.id = es.story_id
                    WHERE es.edition_id = ? AND es.active = 1 ORDER BY es.position""",
                 (edition_id,),
             ).fetchall()
             blockers = [
                 row for row in members
-                if row["required"] and row["state"] not in {
-                    "media_checked", "awaiting_human_approval", "approved_internally"
-                }
+                if row["required"] and (
+                    row["state"] not in {
+                        "media_checked", "awaiting_human_approval", "approved_internally"
+                    }
+                    or not self._has_approved_current_revision(
+                        connection, row["story_id"], row["current_revision_number"]
+                    )
+                )
             ]
             if len(members) < 2:
                 blockers = blockers or list(members)
@@ -1800,14 +1823,9 @@ class Motor:
             for story in members:
                 if story["state"] != "awaiting_human_approval":
                     raise InvalidApproval("Ha uma pauta ativa que ainda nao chegou a aprovacao humana.")
-                latest = connection.execute(
-                    """SELECT ar.id, ar.status, rr.approved FROM article_revisions ar
-                       LEFT JOIN review_results rr ON rr.revision_id = ar.id
-                       WHERE ar.story_id = ? AND ar.version = ?
-                       ORDER BY rr.pass_number DESC LIMIT 1""",
-                    (story["story_id"], story["current_revision_number"]),
-                ).fetchone()
-                if latest is None or latest["status"] != "approved" or latest["approved"] != 1:
+                if not self._has_approved_current_revision(
+                    connection, story["story_id"], story["current_revision_number"]
+                ):
                     raise InvalidApproval("A versao vigente de cada materia precisa de revisao aprovada.")
 
             media_changes = [
