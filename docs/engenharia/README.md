@@ -21,6 +21,8 @@ Este marco não ativa os blocos conceituais e não autoriza integrações reais 
 
 - [Análise provisória do fundador — orquestração orientada a eventos e referência n8n](ANALISE-PROVISORIA-FUNDADOR-ORQUESTRACAO-N8N-2026-10-17.md). **Não autoriza implementação, ativação de agentes reais, agendamento ou mudança na v0.2.**
 
+- [Anteprojeto da próxima etapa — orquestração de agentes e integração oficial com Plus](ANTEPROJETO-ORQUESTRACAO-AGENTES-E-PLUS-2026-10-19.md). **EM DISCUSSÃO, não autoriza Codex, ativação de IA, autenticação, custos ou v0.3.**
+
 ## Evolução futura
 
 O protótipo já possui estados, validações, tentativas limitadas, trilha de auditoria e aprovação humana interna. Ainda faltam agenda real, filas operacionais de produção, integrações, controle de acesso e backup; só implementar após nova especificação e autorização. Os agentes de IA são chamados sob demanda. Não construir um harness alternativo sem evidência de necessidade.
