@@ -116,3 +116,17 @@ Não foi usada API paga, `OPENAI_API_KEY`, cookie, token extraído de sessão pr
 - `git diff --check`: passou; apenas avisos informativos do Git sobre normalização LF/CRLF nos arquivos alterados.
 - A cadeia simulada continua coberta por teste sem rede; a retomada do ensaio usa checkpoints/idempotência e não repete as seis chamadas concluídas.
 - Os testes novos cobrem exigência de esforço/modelo, validação da resposta, bloqueio de fallback, limites de listas, citações, checkpoints, identidade do perfil e retomada sem repetir etapas concluídas.
+
+## Validação de follow-up da Issue #11 (2026-10-19)
+
+Após o parecer do Chat Fundador, a suíte foi repetida no ambiente `.venv` do projeto, no Windows, sobre o código da branch `codex/eng-codex-004-luna-max`, commit `23ff7e630ca2c23f4a481a642bbe798a4f5d6222`.
+
+- Comando: `.\.venv\Scripts\python.exe -m unittest discover -s motor_editorial/tests -v`.
+- Python efetivo: CPython 3.11.9 (`.venv\Scripts\python.exe`).
+- Dependências criptográficas: PyJWT 2.15.1 e `cryptography` 50.0.2.
+- Resultado: **70 testes aprovados, zero ignorados** (`Ran 70 tests ... OK`). O teste `test_signed_id_token_verification_checks_audience_issuer_and_nonce` executou e terminou `ok`.
+- `.\.venv\Scripts\python.exe -m compileall -q motor_editorial`: passou.
+- `git diff --check`: passou também após a atualização documental.
+- A execução foi offline: nenhuma chamada SIWC, autenticação ou inferência foi feita nesta validação.
+
+O resultado anterior de 69 aprovados e 1 teste ignorado corresponde ao Python global e permanece aqui como histórico; a execução completa acima, com as dependências opcionais do `.venv`, é a evidência de follow-up solicitada. A Issue #11 permanece aberta aguardando o aceite técnico final do Chat Fundador. PR #8 e PR #10 permanecem sem merge.
