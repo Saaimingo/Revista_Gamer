@@ -2,9 +2,9 @@
 
 - **Issue:** [#9 — Gate SIWC Luna Max e benchmark editorial por matéria](https://github.com/Saaimingo/Revista_Gamer/issues/9)
 - **Data:** 2026-10-19
-- **Status:** gate Luna Max comprovado; uma amostra real de capa concluída para revisão humana; benchmark por categoria incompleto
+- **Status:** gate Luna Max comprovado; uma amostra técnica real de 578 palavras no tipo cover, abaixo da meta e não pronta como capa; benchmark por categoria incompleto
 - **Branch:** `codex/eng-codex-004-luna-max`, separada e baseada no head do PR #8
-- **Base:** `82af287abd076a24fd763011e82d7656596003c1` (`codex/motor-editorial-orquestracao-agentes-plus`)
+- **Base:** `962dcd4` (`codex/motor-editorial-orquestracao-agentes-plus`, correção C-001 do PR #8)
 - **PR #8:** aberto para revisão, sem merge
 - **PR desta entrega:** [#10 — ENG-CODEX-004](https://github.com/Saaimingo/Revista_Gamer/pull/10), aberto separadamente, com base no PR #8 e sem merge
 
@@ -14,7 +14,7 @@ O catálogo da conta autenticada via Sign in with ChatGPT (SIWC) listou o slug `
 
 Depois do gate, foi executado um ensaio editorial local, com pacote preparado a partir de seis fontes públicas e seis chamadas sequenciais: análise de fontes, estrutura, redação, checagem factual, revisão e correção. Todas retornaram `gpt-6-luna` e `reasoning.effort=max`. A saída ficou em `awaiting_human_review`, com `human_review_required=true` e `publication_state=not_published`.
 
-O ensaio demonstra execução real de ponta a ponta para uma matéria de capa. Ele não demonstra aprovação editorial, qualidade pronta para publicação, uma média estável de consumo ou viabilidade de um ciclo completo da revista.
+O ensaio demonstra execução real de ponta a ponta em uma amostra técnica no tipo `cover`. As 578 palavras ficam abaixo da meta de 900–1.200, o revisor devolveu `revise` e o fluxo histórico não revisou editorialmente o texto corrigido. Portanto, a amostra não é uma capa concluída nem matéria pronta. Ela também não demonstra aprovação editorial, média estável de consumo ou viabilidade de um ciclo completo da revista.
 
 ## Gate SIWC
 
@@ -43,7 +43,7 @@ O pacote [`ENG-CODEX-004-RTX5090-PACOTE-FONTES.json`](evidencias/ENG-CODEX-004-R
 
 Execução `461f354e-abcb-42f7-bb29-dfa2530d15f8`, em Windows 11 local, com o perfil interno `internal-controlled-editorial-experiment@1.0.0` (SHA-256 `e076e792fb1e204f86e5a21ed4787884eaf19f2b2cb656b81bfa9e5dc43e9397`). As seis tarefas SQLite concluíram com uma tentativa cada. O artefato integral e o banco permanecem no diretório privado `%LOCALAPPDATA%\RevistaGamer\Codex004-Editorial`; a amostra e as métricas sanitizadas estão versionadas em `evidencias/`.
 
-Cada etapa fez uma chamada de inferência Responses com `store=false` e streaming. Houve também sete consultas de catálogo: uma verificação inicial e uma antes de cada etapa. A duração dessas consultas de catálogo não foi instrumentada; os tempos abaixo são das inferências e a duração total é a parede do processo.
+Cada etapa da execução histórica fez uma chamada de inferência Responses com `store=false` e streaming. Houve também sete consultas de catálogo: uma verificação inicial e uma antes de cada etapa. A duração dessas consultas históricas não foi instrumentada; os tempos abaixo são das inferências e a duração total é a parede do processo. O código corrigido no PR #10 faz uma única consulta preflight por execução, compartilha o conjunto validado entre os estágios e mede duração e timestamps de `GET /models` para ensaios futuros.
 
 | Etapa | Duração (s) | Entrada | Saída | Raciocínio | Total |
 |---|---:|---:|---:|---:|---:|
@@ -57,7 +57,9 @@ Cada etapa fez uma chamada de inferência Responses com `store=false` e streamin
 
 A parede total do pipeline foi 370,407 s (6 min 10 s), entre `20:10:48.688` e `20:16:59.101 UTC`. Os tokens são o usage informado pelo provedor, não uma estimativa de porcentagem da franquia Plus. O tempo de pesquisa e preparação das fontes não foi medido.
 
-O rascunho final contém 578 palavras, abaixo da meta interna de 900–1.200 para capa. O revisor devolveu `revise` com três achados; a etapa de correção ajustou o texto, mas deixou pendências factuais. O resultado continua sujeito à leitura e decisão humana. A [amostra de capa](evidencias/AMOSTRA-CAPA-RTX5090-CODEX-004.md) conserva o texto produzido, a identidade versionada e as referências clicáveis.
+Os 9.623 tokens de raciocínio são um detalhamento de `output_tokens` (17.593), não uma parcela adicional a somar. Os 39.319 tokens totais permanecem o total informado pelo provedor. A pesquisa histórica não teve cronômetro; o CLI agora separa a validação local do pacote e aceita `--source-collection-duration-ms` para registrar a coleta manual de fontes em execuções futuras. Valor ausente permanece `null`, sem estimativa.
+
+O rascunho final contém 578 palavras, abaixo da meta interna de 900–1.200 para capa. O revisor devolveu `revise` com três achados; a etapa de correção ajustou o texto, mas deixou pendências factuais. O resultado continua sujeito à leitura e decisão humana. A [amostra técnica em formato cover](evidencias/AMOSTRA-CAPA-RTX5090-CODEX-004.md) conserva o texto produzido, a identidade versionada e as referências clicáveis; ela não é tratada como capa pronta nem como média.
 
 ## Leitura das evidências jornalísticas
 
@@ -67,25 +69,35 @@ Fontes principais: [NVIDIA RTX 5090](https://www.nvidia.com/en-us/geforce/graphi
 
 ## Projeção exploratória para 4 matérias grandes + 6 pequenas
 
-A simulação da Issue representa dez matérias (uma capa, três grandes e seis pequenas). Com seis etapas por matéria, isso equivale a **60 chamadas de inferência** se o pipeline permanecer igual. Só a capa foi medida; não há amostra grande ou pequena e, portanto, não há média por categoria.
+A simulação da Issue representa dez matérias (uma capa, três grandes e seis pequenas). A execução histórica da v1.0.0 usou seis etapas por matéria, o equivalente a 60 chamadas. Na v1.2.0, o fluxo usa cinco chamadas quando a revisão inicial não pede correção (pass ou hold) e oito quando responde revise; dez matérias implicariam 50–80 chamadas conforme os resultados. Apenas a amostra histórica foi medida; não há amostras long/brief nem médias por categoria.
 
-Para tornar a incerteza visível sem fingir que existe uma média, a tabela abaixo aplica fatores de sensibilidade explícitos ao custo total observado de uma capa (39.319 tokens) para cada uma das dez matérias. Os fatores de 0,5×, 1× e 2× são hipóteses aritméticas, não resultados medidos nem uma distribuição estatística.
+Para tornar a incerteza visível sem fingir que existe uma média, a tabela abaixo aplica fatores de sensibilidade explícitos ao custo total observado desta amostra técnica cover (39.319 tokens) para cada uma das dez matérias. Os fatores de 0,5×, 1× e 2× são extrapolações ilustrativas, não resultados medidos, média de matérias prontas, quota disponível ou distribuição estatística.
 
 | Cenário de sensibilidade | Hipótese por matéria | Tokens para 10 matérias | Chamadas de inferência |
 |---|---:|---:|---:|
-| Otimista | 0,5 × a capa observada por matéria | 196.595 | 60 |
-| Central de referência | 1 × a capa observada por matéria | 393.190 | 60 |
-| Conservador | 2 × a capa observada por matéria | 786.380 | 60 |
+| Otimista | 0,5 × a amostra técnica observada por matéria | 196.595 | 50–80 |
+| Central de referência | 1 × a amostra técnica observada por matéria | 393.190 | 50–80 |
+| Conservador | 2 × a amostra técnica observada por matéria | 786.380 | 50–80 |
 
-Esses valores não são previsão de consumo do Plus nem cenário de capacidade: misturam tamanhos diferentes usando uma única capa como unidade e não incluem chamadas de catálogo, uso pessoal, revisão humana ou tempo de pesquisa. A franquia restante e a data de renovação não são expostas pelas respostas SIWC observadas; não há base para converter tokens em percentual ou declarar que o calendário hipotético de 21 dias de produção mais quatro de fechamento cabe no plano. Não fiz novas chamadas para amostras grande e pequena depois dos 39.319 tokens da capa.
+Esses valores não são previsão de consumo do Plus nem cenário de capacidade: misturam tamanhos diferentes usando uma amostra técnica como unidade e não incluem chamadas de catálogo, uso pessoal, revisão humana ou tempo de pesquisa. A franquia restante e a data de renovação não são expostas pelas respostas SIWC observadas; não há base para converter tokens em percentual ou declarar que o calendário hipotético de 21 dias de produção mais quatro de fechamento cabe no plano. Não fiz novas chamadas para amostras grande e pequena depois dos 39.319 tokens da amostra.
 
 ## Alterações de engenharia
 
 - `siwc probe` agora exige `--model` e `--reasoning-effort`; o executor valida catálogo, resposta do modelo e esforço retornados, sem seleção automática nem fallback.
-- `editorial run --packet ... [--run-id ...]` encadeia seis tarefas no SQLite, com perfil e hash persistidos, chave idempotente, uma tentativa por etapa e retomada por checkpoint concluído.
+- `editorial run --packet ... [--run-id ...] [--source-collection-duration-ms ...]` encadeia checkpoints SQLite versionados e retomáveis. A v1.2.0 usa revisão inicial, correção somente após `revise`, checagem factual final e revisão do texto corrigido; `hold` bloqueia sem correção. A revisão vigente carrega SHA-256 do headline, dek, corpo e IDs de fonte; alteração de texto invalida a revisão. Há uma rodada automática de correção; novo `revise` ou `hold` exige decisão humana.
 - O executor editorial aceita apenas o modelo/esforço explicitamente aprovados para o experimento, valida pacote HTTPS, IDs de fontes, citações e saídas estruturadas, e fixa revisão humana e não publicação.
-- A identidade usada na amostra real foi `internal-controlled-editorial-experiment@1.0.0`. Depois dela, os limites locais de afirmações e achados foram apertados e o perfil atual passou a `1.1.0`. A versão atual passa nos testes automatizados; ela não foi submetida a uma segunda execução real.
+- A identidade usada na amostra real foi `internal-controlled-editorial-experiment@1.0.0`. A revisão `1.1.0` anterior à Issue #11 passou apenas por testes. A `1.2.0` acrescenta revisão vigente por hash e guardas de contexto/saída; foi validada somente em testes offline, sem nova inferência real.
 - O preview SIWC documenta que `max_output_tokens` não é aceito. As faixas de palavras são metas no prompt e validações locais; não limitam com rigor o tamanho gerado no provedor.
+
+## Correções da Issue #11: C-002 a C-004
+
+**C-002: revisão vigente:** a saída distingue `execution_status=completed` de `editorial_status`. `hold` para antes da correção; `revise` inicia uma rodada, checagem final e revisão do texto corrigido. Cada revisão registra hash da revisão alvo. A mudança de texto invalida esse hash; um segundo pedido de revisão termina em `blocked_human_decision`. `pass` deixa `awaiting_human_approval`; não aprova editorialmente nem publica.
+
+**C-003: amostra e medição:** a execução histórica de seis etapas, 578 palavras e status `revise` está classificada como amostra técnica, abaixo da meta e fora de qualquer média de capa pronta. A v1.0.0 e suas métricas originais foram preservadas; v1.1.0 e v1.2.0 não foram testadas em inferência real. O prompt atual consolida achados factuais e limita detalhes; o contexto de redação usa trechos de evidência atribuídos em vez de repetir o pacote integral, e contextos de checagem/revisão mantêm evidências. Uma consulta de catálogo por execução é cronometrada; preparação do pacote e coleta manual ficam medidas em campos separados. Metas de palavras não autorizam preencher com texto sem fonte.
+
+**C-004: integridade editorial:** a amostra Markdown recebeu nota explícita de normalização para os caracteres substitutos do cabeçalho e separadores das fontes; seu corpo e suas afirmações não foram reescritos. O teste verifica UTF-8 estrito, citações no conjunto S1–S6 e a preservação do mesmo conjunto no pacote/lista de fontes.
+
+As correções C-002 a C-004 e seus testes nesta entrega são offline. Não houve nova chamada SIWC nem alteração dos JSONs históricos de métricas ou do pacote de fontes.
 
 ## Autenticação privada hospedada e operação futura
 
@@ -99,8 +111,8 @@ Não foi usada API paga, `OPENAI_API_KEY`, cookie, token extraído de sessão pr
 
 ## Validação automatizada
 
-- `.\.venv\Scripts\python.exe -m unittest discover -s motor_editorial/tests -v`: **58/58 testes passaram** em Windows 11, Python 3.11.9, incluindo os contratos herdados e as regress?es desta etapa.
-- `.\.venv\Scripts\python.exe -m compileall -q motor_editorial`: passou.
-- `git diff --check`: passou; apenas avisos informativos do Git sobre normalização LF/CRLF nos arquivos Python.
+- `py -3.11 -m unittest discover -s motor_editorial/tests -v`: **69 aprovados; 1 ignorado por ausência de PyJWT[crypto] (70 executados)** em Windows 11, Python 3.11.9.
+- `py -3.11 -m compileall -q motor_editorial`: passou.
+- `git diff --check`: passou; apenas avisos informativos do Git sobre normalização LF/CRLF nos arquivos alterados.
 - A cadeia simulada continua coberta por teste sem rede; a retomada do ensaio usa checkpoints/idempotência e não repete as seis chamadas concluídas.
 - Os testes novos cobrem exigência de esforço/modelo, validação da resposta, bloqueio de fallback, limites de listas, citações, checkpoints, identidade do perfil e retomada sem repetir etapas concluídas.

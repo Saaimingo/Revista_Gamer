@@ -9,6 +9,7 @@ import sys
 import threading
 import time
 import uuid
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -42,6 +43,7 @@ from .editorial import (
     SIWCEditorialExecutor,
     WORD_TARGETS,
     normalize_source_packet,
+    review_matches_revision,
 )
 
 
@@ -104,6 +106,10 @@ def add_commands(commands: argparse._SubParsersAction) -> None:
     editorial_run = editorial_commands.add_parser("run", help="Executar o pipeline limitado de uma matéria sem publicar.")
     editorial_run.add_argument("--packet", required=True, type=Path, help="JSON pesquisado e estruturado com fontes.")
     editorial_run.add_argument("--run-id", help="UUID para retomar os checkpoints do mesmo pacote e da mesma execução.")
+    editorial_run.add_argument(
+        "--source-collection-duration-ms", type=int,
+        help="Duração medida da pesquisa/coleta manual de fontes; não inclui inferência.",
+    )
 
 
 def _json_payload(raw: str) -> dict[str, Any]:
@@ -113,7 +119,12 @@ def _json_payload(raw: str) -> dict[str, Any]:
     return value
 
 
-def _dispatcher(queue: AgentQueue, *, siwc_client: SIWCClient | None = None) -> TaskDispatcher:
+def _dispatcher(
+    queue: AgentQueue,
+    *,
+    siwc_client: SIWCClient | None = None,
+    editorial_catalog_models: set[str] | None = None,
+) -> TaskDispatcher:
     executors: dict[str, Any] = {"simulated": SimulatedExecutor()}
     profiles = {
         (VALIDATION_PROFILE.profile_id, VALIDATION_PROFILE.version): VALIDATION_PROFILE,
@@ -122,14 +133,46 @@ def _dispatcher(queue: AgentQueue, *, siwc_client: SIWCClient | None = None) -> 
     }
     if siwc_client is not None:
         executors["siwc-responses"] = SIWCExecutor(siwc_client, model=None)
-        executors[EDITORIAL_EXECUTOR_ID] = SIWCEditorialExecutor(siwc_client)
+        executors[EDITORIAL_EXECUTOR_ID] = SIWCEditorialExecutor(
+            siwc_client, catalog_models=editorial_catalog_models
+        )
     return TaskDispatcher(queue, executors=executors, profiles=profiles)
 
 
 def _editorial_run(args: argparse.Namespace, store: Any) -> int:
+    process_started_at = datetime.now(timezone.utc)
+    process_started_clock = time.monotonic()
+    packet_started_clock = time.monotonic()
     raw_packet = json.loads(args.packet.read_text(encoding="utf-8"))
     packet = normalize_source_packet(raw_packet)
+    packet_validation_duration_ms = round((time.monotonic() - packet_started_clock) * 1000, 3)
+    source_collection_duration_ms = getattr(args, "source_collection_duration_ms", None)
+    if source_collection_duration_ms is not None and (
+        isinstance(source_collection_duration_ms, bool)
+        or not isinstance(source_collection_duration_ms, int)
+        or source_collection_duration_ms < 0
+    ):
+        raise ValueError("A duração da coleta de fontes precisa ser um inteiro não negativo em milissegundos.")
     run_id = str(uuid.UUID(args.run_id)) if args.run_id else str(uuid.uuid4())
+
+    # A run_id is bound to its immutable profile version. Never replay old
+    # checkpoints under changed prompts or reuse a review of stale text.
+    with closing(store.connect()) as connection:
+        prior_versions = {
+            row["profile_version"] for row in connection.execute(
+                """SELECT DISTINCT profile_version FROM agent_tasks
+                   WHERE task_type = ? AND idempotency_key LIKE ?""",
+                (EDITORIAL_TASK_TYPE, f"editorial:{run_id}:%"),
+            ).fetchall()
+        }
+    incompatible = prior_versions - {EDITORIAL_PROFILE.version}
+    if incompatible:
+        raise ValueError(
+            "Esta run_id tem checkpoints do perfil " + ", ".join(sorted(incompatible))
+            + "; use uma nova run_id para executar o perfil " + EDITORIAL_PROFILE.version + "."
+        )
+
+    queue = AgentQueue(store)
     client = SIWCClient(CredentialStore())
     visible = {
         str(item["slug"]) for item in client.models()
@@ -140,14 +183,22 @@ def _editorial_run(args: argparse.Namespace, store: Any) -> int:
             "editorial_model_not_in_account_catalog",
             "gpt-6-luna não aparece no catálogo atual desta conta; nenhuma etapa editorial foi executada.",
         )
+    catalog_request_metrics = getattr(client, "last_models_request_metrics", None)
+    catalog_metrics = {
+        "model": EDITORIAL_MODEL,
+        "request_count": 1,
+        "duration_instrumented": isinstance(catalog_request_metrics, dict),
+        "last_request": catalog_request_metrics,
+    }
+    dispatcher = _dispatcher(
+        queue, siwc_client=client, editorial_catalog_models=visible
+    )
 
-    queue = AgentQueue(store)
-    dispatcher = _dispatcher(queue, siwc_client=client)
-    started_at = datetime.now(timezone.utc)
-    started_clock = time.monotonic()
     outputs: dict[str, Any] = {}
     stage_rows: list[dict[str, Any]] = []
-    final_state = "awaiting_human_review"
+    execution_status = "incomplete"
+    editorial_status = "blocked"
+    human_approval_status = "not_reached"
     for stage in EDITORIAL_STAGES:
         payload = {
             "run_id": run_id,
@@ -174,6 +225,8 @@ def _editorial_run(args: argparse.Namespace, store: Any) -> int:
             task = queue.get(task_id)
         state = task.state if task else "missing"
         result = task.result if task else None
+        events = queue.events(task_id)
+        stage_output = result.get("structured_output") if result else None
         stage_rows.append({
             "stage": stage, "task_id": task_id, "state": state,
             "model": result.get("model") if result else None,
@@ -182,18 +235,58 @@ def _editorial_run(args: argparse.Namespace, store: Any) -> int:
             "completed_at": result.get("completed_at") if result else None,
             "duration_ms": result.get("duration_ms") if result else None,
             "usage": result.get("usage") if result else None,
+            "revision_sha256": (
+                stage_output.get("reviewed_revision_sha256")
+                or stage_output.get("checked_revision_sha256")
+                if isinstance(stage_output, dict) else None
+            ),
             "error_code": (
-                queue.events(task_id)[-1]["detail"].get("error_code")
+                events[-1]["detail"].get("error_code")
                 if task and task.state not in {"succeeded", "running", "queued", "retry_wait"}
-                and queue.events(task_id) else None
+                and events else None
             ),
         })
-        if state != "succeeded" or not result:
-            final_state = "blocked"
+        if state != "succeeded" or not result or not isinstance(stage_output, dict):
+            execution_status = "incomplete"
+            editorial_status = "blocked"
             break
-        outputs[stage] = result.get("structured_output")
+        outputs[stage] = stage_output
 
-    final_output = outputs.get("correction")
+        if stage == "review":
+            draft = outputs["draft"]
+            review = outputs["review"]
+            if not review_matches_revision(review, draft):
+                execution_status = "completed"
+                editorial_status = "blocked_human_decision"
+                human_approval_status = "human_action_required_stale_review"
+                break
+            if review["verdict"] == "hold":
+                execution_status = "completed"
+                editorial_status = "blocked_human_decision"
+                human_approval_status = "human_action_required_hold"
+                break
+            if review["verdict"] == "pass":
+                execution_status = "completed"
+                editorial_status = "awaiting_human_approval"
+                human_approval_status = "pending"
+                break
+
+        if stage == "final_review":
+            corrected = outputs["correction"]
+            final_review = outputs["final_review"]
+            if not review_matches_revision(final_review, corrected):
+                editorial_status = "blocked_human_decision"
+                human_approval_status = "human_action_required_stale_review"
+            elif final_review["verdict"] == "pass":
+                editorial_status = "awaiting_human_approval"
+                human_approval_status = "pending"
+            else:
+                editorial_status = "blocked_human_decision"
+                human_approval_status = "human_action_required_review"
+            execution_status = "completed"
+            break
+
+    final_output = outputs.get("correction") or outputs.get("draft")
     final_body = str(final_output.get("body_markdown", "")) if isinstance(final_output, dict) else ""
     final_word_count = len(final_body.split()) if final_body else None
     word_target = WORD_TARGETS[packet["article_type"]]
@@ -201,34 +294,22 @@ def _editorial_run(args: argparse.Namespace, store: Any) -> int:
         final_word_count is not None and word_target[0] <= final_word_count <= word_target[1]
     )
     finished_at = datetime.now(timezone.utc)
-    report = {
-        "run_id": run_id,
-        "state": final_state,
-        "started_at": started_at.isoformat(timespec="milliseconds"),
-        "completed_at": finished_at.isoformat(timespec="milliseconds"),
-        "duration_ms": round((time.monotonic() - started_clock) * 1000, 3),
-        "model": EDITORIAL_MODEL,
-        "reasoning_effort": EDITORIAL_REASONING_EFFORT,
-        "executor_id": EDITORIAL_EXECUTOR_ID,
-        "profile_id": EDITORIAL_PROFILE.profile_id,
-        "profile_version": EDITORIAL_PROFILE.version,
-        "profile_sha256": EDITORIAL_PROFILE.content_hash,
-        "article_type": packet["article_type"],
-        "topic": packet["topic"],
-        "source_count": len(packet["sources"]),
-        "stages": stage_rows,
-        "outputs": outputs,
-        "final_article": final_output,
-        "word_count": final_word_count,
-        "word_target_range": list(word_target),
-        "length_target_met": length_target_met,
-        "human_review_required": True,
-        "publication_state": "not_published",
-    }
-    artifact_dir = Path(store.artifact_dir) / "codex004"
-    artifact_dir.mkdir(parents=True, exist_ok=True)
-    artifact_path = artifact_dir / f"{run_id}.json"
-    artifact_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    final_review = outputs.get("final_review") or outputs.get("review")
+    reviewed_revision_sha256 = (
+        final_review.get("reviewed_revision_sha256")
+        if isinstance(final_review, dict) else None
+    )
+    current_review_matches_final_article = (
+        isinstance(final_review, dict)
+        and isinstance(final_output, dict)
+        and review_matches_revision(final_review, final_output)
+    )
+    article_readiness = (
+        "below_target" if not length_target_met else
+        "pending_human_approval" if editorial_status == "awaiting_human_approval" else
+        "human_decision_required"
+    )
+    duration_ms = round((time.monotonic() - process_started_clock) * 1000, 3)
     usage_totals: dict[str, int] = {}
     for row in stage_rows:
         usage = row.get("usage")
@@ -245,8 +326,57 @@ def _editorial_run(args: argparse.Namespace, store: Any) -> int:
             for field in ("cached_tokens", "cache_write_tokens"):
                 if isinstance(details.get(field), int):
                     usage_totals[field] = usage_totals.get(field, 0) + details[field]
+    report = {
+        "run_id": run_id,
+        "state": editorial_status,
+        "execution_status": execution_status,
+        "editorial_status": editorial_status,
+        "human_approval_status": human_approval_status,
+        "sample_classification": "technical_sample",
+        "article_readiness": article_readiness,
+        "ready_for_publication": False,
+        "started_at": process_started_at.isoformat(timespec="milliseconds"),
+        "completed_at": finished_at.isoformat(timespec="milliseconds"),
+        "duration_ms": duration_ms,
+        "source_collection_duration_ms": source_collection_duration_ms,
+        "source_packet_validation_duration_ms": packet_validation_duration_ms,
+        "catalog": catalog_metrics,
+        "model": EDITORIAL_MODEL,
+        "reasoning_effort": EDITORIAL_REASONING_EFFORT,
+        "executor_id": EDITORIAL_EXECUTOR_ID,
+        "profile_id": EDITORIAL_PROFILE.profile_id,
+        "profile_version": EDITORIAL_PROFILE.version,
+        "profile_sha256": EDITORIAL_PROFILE.content_hash,
+        "article_type": packet["article_type"],
+        "topic": packet["topic"],
+        "source_count": len(packet["sources"]),
+        "source_ids": [source["id"] for source in packet["sources"]],
+        "usage_totals": usage_totals,
+        "reasoning_tokens_are_subset_of_output_tokens": True,
+        "stages": stage_rows,
+        "outputs": outputs,
+        "final_article": final_output,
+        "word_count": final_word_count,
+        "word_target_range": list(word_target),
+        "length_target_met": length_target_met,
+        "reviewed_revision_sha256": reviewed_revision_sha256,
+        "current_review_matches_final_article": current_review_matches_final_article,
+        "human_review_required": True,
+        "publication_state": "not_published",
+    }
+    artifact_dir = Path(store.artifact_dir) / "codex004"
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    artifact_path = artifact_dir / f"{run_id}.json"
+    artifact_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({
-        "run_id": run_id, "state": final_state, "artifact": str(artifact_path),
+        "run_id": run_id, "state": editorial_status,
+        "execution_status": execution_status,
+        "editorial_status": editorial_status,
+        "human_approval_status": human_approval_status,
+        "sample_classification": "technical_sample",
+        "article_readiness": article_readiness,
+        "ready_for_publication": False,
+        "artifact": str(artifact_path),
         "model": EDITORIAL_MODEL, "reasoning_effort": EDITORIAL_REASONING_EFFORT,
         "executor_id": EDITORIAL_EXECUTOR_ID,
         "profile_id": EDITORIAL_PROFILE.profile_id,
@@ -254,13 +384,18 @@ def _editorial_run(args: argparse.Namespace, store: Any) -> int:
         "profile_sha256": EDITORIAL_PROFILE.content_hash,
         "calls_completed": sum(1 for row in stage_rows if row["state"] == "succeeded"),
         "calls_attempted": len(stage_rows), "usage_totals": usage_totals,
+        "reasoning_tokens_are_subset_of_output_tokens": True,
+        "catalog": catalog_metrics,
+        "source_collection_duration_ms": source_collection_duration_ms,
+        "source_packet_validation_duration_ms": packet_validation_duration_ms,
         "word_count": final_word_count, "word_target_range": list(word_target),
         "length_target_met": length_target_met,
+        "reviewed_revision_sha256": reviewed_revision_sha256,
+        "current_review_matches_final_article": current_review_matches_final_article,
         "stages": stage_rows, "human_review_required": True,
         "publication_state": "not_published",
     }, ensure_ascii=False, indent=2))
-    return 0 if final_state == "awaiting_human_review" else 2
-
+    return 0 if execution_status == "completed" else 2
 
 def _handle_agents(args: argparse.Namespace, queue: AgentQueue) -> int:
     if args.agents_command == "demo-chain":

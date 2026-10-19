@@ -437,6 +437,22 @@ class AgentOrchestrationTests(unittest.TestCase):
 
 
 class SIWCContractTests(unittest.TestCase):
+    def test_models_catalog_request_is_timed_with_offline_fixture(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            client = SIWCClient(CredentialStore(Path(directory) / "tokens.bin"))
+            fixture = json.dumps({"models": [{
+                "slug": "gpt-6-luna", "display_name": "Luna", "visibility": "list",
+            }]}).encode("utf-8")
+            with patch.object(client, "_request", return_value=fixture) as request:
+                models = client.models()
+        request.assert_called_once_with("GET", f"{API_BASE}/models")
+        self.assertEqual(models[0]["slug"], "gpt-6-luna")
+        self.assertEqual(client.models_request_count, 1)
+        self.assertIsInstance(client.last_models_request_metrics, dict)
+        self.assertGreaterEqual(client.last_models_request_metrics["duration_ms"], 0)
+        self.assertIn("started_at", client.last_models_request_metrics)
+        self.assertIn("completed_at", client.last_models_request_metrics)
+
     def test_pkce_authorization_url_uses_openai_official_endpoints_and_no_api_key(self) -> None:
         attempt = create_authorization_attempt(
             client_id="dynamic_agent_client", host_id="urn:uuid:01234567-89ab-cdef-0123-456789abcdef",
@@ -682,7 +698,7 @@ class SIWCContractTests(unittest.TestCase):
                     idempotency_key=f"siwc-{suffix}", max_attempts=1,
                 )
                 task = queue.claim_next(task_id=task_id)
-                context = TaskExecutionContext(queue, task_id)
+                context = TaskExecutionContext(queue, task, lease_seconds=120)
                 with patch.object(client, "models", return_value=catalog), patch(
                     "motor_editorial.siwc.urllib.request.urlopen"
                 ) as urlopen:
@@ -734,7 +750,7 @@ class SIWCContractTests(unittest.TestCase):
                     idempotency_key=f"siwc-{suffix}", max_attempts=1,
                 )
                 task = queue.claim_next(task_id=task_id)
-                context = TaskExecutionContext(queue, task_id)
+                context = TaskExecutionContext(queue, task, lease_seconds=120)
                 with patch.object(client, "models", return_value=[
                     {"slug": "gpt-6-luna", "visibility": "list"},
                 ]), patch.object(client, "access_token", return_value="oauth-fixture-token"), patch(

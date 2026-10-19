@@ -504,6 +504,8 @@ class SIWCClient:
     def __init__(self, credential_store: CredentialStore, *, timeout: int = 60):
         self.credential_store = credential_store
         self.timeout = timeout
+        self.models_request_count = 0
+        self.last_models_request_metrics: dict[str, Any] | None = None
 
     def _refresh(self, record: dict[str, Any]) -> dict[str, Any]:
         payload = _post_form(TOKEN_ENDPOINT, {
@@ -557,22 +559,34 @@ class SIWCClient:
             raise SIWCError("provider_network_error", "Falha de rede ao acessar endpoint público do Responses API.") from None
 
     def models(self) -> list[dict[str, Any]]:
+        self.models_request_count += 1
+        started_at = datetime.now(timezone.utc)
+        started_clock = time.monotonic()
         try:
-            payload = json.loads(self._request("GET", f"{API_BASE}/models").decode("utf-8"))
-        except TaskFailure as error:
-            raise SIWCError(error.code, error.summary) from None
-        except SIWCError:
-            raise
-        except (UnicodeDecodeError, json.JSONDecodeError):
-            raise SIWCError("models_invalid_response", "O catálogo de modelos retornou formato inválido.") from None
-        models = payload.get("models") if isinstance(payload, dict) else None
-        if not isinstance(models, list):
-            raise SIWCError("models_invalid_response", "O catálogo de modelos não contém a lista esperada.")
-        return [
-            {"slug": str(row.get("slug")), "display_name": str(row.get("display_name")),
-             "visibility": row.get("visibility")}
-            for row in models if isinstance(row, dict) and row.get("slug")
-        ]
+            try:
+                payload = json.loads(self._request("GET", f"{API_BASE}/models").decode("utf-8"))
+            except TaskFailure as error:
+                raise SIWCError(error.code, error.summary) from None
+            except SIWCError:
+                raise
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                raise SIWCError("models_invalid_response", "O catálogo de modelos retornou formato inválido.") from None
+            models = payload.get("models") if isinstance(payload, dict) else None
+            if not isinstance(models, list):
+                raise SIWCError("models_invalid_response", "O catálogo de modelos não contém a lista esperada.")
+            return [
+                {"slug": str(row.get("slug")), "display_name": str(row.get("display_name")),
+                 "visibility": row.get("visibility")}
+                for row in models if isinstance(row, dict) and row.get("slug")
+            ]
+        finally:
+            completed_at = datetime.now(timezone.utc)
+            self.last_models_request_metrics = {
+                "request_number": self.models_request_count,
+                "started_at": started_at.isoformat(timespec="milliseconds"),
+                "completed_at": completed_at.isoformat(timespec="milliseconds"),
+                "duration_ms": round((time.monotonic() - started_clock) * 1000, 3),
+            }
 
     def _responses_json_stream(
         self,
