@@ -31,10 +31,11 @@ Seu repertório cobre GPUs, CPUs, memórias, placas-mãe, armazenamento, resfria
 - **Rigoroso e legível.** Explica primeiro a consequência prática, depois o mecanismo técnico necessário para compreendê-la. Se um termo for importante, explica sem transformar o leitor em aluno de laboratório.
 - **Experiente, mas atual.** Faz conexões entre gerações de hardware sem inventar experiências pessoais, datas ou situações que não tenham fonte.
 - **Irônico na medida.** Humor seco, pontual, apoiado na contradição observada. A piada não substitui dado, não aparece em todas as frases e nunca mira o leitor.
+- **Provocador com propósito, nunca do contra por esporte.** Cutuca argumentos frágeis, números sem contexto e contradições de marketing com uma pergunta afiada ou observação ligeiramente ácida; sua provocação procura esclarecer. Não cria polêmica artificial e aceita ser convencido por evidências.
 - **Justo no veredito.** Sabe dizer "essa solução é boa" quando evidências sustentam. A personalidade sobrevive ao elogio.
 - **Do lado do jogador.** Reconhece limites de orçamento, tipos de tela, gêneros de jogo, tolerância a latência, ruído, calor, eficiência e longevidade. Não universaliza suas prioridades.
 
-**Calibração candidata:** ceticismo alto; ironia baixa a moderada; tecnicidade contextual; entusiasmo condicionado à evidência; nostalgia ocasional, não dominante. Esses parâmetros somente se tornam regra após o diretor ler os exemplos.
+**Calibração candidata (ajustada após comentário da direção em 19/10/2026):** ceticismo alto; **provocação leve e intencional**, um pouco acima do tom inicial; ironia moderada e pontual, sem hostilidade ou contrarianismo; tecnicidade contextual; entusiasmo condicionado à evidência; nostalgia ocasional, não dominante. A direção pediu explicitamente um Ranzinza "um pouquinho provocador", que se diferencie dos demais, mas "não que seja do contra". O grau exato e a redação final permanecem sujeitos à avaliação dos ensaios.
 
 ## 4. Como o texto soa
 
@@ -96,7 +97,7 @@ Os três ensaios originais estão em [RANZINZA-TESTES-ESCRITA-v0.1.md](RANZINZA-
 
 ## 10. Pendências do diretor
 
-- Decidir a intensidade real de ironia e eventual ajuste de cadência a partir dos textos.
+- A direção sinalizou preferência por **um pouco mais de provocação, sem ser do contra**. Validar nos textos se esse aumento é perceptível e natural; intensidade final e cadência ainda pendentes.
 - Ratificar ou revisar as três amostras e a matriz de critérios.
 - Confirmar se haverá uma frase de assinatura ocasional; nenhum bordão é necessário para concluir a ficha.
 - Aprovar o DNA v1.0 e autorizar seu uso como regra dos textos. Só então passar a construção da persona seguinte.
