@@ -1,14 +1,12 @@
-# Motor Editorial v0.1
+# Motor Editorial v0.2
 
-Aplicativo local e offline para exercitar o fluxo editorial da Revista Gamer com dados totalmente fictícios. A v0.1 usa Python 3.11 ou superior e somente a biblioteca padrão: SQLite para estado, arquivos locais para prévias e uma interface HTML servida em `127.0.0.1`.
+Aplicativo local e offline para testar fluxos editoriais independentes e a composição de uma edição com várias matérias. Usa Python 3.11 ou superior e somente a biblioteca padrão: SQLite para estado, arquivos locais para prévias e painel HTML servido exclusivamente em `127.0.0.1`.
 
-O motor não coleta notícias, não chama modelos de IA, não acessa serviços externos e não contém função de publicação. Os nomes de jogos, veículos, fontes e ativos da fixture são inventados para teste.
+Todos os jogos, fontes, acontecimentos e ativos das fixtures são fictícios. O motor não consulta notícias, não chama modelos de IA, não acessa serviços externos e não oferece rota ou comando de publicação.
 
-## Executar
+## Executar no Windows 11
 
-Abra um terminal na pasta raiz do repositório. Não é necessário instalar pacotes com `pip`.
-
-No Windows 11 com Python 3.11+:
+Na raiz do repositório, com Python 3.11 instalado:
 
 ```powershell
 py -3.11 -m motor_editorial init
@@ -18,60 +16,47 @@ py -3.11 -m motor_editorial status
 py -3.11 -m motor_editorial web
 ```
 
-No Debian 12 com Python 3.11+:
+A primeira execução multipauta cria três pautas independentes: Orbit Racers chega à checagem de mídia; Garden of Echoes fica bloqueada pela segunda revisão; Clockwork Harbor registra uma falha transitória de apuração. A segunda execução retoma somente as etapas pendentes, sem repetir importação ou etapas concluídas. A edição permanece bloqueada até uma pessoa excluir explicitamente a pauta reprovada, com responsável, motivo e confirmação exata:
 
-```sh
-python3 -m motor_editorial init
-python3 -m motor_editorial demo
-python3 -m motor_editorial demo
-python3 -m motor_editorial status
-python3 -m motor_editorial web
+```powershell
+py -3.11 -m motor_editorial exclude <edition_id> <story_id>
 ```
 
-A primeira execução de `demo` registra uma falha transitória fictícia na apuração e termina em `recoverable_failure`. Execute o mesmo comando novamente para retomar; o resultado esperado é `awaiting_approval`, com uma prévia interna e uma única edição. Abrir `web` mostra o painel em `http://127.0.0.1:8765/`. Para escolher outra porta local, use `web --port 8766`.
+Depois da exclusão humana, a prévia interna reúne as duas matérias elegíveis na ordem persistida. Para revisar e registrar aprovação somente interna:
 
-O painel permite consultar os itens e estados, abrir o histórico de uma pauta, revisar as duas versões e a prévia, e executar ou retomar a fixture. A aprovação interna só é aceita depois da prévia, com o nome do responsável e a frase de confirmação explícita. O CLI também aceita aprovação interativa:
-
-```sh
-python3 -m motor_editorial approve edition-demo-motor-v0.1
+```powershell
+py -3.11 -m motor_editorial approve <edition_id>
 ```
 
-No PowerShell, substitua `python3` por `py -3.11`. Aprovar apenas registra uma decisão interna; nenhum conteúdo é enviado ou publicado.
+`status` mostra execuções, estados das pautas, composição e associações ordenadas. Para retomar uma pauta isolada, use os identificadores exibidos por `status`:
 
-Por padrão, o banco `motor.sqlite3` e os arquivos de execução ficam em `motor_editorial/runtime/`, ignorado pelo Git. Para repetir desde o início, passe uma nova pasta a `--data-dir`, por exemplo:
-
-```sh
-python3 -m motor_editorial --data-dir /tmp/revista-gamer-demo init
-python3 -m motor_editorial --data-dir /tmp/revista-gamer-demo demo
+```powershell
+py -3.11 -m motor_editorial run-story <run_id> <story_id>
 ```
 
-Em PowerShell, use `--data-dir "$env:TEMP\revista-gamer-demo"`.
+O painel local abre em `http://127.0.0.1:8765/`. Ele oferece execução em lote, retomada individual de falha transitória, detalhes de fontes e revisão, direitos por matéria, exclusão humana auditada e prévia multipauta. Antes de servir uma prévia, revalida a composição e os direitos; se algo mudar após uma aprovação, invalida essa aprovação, atualiza a prévia e aguarda nova confirmação humana. Não existe publicação.
 
-## Testar
+## Compatibilidade v0.1
 
-Na raiz do repositório:
+`demo-v1` executa a fixture original de uma pauta e mantém as garantias cobertas pelos 11 testes da v0.1, inclusive a rejeição anterior à gravação quando a fixture contém mais de uma pauta selecionável. A nova fixture está em `fixtures/demo-multipauta.json`; a antiga permanece em `fixtures/demo.json`.
 
-```sh
-python3 -m unittest discover -s motor_editorial/tests -v
+O SQLite usa o esquema v3. A abertura de bancos v1/v2 aplica migrações aditivas e mantém os registros e associações existentes.
+
+## Dados e diretório
+
+Por padrão, `motor_editorial/runtime/` guarda `motor.sqlite3` e artefatos locais e é ignorado pelo Git. Para usar uma pasta isolada:
+
+```powershell
+py -3.11 -m motor_editorial --data-dir "$env:TEMP\revista-gamer-demo-v02" init
+py -3.11 -m motor_editorial --data-dir "$env:TEMP\revista-gamer-demo-v02" demo
 ```
 
-No Windows, use `py -3.11` no lugar de `python3`. Os testes usam bancos e arquivos temporários, verificam a simulação sem sockets de rede e iniciam o painel apenas em loopback para validar suas rotas e a aprovação interna.
+Os IDs de pautas, itens e edições incluem o identificador da execução para evitar colisão entre execuções independentes. Tentativas de etapa, revisões, fontes, direitos, decisões de exclusão e aprovações ficam no SQLite com trilha de auditoria.
 
-## Modelo de dados e fluxo
+## Testes
 
-O banco local registra fontes e itens normalizados, pauta e vínculos, pacote de apuração, versões de matéria, resultados de revisão, ativos e decisões de direitos, edição e composição, tentativas de execução e eventos de auditoria. As chaves estrangeiras e restrições SQLite protegem as relações e estados permitidos.
+```powershell
+py -3.11 -m unittest discover -s motor_editorial/tests -v
+```
 
-O fluxo de demonstração exercita normalização e deduplicação, triagem, apuração, rascunho, revisão reprovada, nova versão, segunda revisão aprovada, verificação de direitos, montagem da prévia e espera por decisão humana. A revisão encontra uma afirmação fictícia sem fonte; a correção cria uma nova versão. A mídia só entra quando a permissão está `permitido` **e** cobre a modalidade `editorial_preview`. Permissão ou modalidade incompatível gera placeholder para item obrigatório e omissão auditável para item opcional. A política é conferida antes de escrever a prévia e novamente na aprovação; se uma permissão mudar, o HTML local é atualizado, a tentativa de aprovação é recusada e uma nova revisão humana é exigida. Falhas transitórias têm tentativas contadas e limite finito; se a segunda versão continuar reprovada, a pauta fica bloqueada e a execução termina em intervenção humana auditada, sem novas correções automáticas.
-
-A v0.1 monta uma pauta por edição. Uma fixture que selecionaria mais de uma pauta é rejeitada antes de criar registros, para evitar uma edição incompleta. O SQLite inicia no esquema v2 e migra automaticamente bancos v1, acrescentando o indicador de mídia obrigatória.
-
-As referências principais de implementação estão nos módulos `db`, `domain`, `workflow`, `render`, `web` e `cli`. A simulação usa adaptadores determinísticos e fixture versionada; não existe mecanismo de publicação.
-
-## Limitações conhecidas
-
-- O painel é local e não tem autenticação de usuário. A confirmação explícita reduz aprovações acidentais, mas não substitui controles de acesso do sistema operacional em um computador compartilhado.
-- A v0.1 suporta um operador/processo local e uma fixture de demonstração estável com uma pauta selecionável. Ainda não implementa edição concorrente, fila distribuída, agendamento, ingestão real ou backup automatizado.
-- O histórico é append-only pelo fluxo do aplicativo; acesso direto ao arquivo SQLite pelo operador pode alterar dados.
-- A aprovação grava o estado de aprovação interna no SQLite e mantém a prévia local. Isso não é aprovação de direitos, autorização comercial nem publicação.
-
-Consulte `docs/engenharia/RELATORIO-IMPLANTACAO-MOTOR-V0.1.md` para o resumo de entrega e validação.
+Os testes usam diretórios temporários. Cobrem os 11 contratos herdados da v0.1, isolamento e retomada, idempotência sob chamadas concorrentes, migração v2, ordem da edição, revisão vigente, direitos por matéria, confirmação humana, rotas locais e ausência de publicação.
