@@ -7,7 +7,7 @@ import re
 import threading
 import uuid
 from contextlib import closing
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Mapping, Protocol
 
@@ -56,6 +56,8 @@ class AgentTask:
     created_at: str
     available_at: str
     external_request_started: bool
+    lease_owner: str | None = field(default=None, repr=False, compare=False)
+    lease_generation: int = 0
     schedule_id: str | None = None
     result: dict[str, Any] | None = None
 
@@ -76,6 +78,8 @@ class AgentTask:
             created_at=row["created_at"],
             available_at=row["available_at"],
             external_request_started=bool(row["external_request_started"]),
+            lease_owner=row["lease_owner"],
+            lease_generation=row["lease_generation"],
             schedule_id=row["schedule_id"],
             result=json.loads(row["result_json"]) if row["result_json"] else None,
         )
@@ -103,6 +107,10 @@ class TaskFailure(Exception):
         self.retry_after_seconds = max(1, retry_after_seconds)
 
 
+class LeaseOwnershipLost(RuntimeError):
+    """Raised when a worker attempts to act outside its current lease fence."""
+
+
 def _as_utc(value: datetime | str | None = None) -> datetime:
     if value is None:
         return datetime.now(timezone.utc)
@@ -114,6 +122,11 @@ def _as_utc(value: datetime | str | None = None) -> datetime:
 
 def _iso(value: datetime | str | None = None) -> str:
     return _as_utc(value).isoformat(timespec="seconds")
+
+
+def _lease_iso(value: datetime | str | None = None) -> str:
+    """Use sub-second precision so short leases can be heartbeated safely."""
+    return _as_utc(value).isoformat(timespec="microseconds")
 
 
 _SENSITIVE_FIELD_NAMES = {
@@ -266,10 +279,26 @@ class AgentQueue:
                 summary = "Lease expirou antes de chamada externa; tarefa retomável."
             connection.execute(
                 """UPDATE agent_tasks SET state = ?, available_at = ?, lease_until = NULL,
-                   error_code = ?, error_summary = ? WHERE id = ? AND state = 'running'""",
-                (state, now, action, summary, row["id"]),
+                   lease_owner = NULL, error_code = ?, error_summary = ?
+                   WHERE id = ? AND state = 'running' AND lease_generation = ?""",
+                (state, now, action, summary, row["id"], row["lease_generation"]),
             )
-            self._event(connection, row["id"], action, row["attempts"], {"state": state})
+            self._event(connection, row["id"], action, row["attempts"], {
+                "state": state, "lease_generation": row["lease_generation"],
+            })
+
+    @staticmethod
+    def _owns_lease(row: Any, lease_owner: str | None, lease_generation: int,
+                    now: str) -> bool:
+        return bool(
+            row is not None
+            and row["state"] == "running"
+            and lease_owner
+            and row["lease_owner"] == lease_owner
+            and row["lease_generation"] == lease_generation
+            and row["lease_until"] is not None
+            and row["lease_until"] > now
+        )
 
     def claim_next(
         self,
@@ -281,8 +310,8 @@ class AgentQueue:
         if lease_seconds < 1:
             raise ValueError("O lease precisa ser positivo.")
         instant = _as_utc(now)
-        now_iso = _iso(instant)
-        lease_until = _iso(instant + timedelta(seconds=lease_seconds))
+        now_iso = _lease_iso(instant)
+        lease_until = _lease_iso(instant + timedelta(seconds=lease_seconds))
         with self.store.transaction() as connection:
             self._recover_expired(connection, now_iso)
             if task_id:
@@ -302,61 +331,143 @@ class AgentQueue:
             if row is None:
                 return None
             attempts = row["attempts"] + 1
+            lease_owner = str(uuid.uuid4())
+            lease_generation = row["lease_generation"] + 1
             connection.execute(
                 """UPDATE agent_tasks SET state = 'running', attempts = ?,
-                   started_at = ?, lease_until = ?, external_request_started = 0,
+                   started_at = ?, lease_until = ?, lease_owner = ?,
+                   lease_generation = ?, external_request_started = 0,
                    error_code = NULL, error_summary = NULL
                    WHERE id = ? AND state IN ('queued', 'retry_wait')""",
-                (attempts, now_iso, lease_until, row["id"]),
+                (attempts, _iso(instant), lease_until, lease_owner,
+                 lease_generation, row["id"]),
             )
             self._event(connection, row["id"], "claimed", attempts, {
                 "lease_until": lease_until,
+                "lease_generation": lease_generation,
             })
             refreshed = connection.execute(
                 "SELECT * FROM agent_tasks WHERE id = ?", (row["id"],)
             ).fetchone()
             return AgentTask.from_row(refreshed)
 
-    def mark_external_started(self, task_id: str) -> None:
+    def renew_lease(
+        self,
+        task_id: str,
+        lease_owner: str,
+        lease_generation: int,
+        *,
+        lease_seconds: int,
+        now: datetime | str | None = None,
+    ) -> bool:
+        if lease_seconds < 1:
+            raise ValueError("O lease precisa ser positivo.")
+        instant = _as_utc(now)
+        now_iso = _lease_iso(instant)
+        lease_until = _lease_iso(instant + timedelta(seconds=lease_seconds))
         with self.store.transaction() as connection:
+            self._recover_expired(connection, now_iso)
             row = connection.execute(
                 "SELECT * FROM agent_tasks WHERE id = ?", (task_id,)
             ).fetchone()
-            if row is None or row["state"] != "running":
-                raise ValueError("A tarefa não está em execução.")
-            connection.execute(
-                "UPDATE agent_tasks SET external_request_started = 1 WHERE id = ?",
-                (task_id,),
+            if not self._owns_lease(row, lease_owner, lease_generation, now_iso):
+                return False
+            updated = connection.execute(
+                """UPDATE agent_tasks SET lease_until = ?
+                   WHERE id = ? AND state = 'running' AND lease_owner = ?
+                     AND lease_generation = ? AND lease_until > ?""",
+                (lease_until, task_id, lease_owner, lease_generation, now_iso),
             )
-            self._event(connection, task_id, "external_request_started", row["attempts"])
+            if updated.rowcount != 1:
+                return False
+            self._event(connection, task_id, "lease_renewed", row["attempts"], {
+                "lease_until": lease_until,
+                "lease_generation": lease_generation,
+            })
+            return True
 
-    def complete(self, task_id: str, result: Mapping[str, Any]) -> None:
+    def mark_external_started(
+        self,
+        task_id: str,
+        lease_owner: str,
+        lease_generation: int,
+        *,
+        now: datetime | str | None = None,
+    ) -> bool:
+        now_iso = _lease_iso(now)
+        with self.store.transaction() as connection:
+            self._recover_expired(connection, now_iso)
+            row = connection.execute(
+                "SELECT * FROM agent_tasks WHERE id = ?", (task_id,)
+            ).fetchone()
+            if not self._owns_lease(row, lease_owner, lease_generation, now_iso):
+                return False
+            updated = connection.execute(
+                """UPDATE agent_tasks SET external_request_started = 1
+                   WHERE id = ? AND state = 'running' AND lease_owner = ?
+                     AND lease_generation = ? AND lease_until > ?""",
+                (task_id, lease_owner, lease_generation, now_iso),
+            )
+            if updated.rowcount != 1:
+                return False
+            self._event(connection, task_id, "external_request_started", row["attempts"], {
+                "lease_generation": lease_generation,
+            })
+            return True
+
+    def complete(
+        self,
+        task_id: str,
+        lease_owner: str,
+        lease_generation: int,
+        result: Mapping[str, Any],
+        *,
+        now: datetime | str | None = None,
+    ) -> bool:
         _assert_no_credentials(result, "result")
         encoded = json_dumps(dict(result))
         if len(encoded.encode("utf-8")) > 1_000_000:
             raise ValueError("Resultado excede o limite local de 1 MB.")
+        now_iso = _lease_iso(now)
         with self.store.transaction() as connection:
+            self._recover_expired(connection, now_iso)
             row = connection.execute(
                 "SELECT * FROM agent_tasks WHERE id = ?", (task_id,)
             ).fetchone()
-            if row is None or row["state"] != "running":
-                raise ValueError("A tarefa não está em execução.")
-            connection.execute(
+            if not self._owns_lease(row, lease_owner, lease_generation, now_iso):
+                return False
+            updated = connection.execute(
                 """UPDATE agent_tasks SET state = 'succeeded', result_json = ?,
-                   completed_at = ?, lease_until = NULL WHERE id = ?""",
-                (encoded, utc_now(), task_id),
+                   completed_at = ?, lease_until = NULL, lease_owner = NULL
+                   WHERE id = ? AND state = 'running' AND lease_owner = ?
+                     AND lease_generation = ? AND lease_until > ?""",
+                (encoded, _iso(now), task_id, lease_owner, lease_generation, now_iso),
             )
+            if updated.rowcount != 1:
+                return False
             self._event(connection, task_id, "succeeded", row["attempts"], {
                 "result_sha256": stable_hash(encoded),
+                "lease_generation": lease_generation,
             })
+            return True
 
-    def fail(self, task_id: str, failure: TaskFailure) -> str:
+    def fail(
+        self,
+        task_id: str,
+        lease_owner: str,
+        lease_generation: int,
+        failure: TaskFailure,
+        *,
+        now: datetime | str | None = None,
+    ) -> str | None:
+        now_iso = _lease_iso(now)
         with self.store.transaction() as connection:
+            self._recover_expired(connection, now_iso)
             row = connection.execute(
                 "SELECT * FROM agent_tasks WHERE id = ?", (task_id,)
             ).fetchone()
-            if row is None or row["state"] != "running":
-                raise ValueError("A tarefa não está em execução.")
+            if not self._owns_lease(row, lease_owner, lease_generation, now_iso):
+                return None
             if failure.blocked:
                 state = "blocked"
                 available_at = row["available_at"]
@@ -366,23 +477,38 @@ class AgentQueue:
             elif failure.retryable and row["attempts"] < row["max_attempts"]:
                 state = "retry_wait"
                 available_at = _iso(
-                    datetime.now(timezone.utc)
+                    _as_utc(now)
                     + timedelta(seconds=failure.retry_after_seconds)
                 )
             else:
                 state = "failed"
                 available_at = row["available_at"]
-            connection.execute(
+            updated = connection.execute(
                 """UPDATE agent_tasks SET state = ?, available_at = ?, lease_until = NULL,
-                   error_code = ?, error_summary = ? WHERE id = ?""",
-                (state, available_at, failure.code, failure.summary, task_id),
+                   lease_owner = NULL, error_code = ?, error_summary = ?
+                   WHERE id = ? AND state = 'running' AND lease_owner = ?
+                     AND lease_generation = ? AND lease_until > ?""",
+                (state, available_at, failure.code, failure.summary, task_id,
+                 lease_owner, lease_generation, now_iso),
             )
+            if updated.rowcount != 1:
+                return None
             self._event(connection, task_id, state, row["attempts"], {
                 "error_code": failure.code,
                 "retryable": failure.retryable,
                 "uncertain": failure.uncertain,
+                "lease_generation": lease_generation,
             })
             return state
+
+    def reconcile_expired(self, task_id: str, *, now: datetime | str | None = None) -> str:
+        now_iso = _lease_iso(now)
+        with self.store.transaction() as connection:
+            self._recover_expired(connection, now_iso)
+            row = connection.execute(
+                "SELECT state FROM agent_tasks WHERE id = ?", (task_id,)
+            ).fetchone()
+            return row["state"] if row else "missing"
 
     def get(self, task_id: str) -> AgentTask | None:
         with closing(self.store.connect()) as connection:
@@ -566,13 +692,60 @@ class DispatchOutcome:
 
 
 class TaskExecutionContext:
-    def __init__(self, queue: AgentQueue, task_id: str):
+    def __init__(self, queue: AgentQueue, task: AgentTask, lease_seconds: int):
+        if not task.lease_owner:
+            raise ValueError("Contexto exige uma tarefa reclamada com proprietário.")
         self._queue = queue
-        self.task_id = task_id
+        self.task_id = task.task_id
+        self._lease_owner = task.lease_owner
+        self._lease_generation = task.lease_generation
+        self._lease_seconds = max(1, lease_seconds)
         self.external_request_started = False
+        self._heartbeat_stop = threading.Event()
+        self._ownership_lost = threading.Event()
+        self._heartbeat_thread: threading.Thread | None = None
+
+    def start_heartbeat(self) -> None:
+        interval = max(0.05, min(self._lease_seconds / 3, 30.0))
+
+        def heartbeat() -> None:
+            while not self._heartbeat_stop.wait(interval):
+                try:
+                    renewed = self._queue.renew_lease(
+                        self.task_id,
+                        self._lease_owner,
+                        self._lease_generation,
+                        lease_seconds=self._lease_seconds,
+                    )
+                except Exception:
+                    # Fail closed. The dispatcher will reconcile from durable state.
+                    self._ownership_lost.set()
+                    return
+                if not renewed:
+                    self._ownership_lost.set()
+                    return
+
+        self._heartbeat_thread = threading.Thread(
+            target=heartbeat, name=f"task-lease-{self.task_id[:8]}", daemon=True
+        )
+        self._heartbeat_thread.start()
+
+    def stop_heartbeat(self) -> None:
+        self._heartbeat_stop.set()
+        if self._heartbeat_thread is not None:
+            self._heartbeat_thread.join(timeout=5)
+
+    def assert_lease_owned(self) -> None:
+        if self._ownership_lost.is_set():
+            raise LeaseOwnershipLost("Worker perdeu a propriedade da tarefa.")
 
     def mark_external_started(self) -> None:
-        self._queue.mark_external_started(self.task_id)
+        self.assert_lease_owned()
+        if not self._queue.mark_external_started(
+            self.task_id, self._lease_owner, self._lease_generation
+        ):
+            self._ownership_lost.set()
+            raise LeaseOwnershipLost("Worker perdeu a propriedade antes da chamada externa.")
         self.external_request_started = True
 
 
@@ -612,36 +785,62 @@ class TaskDispatcher:
         )
         if task is None:
             return DispatchOutcome(task_id, "idle")
+
+        def report_failure(failure: TaskFailure) -> DispatchOutcome:
+            state = self.queue.fail(
+                task.task_id, task.lease_owner, task.lease_generation, failure
+            )
+            if state is None:
+                return DispatchOutcome(
+                    task.task_id, self.queue.reconcile_expired(task.task_id), "lease_lost"
+                )
+            return DispatchOutcome(task.task_id, state, failure.code)
+
         executor = self.executors.get(task.executor_id)
         profile = self.profiles.get((task.profile_id, task.profile_version))
         if executor is None:
             failure = TaskFailure(
                 "executor_unavailable", "Executor configurado não está disponível.", blocked=True
             )
-            return DispatchOutcome(task.task_id, self.queue.fail(task.task_id, failure), failure.code)
+            return report_failure(failure)
         if profile is None or profile.content_hash != task.profile_hash:
             failure = TaskFailure(
                 "profile_unavailable", "Perfil versionado da tarefa não está disponível ou mudou.",
                 blocked=True,
             )
-            return DispatchOutcome(task.task_id, self.queue.fail(task.task_id, failure), failure.code)
-        context = TaskExecutionContext(self.queue, task.task_id)
+            return report_failure(failure)
+        context = TaskExecutionContext(self.queue, task, self.lease_seconds)
         try:
-            result = executor.execute(task, profile, context)
+            context.start_heartbeat()
+            try:
+                result = executor.execute(task, profile, context)
+            finally:
+                context.stop_heartbeat()
+            context.assert_lease_owned()
             if not isinstance(result, Mapping):
                 raise TaskFailure("invalid_result", "Executor não retornou um objeto estruturado.")
-            self.queue.complete(task.task_id, result)
+            completed = self.queue.complete(
+                task.task_id, task.lease_owner, task.lease_generation, result
+            )
+            if not completed:
+                return DispatchOutcome(
+                    task.task_id, self.queue.reconcile_expired(task.task_id), "lease_lost"
+                )
             return DispatchOutcome(task.task_id, "succeeded")
+        except LeaseOwnershipLost:
+            return DispatchOutcome(
+                task.task_id, self.queue.reconcile_expired(task.task_id), "lease_lost"
+            )
         except TaskFailure as failure:
-            state = self.queue.fail(task.task_id, failure)
-            return DispatchOutcome(task.task_id, state, failure.code)
+            return report_failure(failure)
         except Exception as error:  # Persist class only: exception text could contain credentials.
             failure = TaskFailure(
                 "executor_exception", f"Falha não classificada do executor ({type(error).__name__}).",
                 uncertain=context.external_request_started,
             )
-            state = self.queue.fail(task.task_id, failure)
-            return DispatchOutcome(task.task_id, state, failure.code)
+            return report_failure(failure)
+        finally:
+            context.stop_heartbeat()
 
 
 class SimulatedExecutor:

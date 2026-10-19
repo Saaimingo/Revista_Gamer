@@ -2,16 +2,16 @@
 
 - **Setor responsável:** Engenharia e Codex
 - **Identificador:** ENG-CODEX-003-REL
-- **Versão do documento:** 1.0
-- **Status:** implementação e prova SIWC local validadas; elegibilidade de hospedagem privada/remota não confirmada
+- **Versão do documento:** 1.1
+- **Status:** implementação, prova SIWC local histórica e correção C-001 com validação offline; elegibilidade de hospedagem privada/remota não confirmada
 - **Data:** 2026-10-19
 - **Branch:** `codex/motor-editorial-orquestracao-agentes-plus`
 - **Base:** `main` em `d9fbb6e`; PR #6 integrado em `794e9fcc20f5944031370bd7ddb93f8b323d9528`
-- **PR desta etapa:** [#8 — CODEX-003: orquestração durável e integração SIWC](https://github.com/Saaimingo/Revista_Gamer/pull/8), aberto como draft; sem merge
+- **PR desta etapa:** [#8 — CODEX-003: orquestração durável e integração SIWC](https://github.com/Saaimingo/Revista_Gamer/pull/8), aberto; sem merge
 
 ## Resultado implementado
 
-- Esquema SQLite v4 aditivo com `agent_tasks`, `agent_task_events` e `agent_schedules`.
+- Esquema SQLite v5 aditivo com `agent_tasks`, `agent_task_events`, `agent_schedules` e migração v4 para a propriedade de lease.
 - Fila com chave idempotente, tentativas limitadas, disponibilidade/backoff, leases, resultado estruturado e estados `queued`, `running`, `retry_wait`, `succeeded`, `failed`, `blocked`, `uncertain` e `cancelled`.
 - Recuperação após reinício: lease expirado antes de chamada externa volta à fila; lease expirado depois do início de chamada vira `uncertain`, sem retry automático.
 - Dispatcher usa executores registrados por ID e perfil imutável por ID, versão e hash.
@@ -21,6 +21,16 @@
 - Executor Responses limitado à prova técnica `siwc.integration_probe`; não aceita artigo, pesquisa, ferramentas hosted ou tarefa editorial.
 - Credential store no Windows usa DPAPI; Linux usa diretório privado e arquivo modo `0600`. Nenhum token, código OAuth, email ou texto integral de inferência é gravado nos logs de eventos.
 - Unidade systemd de exemplo para Debian 12; não instalada, habilitada ou executada nesta máquina.
+
+## Correção C-001 da Issue #11 — lease com ownership e fencing
+
+**Causa:** o lease inicial de 120 segundos não cobria a inferência `fact_check` observada em 166,407 segundos. Um segundo worker podia recuperar a tarefa ainda ativa; as operações `complete`, `fail` e `mark_external_started` verificavam apenas `state='running'`, sem provar quem era o proprietário.
+
+**Correção no PR #8:** o esquema v5 persiste `lease_owner` (UUID interno, não exposto em eventos/representação) e `lease_generation`. Cada claim incrementa a geração. `renew_lease`, marcação de chamada externa, conclusão e falha verificam estado, token, geração e validade temporal dentro de transações SQLite `BEGIN IMMEDIATE`. O dispatcher mantém heartbeat durante a execução síncrona, usando timestamps de microssegundos para não perder renovações de leases curtos. Um proprietário antigo não consegue alterar uma tarefa recuperada. Leases vencidos sem chamada externa podem ser retomados; após início externo, a recuperação é `uncertain` e nunca faz replay automático.
+
+**Prova offline:** testes determinísticos com relógio controlado cobrem renovação para além do TTL enquanto um segundo worker tenta claim, conclusão íntegra por A, recuperação retomável antes de chamada externa, estado `uncertain` após chamada externa sem resultado, fencing do proprietário antigo, migração v4→v5 e token ausente de eventos/representação. Um teste concorrente mantém um executor simulado ativo além do TTL enquanto o heartbeat renova a posse. Esses testes não fazem chamadas SIWC.
+
+**Resultado desta correção em Windows:** a suíte completa `motor_editorial/tests` passou **50/50** em Python 3.11. `compileall` terminou sem erro e `git diff --check` não encontrou problemas. A prova SIWC real descrita acima é histórica e não foi repetida; os testes SIWC desta suíte usam respostas/servidores de fixture.
 
 ## Elegibilidade e autorização SIWC
 

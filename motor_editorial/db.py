@@ -15,7 +15,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from .domain import InvalidApproval, InvalidTransition, STORY_TRANSITIONS
 
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 
 def utc_now() -> str:
@@ -293,6 +293,9 @@ class Store:
                     created_at TEXT NOT NULL,
                     available_at TEXT NOT NULL,
                     lease_until TEXT,
+                    lease_owner TEXT,
+                    lease_generation INTEGER NOT NULL DEFAULT 0
+                        CHECK (lease_generation >= 0),
                     started_at TEXT,
                     completed_at TEXT,
                     external_request_started INTEGER NOT NULL DEFAULT 0
@@ -347,6 +350,21 @@ class Store:
                     f"(v{SCHEMA_VERSION})."
                 )
             if version < SCHEMA_VERSION:
+                task_columns = {
+                    row["name"]
+                    for row in connection.execute(
+                        "PRAGMA table_info(agent_tasks)"
+                    ).fetchall()
+                }
+                if "lease_owner" not in task_columns:
+                    connection.execute(
+                        "ALTER TABLE agent_tasks ADD COLUMN lease_owner TEXT"
+                    )
+                if "lease_generation" not in task_columns:
+                    connection.execute(
+                        """ALTER TABLE agent_tasks ADD COLUMN lease_generation INTEGER
+                           NOT NULL DEFAULT 0 CHECK (lease_generation >= 0)"""
+                    )
                 columns = {
                     row["name"]
                     for row in connection.execute(

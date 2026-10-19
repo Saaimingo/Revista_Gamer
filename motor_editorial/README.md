@@ -74,6 +74,8 @@ py -3.11 -m motor_editorial agents list
 
 O perfil `internal-validation-chronicler@1.0.0` é somente uma fixture técnica. Ele não representa persona pública nem conteúdo editorial. Falhas recuperáveis aguardam backoff; lease vencido antes de iniciar uma chamada pode ser retomado; lease vencido depois do início de chamada externa vira `uncertain` e não é repetido automaticamente.
 
+O lease tem proprietário interno e geração de fencing persistidos no esquema SQLite v5. O dispatcher envia heartbeat enquanto o executor síncrono está ativo; apenas o proprietário atual, com lease válido, pode marcar a chamada externa, renovar, concluir ou falhar a tarefa. O token de propriedade não é incluído em eventos nem na representação da tarefa. Se o heartbeat deixa de confirmar ownership, o dispatcher interrompe as mutações finais e reconcilia o estado durável. A renovação não torna seguro repetir uma chamada externa ambígua: nesses casos a tarefa permanece `uncertain`.
+
 Agendas usam intervalo em segundos e política de atraso `skip` ou `run_once`. O fuso é guardado como metadado e os instantes são UTC; não há sintaxe cron nesta etapa. Uma agenda nova fica desativada:
 
 ```powershell

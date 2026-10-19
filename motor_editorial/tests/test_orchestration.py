@@ -7,8 +7,10 @@ import base64
 import hashlib
 import io
 import os
+import sqlite3
 import tempfile
 import threading
+import time
 import unittest
 from argparse import Namespace
 from contextlib import closing
@@ -85,8 +87,8 @@ class AgentOrchestrationTests(unittest.TestCase):
             available_at=available_at, **options,
         )
 
-    def test_schema_v4_adds_queue_scheduler_and_event_tables(self) -> None:
-        self.assertEqual(SCHEMA_VERSION, 4)
+    def test_schema_v5_adds_fenced_queue_scheduler_and_event_tables(self) -> None:
+        self.assertEqual(SCHEMA_VERSION, 5)
         with closing(self.store.connect()) as connection:
             version = connection.execute("PRAGMA user_version").fetchone()[0]
             tables = {
@@ -94,8 +96,41 @@ class AgentOrchestrationTests(unittest.TestCase):
                     "SELECT name FROM sqlite_master WHERE type = 'table'"
                 ).fetchall()
             }
-        self.assertEqual(version, 4)
+        self.assertEqual(version, 5)
+        with closing(self.store.connect()) as connection:
+            task_columns = {
+                row["name"] for row in connection.execute(
+                    "PRAGMA table_info(agent_tasks)"
+                ).fetchall()
+            }
         self.assertTrue({"agent_tasks", "agent_task_events", "agent_schedules"}.issubset(tables))
+        self.assertTrue({"lease_owner", "lease_generation"}.issubset(task_columns))
+
+    def test_v4_database_is_migrated_with_lease_fence_columns(self) -> None:
+        legacy_path = self.root / "schema-v4.sqlite3"
+        with closing(sqlite3.connect(legacy_path)) as connection:
+            connection.execute("""CREATE TABLE agent_tasks (
+                id TEXT PRIMARY KEY, task_type TEXT NOT NULL, payload_json TEXT NOT NULL,
+                profile_id TEXT NOT NULL, profile_version TEXT NOT NULL,
+                profile_hash TEXT NOT NULL, executor_id TEXT NOT NULL, state TEXT NOT NULL,
+                idempotency_key TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0,
+                max_attempts INTEGER NOT NULL DEFAULT 3, created_at TEXT NOT NULL,
+                available_at TEXT NOT NULL, lease_until TEXT, started_at TEXT,
+                completed_at TEXT, external_request_started INTEGER NOT NULL DEFAULT 0,
+                error_code TEXT, error_summary TEXT, result_json TEXT, schedule_id TEXT
+            )""")
+            connection.execute("PRAGMA user_version = 4")
+            connection.commit()
+        migrated = Store(legacy_path, self.root / "schema-v4-artifacts")
+        with closing(migrated.connect()) as connection:
+            version = connection.execute("PRAGMA user_version").fetchone()[0]
+            columns = {
+                row["name"] for row in connection.execute(
+                    "PRAGMA table_info(agent_tasks)"
+                ).fetchall()
+            }
+        self.assertEqual(version, 5)
+        self.assertTrue({"lease_owner", "lease_generation"}.issubset(columns))
 
     def test_simulated_chain_runs_rejection_correction_and_approval_without_network(self) -> None:
         with patch("socket.socket", side_effect=AssertionError("simulated chain attempted network I/O")):
@@ -212,6 +247,101 @@ class AgentOrchestrationTests(unittest.TestCase):
         self.assertEqual(resumed.attempts, 2)
         self.assertEqual(self.queue.events(task_id)[-2]["action"], "lease_expired_requeued")
 
+    def test_owner_renews_past_ttl_while_second_worker_cannot_claim(self) -> None:
+        start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        task_id = self.enqueue(key="lease-renewed", available_at=start)
+        owner_a = self.queue.claim_next(task_id=task_id, lease_seconds=5, now=start)
+        self.assertTrue(self.queue.renew_lease(
+            task_id, owner_a.lease_owner, owner_a.lease_generation,
+            lease_seconds=5, now=start + timedelta(seconds=4),
+        ))
+
+        owner_b = self.queue.claim_next(
+            task_id=task_id, lease_seconds=5, now=start + timedelta(seconds=6)
+        )
+        self.assertIsNone(owner_b)
+        self.assertEqual(self.queue.get(task_id).state, "running")
+        self.assertTrue(self.queue.complete(
+            task_id, owner_a.lease_owner, owner_a.lease_generation, {"owner": "A"},
+            now=start + timedelta(seconds=8),
+        ))
+        completed = self.queue.get(task_id)
+        self.assertEqual(completed.state, "succeeded")
+        self.assertEqual(completed.result, {"owner": "A"})
+        self.assertEqual(completed.lease_owner, None)
+        self.assertEqual(completed.lease_generation, 1)
+        event_dump = json.dumps(self.queue.events(task_id), ensure_ascii=False)
+        self.assertNotIn(owner_a.lease_owner, event_dump)
+        self.assertNotIn(owner_a.lease_owner, repr(owner_a))
+
+    def test_stale_owner_cannot_complete_fail_or_mark_reclaimed_task(self) -> None:
+        start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        task_id = self.enqueue(key="lease-fenced", available_at=start)
+        owner_a = self.queue.claim_next(task_id=task_id, lease_seconds=3, now=start)
+        owner_b = self.queue.claim_next(
+            task_id=task_id, lease_seconds=10, now=start + timedelta(seconds=4)
+        )
+        self.assertEqual(owner_b.lease_generation, owner_a.lease_generation + 1)
+        self.assertNotEqual(owner_b.lease_owner, owner_a.lease_owner)
+        self.assertFalse(self.queue.renew_lease(
+            task_id, owner_a.lease_owner, owner_a.lease_generation,
+            lease_seconds=10, now=start + timedelta(seconds=5),
+        ))
+        self.assertFalse(self.queue.mark_external_started(
+            task_id, owner_a.lease_owner, owner_a.lease_generation,
+            now=start + timedelta(seconds=5),
+        ))
+        self.assertFalse(self.queue.complete(
+            task_id, owner_a.lease_owner, owner_a.lease_generation, {"stale": True},
+            now=start + timedelta(seconds=5),
+        ))
+        self.assertIsNone(self.queue.fail(
+            task_id, owner_a.lease_owner, owner_a.lease_generation,
+            TaskFailure("stale", "Owner antigo."), now=start + timedelta(seconds=5),
+        ))
+        still_owned = self.queue.get(task_id)
+        self.assertEqual(still_owned.state, "running")
+        self.assertEqual(still_owned.lease_owner, owner_b.lease_owner)
+        self.assertTrue(self.queue.complete(
+            task_id, owner_b.lease_owner, owner_b.lease_generation, {"owner": "B"},
+            now=start + timedelta(seconds=6),
+        ))
+        self.assertEqual(self.queue.get(task_id).result, {"owner": "B"})
+
+    def test_dispatcher_heartbeat_keeps_long_executor_owned_past_ttl(self) -> None:
+        task_id = self.enqueue(key="dispatcher-heartbeat", executor="slow")
+        started = threading.Event()
+        release = threading.Event()
+
+        class SlowExecutor:
+            executor_id = "slow"
+
+            def execute(self, task, profile, context):
+                started.set()
+                if not release.wait(timeout=8):
+                    raise AssertionError("test did not release slow executor")
+                return {"ok": True}
+
+        dispatcher = TaskDispatcher(
+            self.queue, executors={"slow": SlowExecutor()},
+            profiles={(VALIDATION_PROFILE.profile_id, VALIDATION_PROFILE.version): VALIDATION_PROFILE},
+            lease_seconds=3,
+        )
+        outcome: list[Any] = []
+        worker = threading.Thread(target=lambda: outcome.append(dispatcher.dispatch_one(task_id)))
+        worker.start()
+        try:
+            self.assertTrue(started.wait(timeout=2))
+            time.sleep(3.4)
+            second_worker = self.queue.claim_next(task_id=task_id, lease_seconds=3)
+            self.assertIsNone(second_worker)
+        finally:
+            release.set()
+            worker.join(timeout=5)
+        self.assertFalse(worker.is_alive())
+        self.assertEqual(outcome[0].state, "succeeded")
+        self.assertEqual(self.queue.get(task_id).result, {"ok": True})
+
     def test_only_one_concurrent_worker_can_claim_a_ready_task(self) -> None:
         task_id = self.enqueue(key="single-claim")
         barrier = threading.Barrier(4)
@@ -235,14 +365,20 @@ class AgentOrchestrationTests(unittest.TestCase):
     def test_expired_lease_after_external_call_becomes_uncertain_and_is_not_replayed(self) -> None:
         start = datetime(2026, 1, 1, tzinfo=timezone.utc)
         task_id = self.enqueue(key="lease-uncertain", available_at=start)
-        self.queue.claim_next(task_id=task_id, lease_seconds=5, now=start)
-        self.queue.mark_external_started(task_id)
+        task = self.queue.claim_next(task_id=task_id, lease_seconds=5, now=start)
+        self.assertTrue(self.queue.mark_external_started(
+            task_id, task.lease_owner, task.lease_generation, now=start
+        ))
         next_task = self.queue.claim_next(now=start + timedelta(seconds=6))
         self.assertIsNone(next_task)
         task = self.queue.get(task_id)
         self.assertEqual(task.state, "uncertain")
         self.assertTrue(task.external_request_started)
         self.assertEqual(self.queue.events(task_id)[-1]["action"], "lease_expired_uncertain")
+        self.assertFalse(self.queue.complete(
+            task_id, "stale-owner", 1, {"late": True}, now=start + timedelta(seconds=7)
+        ))
+        self.assertEqual(self.queue.get(task_id).state, "uncertain")
 
     def test_schedule_is_disabled_by_default_and_run_once_catches_up_once(self) -> None:
         base = datetime(2026, 1, 1, tzinfo=timezone.utc)
@@ -466,7 +602,7 @@ class SIWCContractTests(unittest.TestCase):
                     idempotency_key="siwc-contract-probe", max_attempts=1,
                 )
                 task = queue.claim_next(task_id=task_id)
-                context = TaskExecutionContext(queue, task_id)
+                context = TaskExecutionContext(queue, task, lease_seconds=120)
 
                 class FakeResponse:
                     def __enter__(self):
