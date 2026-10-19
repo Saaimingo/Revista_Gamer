@@ -316,6 +316,7 @@ class SIWCContractTests(unittest.TestCase):
         self.assertEqual(query["client_id"], ["dynamic_agent_client"])
         self.assertEqual(query["ext_agent_host_id"], [attempt.host_id])
         self.assertIn("chatgpt.tokens.use.direct", query["scope"][0])
+        self.assertNotIn("email", query["scope"][0])
         self.assertNotIn("api_key", attempt.authorization_url())
         self.assertNotIn("client_secret", query)
         self.assertEqual(len(attempt.code_verifier), 64)
@@ -418,7 +419,7 @@ class SIWCContractTests(unittest.TestCase):
                 self.assertEqual(fields["redirect_uri"].split("/")[2].split(":")[0], "127.0.0.1")
                 self.assertEqual(fields["resource"], "https://api.openai.com/v1")
                 return {
-                    "scope": "openid profile email offline_access resource.invoke chatgpt.tokens.use.direct",
+                    "scope": "openid offline_access resource.invoke chatgpt.tokens.use.direct",
                     "access_token": "access-fixture", "refresh_token": "refresh-fixture",
                     "id_token": "signed-fixture", "expires_in": 3600,
                 }

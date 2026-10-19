@@ -35,7 +35,7 @@ TOKEN_ENDPOINT = f"{ISSUER}/api/accounts/oauth/token"
 JWKS_URI = f"{ISSUER}/.well-known/jwks.json"
 API_BASE = "https://api.openai.com/v1"
 RESOURCE = API_BASE
-OPENID_SCOPES = "openid profile email offline_access resource.invoke chatgpt.tokens.use.direct"
+REQUESTED_SCOPES = "openid offline_access resource.invoke chatgpt.tokens.use.direct"
 DIRECT_USAGE_SCOPE = "chatgpt.tokens.use.direct"
 DYNAMIC_CLIENT_ID = "dynamic_agent_client"
 AGENT_NAME = "Revista Gamer Motor Editorial"
@@ -85,7 +85,7 @@ class AuthorizationAttempt:
             "client_id": self.client_id,
             "response_type": "code",
             "redirect_uri": self.redirect_uri,
-            "scope": OPENID_SCOPES,
+            "scope": REQUESTED_SCOPES,
             "resource": RESOURCE,
             "state": self.state,
             "nonce": self.nonce,
@@ -127,6 +127,7 @@ class CredentialStore:
             self.path.parent.chmod(0o700)
         with self._thread_lock:
             descriptor = os.open(self.lock_path, os.O_CREAT | os.O_RDWR, 0o600)
+            locked = False
             try:
                 if os.name == "nt":
                     import msvcrt
@@ -134,16 +135,18 @@ class CredentialStore:
                         os.write(descriptor, b"\0")
                         os.lseek(descriptor, 0, os.SEEK_SET)
                     msvcrt.locking(descriptor, msvcrt.LK_LOCK, 1)
+                    locked = True
                 elif os.name == "posix":
                     import fcntl
                     fcntl.flock(descriptor, fcntl.LOCK_EX)
+                    locked = True
                 yield
             finally:
-                if os.name == "nt":
+                if locked and os.name == "nt":
                     import msvcrt
                     os.lseek(descriptor, 0, os.SEEK_SET)
                     msvcrt.locking(descriptor, msvcrt.LK_UNLCK, 1)
-                elif os.name == "posix":
+                elif locked and os.name == "posix":
                     import fcntl
                     fcntl.flock(descriptor, fcntl.LOCK_UN)
                 os.close(descriptor)
@@ -165,6 +168,9 @@ class CredentialStore:
     def load(self) -> dict[str, Any] | None:
         if not self.path.exists():
             return None
+        if os.name == "posix":
+            self.path.parent.chmod(0o700)
+            os.chmod(self.path, 0o600)
         try:
             raw = self._decode(self.path.read_bytes())
             value = json.loads(raw.decode("utf-8"))
@@ -453,6 +459,8 @@ def begin_login(
     granted_scopes = set(str(token_payload.get("scope", "")).split())
     if DIRECT_USAGE_SCOPE not in granted_scopes:
         raise SIWCError("plan_scope_missing", "O consentimento não incluiu acesso direto ao plano ChatGPT.")
+    if "offline_access" not in granted_scopes:
+        raise SIWCError("offline_access_scope_missing", "O consentimento não incluiu renovação da sessão para retomada.")
     if not token_payload.get("refresh_token"):
         raise SIWCError("refresh_token_missing", "A sessão não recebeu refresh token para retomada durável.")
     if str(token_payload.get("token_type", "Bearer")).casefold() != "bearer":
