@@ -40,6 +40,7 @@ A versão do produto não é atribuída nesta ordem. O código existente continu
 - A fila só considera concluída uma inferência SIWC depois do evento `response.completed` e validação determinística do JSON da prova.
 - O dispatcher não repete uma chamada ambígua. `429` de limite suspende chamadas; usuário não elegível e escopo/política recusados ficam bloqueados; indisponibilidade `503` pode ter retry limitado.
 - Logs persistem estados, códigos e hashes de saída; não registram tokens, authorization codes, URLs de callback, corpo da requisição, texto integral do provedor ou e-mail.
+- O pedido de autorização usa os escopos oficiais `openid profile email offline_access resource.invoke chatgpt.tokens.use.direct`; e-mail e outros dados pessoais não são mantidos no registro local.
 - O modelo da prova precisa constar no catálogo retornado para a conta autenticada. A franquia de uso da assinatura Plus continua sujeita aos limites compartilhados do plano.
 
 ## Critérios verificáveis

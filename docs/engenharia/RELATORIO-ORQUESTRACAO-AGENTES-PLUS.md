@@ -3,7 +3,7 @@
 - **Setor responsável:** Engenharia e Codex
 - **Identificador:** ENG-CODEX-003-REL
 - **Versão do documento:** 1.0
-- **Status:** implementação validada localmente; consentimento e inferência SIWC reais pendentes
+- **Status:** implementação e prova SIWC local validadas; elegibilidade de hospedagem privada/remota não confirmada
 - **Data:** 2026-10-19
 - **Branch:** `codex/motor-editorial-orquestracao-agentes-plus`
 - **Base:** `main` em `d9fbb6e`; PR #6 integrado em `794e9fcc20f5944031370bd7ddb93f8b323d9528`
@@ -26,7 +26,11 @@
 
 Documentação oficial distingue a rota local open source/projeto pessoal, sujeita à elegibilidade do usuário, da hospedagem privada: uso do plano em apps privados está disponível somente a clientes selecionados; apps pagos ou hospedados remotamente precisam solicitar acesso antes de oferecer o produto. O guia remoto SIWC descreve apps open source.
 
-O repositório consultado é público, mas não contém LICENSE. Portanto, visibilidade pública não prova licença open source. Uma prova pessoal local no Windows pode seguir o fluxo SIWC caso a conta seja admitida e o diretor dê consentimento no navegador. Ainda não há evidência de que a conta/app foi admitida, pois o login e a resposta real não foram executados.
+O repositório consultado é público, mas não contém LICENSE. Portanto, visibilidade pública não prova licença open source. A prova local abaixo confirma elegibilidade da conta e deste cliente/host para uma chamada sintética na data do teste. Ela não comprova elegibilidade de uma aplicação privada hospedada.
+
+Nas duas primeiras tentativas, o callback local recebeu o retorno após consentimento, mas a validação do ID token encerrou com `ImmatureSignatureError`. Nenhuma credencial foi salva e nenhuma inferência foi feita. A consulta NTP (`time.windows.com`) mediu o Windows 30,44 segundos atrasado. O W32Time foi configurado para esse peer com autorização administrativa, mas `w32tm /resync` não obteve dados; a ferramenta `stripchart` pôde medir o peer e a diferença. Uma correção pontual de +30,438 segundos foi aplicada, após autorização, e a medição seguinte indicou desvio de 1,8 ms. O serviço ainda não confirmou sincronização automática. Como o cliente W32Time usa UDP 123 como porta de origem e o `stripchart` usa porta efêmera, o caminho de rede do serviço pode estar bloqueado; isso é uma hipótese, não confirmação. Consulte [ferramentas e comportamento do W32Time](https://learn.microsoft.com/en-us/windows-server/networking/windows-time-service/windows-time-service-tools-and-settings?tabs=config) e [diagnóstico de ausência de dados de hora](https://learn.microsoft.com/en-us/troubleshoot/windows-server/active-directory/error-message-run-w32tm-resync-no-time-data-available).
+
+Na terceira tentativa, o login SIWC validou a identidade, persistiu a credencial protegida via DPAPI e concedeu `chatgpt.tokens.use.direct` mais `offline_access`. `siwc status` confirmou `authenticated: true`; `siwc models` listou os modelos disponíveis para a conta, incluindo `gpt-6.1-sol`. Em 2026-10-19, um único `siwc probe` real no Windows concluiu tarefa `dc23604e-f9c7-4faa-b837-8a4f5077105f` no estado `succeeded`, por `/v1/responses`, com `store:false` e streaming até `response.completed`. Modelo: `gpt-6.1-sol`; resposta sintética `status=ok`; `response_id=resp_0dfb847baed3c398016ad66e932f5487d2a32f6af4f36f4129`; SHA-256 da resposta: `09eb1a2b6d7bc88d1a00c9a46e68ac502fa6e8bb112ff54ac913da80a025e340`; uso reportado pelo provedor: 102 tokens de entrada, 16 de saída, 118 no total. Essa prova confirma o uso local para esta conta/host no momento do teste; não exercitou conteúdo editorial e não confirma a elegibilidade de aplicação privada/VPS.
 
 **VPS/app privado hospedado: elegibilidade não confirmada.** Não habilitar inferência remota, transferir credenciais ou ativar agenda Plus antes de obter confirmação oficial apropriada. O sistema não usa chave paga nem credencial extraída de sessão privada.
 
@@ -52,9 +56,9 @@ Validação final local:
 - A cadeia `agents demo-chain` executada via CLI em diretório temporário concluiu cinco tarefas, exibiu rejeição/correção/revisão aprovada e `external_calls: 0`.
 - Regressões novas cobrem persistência após reabrir o SQLite, idempotência, disputa de claim entre workers, retry/backoff/limite, recuperação segura/incerta, políticas de agenda, bloqueio de segredo em payload, OAuth callback/state/PKCE/client ID, validação de assinatura/audience/issuer/nonce, refresh token rotativo e stream Responses.
 - O fluxo SIWC foi validado com servidor callback local e respostas fixture; a requisição Responses foi inspecionada em teste, sem chamada real ao provedor.
-- `siwc status` retornou `authenticated: false` e `direct_usage_scope: false`. Não há consentimento salvo para essa instalação.
+- Duas tentativas iniciais falharam na validação temporal OIDC. Depois da correção pontual do relógio, `siwc status` confirmou login e escopo direto; `siwc models` confirmou modelos disponíveis; a chamada Responses real do probe concluiu com `succeeded` e JSON sintético validado.
 
-Esses testes não provam elegibilidade da conta. A primeira resposta real ainda depende do consentimento do diretor no navegador e da admissão da conta/app pela OpenAI.
+Os testes automatizados não provam elegibilidade por si sós; a prova real acima confirma que a conta/cliente local recebeu escopo e concluiu uma resposta em 2026-10-19. O relógio local foi alinhado por correção pontual, mas a sincronização recorrente ainda não foi comprovada.
 
 ## Comandos locais
 
@@ -83,10 +87,10 @@ Passos que continuam condicionados à elegibilidade remota:
 
 ## Limitações e pendências
 
-- Login e execução real no Plus: **pendentes da participação do diretor no consentimento do navegador**.
-- Elegibilidade da conta e capacidade/modelo específico: só podem ser confirmados pelo fluxo oficial e pela primeira resposta válida.
+- Login e execução real no Plus: **validados para uma tarefa técnica sintética local**; não cobre tarefa editorial, operação contínua, outras contas ou hospedagem remota.
+- Elegibilidade da conta nesta execução local e disponibilidade do modelo: confirmadas pelo fluxo oficial, catálogo e resposta válida em 2026-10-19; podem mudar por conta, host, modelo ou política.
 - Aplicação privada hospedada: **não confirmada**; nenhuma chamada remota autorizada por este relatório.
-- Testes Linux/Debian e operação 24 h: não executados nesta máquina; a unidade é configuração de referência.
+- Testes Linux/Debian e operação 24 h: não executados nesta máquina; a unidade é configuração de referência. No Windows, a sincronização automática W32Time ainda não foi confirmada.
 - Não foi implementado coletor de notícias, gestão de evidências, perfil público aprovado, harness de ferramentas ou publicação.
 - O scheduler é intervalar e mantém agendas desativadas por padrão; não é cron e não está em execução contínua nesta entrega.
 - Retenção/rotação e backup automatizados do SQLite não estão implementados; planejar antes de volume contínuo.
