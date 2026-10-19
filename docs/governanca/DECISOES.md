@@ -1,6 +1,6 @@
 # Registro de decisões e hipóteses
 
-Atualizado: **2026-10-16**. Este registro resume decisões relatadas em conversa; antes de tratar arquivos derivados como especificação congelada, submetê-los à direção para aprovação.
+Atualizado: **2026-10-19**. Este registro resume decisões relatadas em conversa; antes de tratar arquivos derivados como especificação congelada, submetê-los à direção para aprovação.
 
 ## Diretrizes consolidadas com o fundador
 
@@ -20,6 +20,8 @@ Atualizado: **2026-10-16**. Este registro resume decisões relatadas em conversa
 - **D-014** A documentação final do aceite da v0.1 foi integrada pelo [PR #4](https://github.com/Saaimingo/Revista_Gamer/pull/4). **Nova ordem CODEX-002 autorizada** para IMPLEMENTAÇÃO do Motor Editorial v0.2 multipauta **somente offline, simulado e local**. Contratos: `docs/engenharia/ESPECIFICACAO-MOTOR-EDITORIAL-V0.2-MULTIPAUTA.md` e `docs/engenharia/ORDEM-CODEX-002-MOTOR-MULTIPAUTA.md`. A execução depende de iniciar sessão Codex; nenhum merge, API real, coleta externa ou publicação foi autorizado.
 
 - **D-015** Ao término das rodadas de discussão entre diretor e Chat Fundador, registrar na **pasta do setor correspondente** um parecer de integração com acertos, críticas, sugestões, pendências, decisões realmente ratificadas e próximas ações. Enquanto a discussão estiver em aberto, usar a marca **PROVISÓRIO**. Vincular o parecer no README do bloco para consulta posterior. Isso **não notifica automaticamente outros chats**, não implica autorização de produção/Codex e não transforma opiniões técnicas em decisões da direção. Protocolo: `docs/operacao/PROTOCOLO-HANDOFF.md`.
+
+- **D-016** **Premissa de integração dos agentes para fases futuras:** priorizar a utilização de mecanismos **oficiais e autorizados** de execução programática compatíveis com a **assinatura ChatGPT Plus/Codex já existente do diretor**, antes de propor API cobrada à parte ou infraestrutura paga. Compete ao Codex, sob especificação e autorização próprias, investigar a elegibilidade real, formas suportadas de autenticação, execução não interativa, quotas, limites, regras de uso e continuidade de acesso; implementar e comprovar em testes a ativação do executor correto e o carregamento da identidade versionada de cada cronista. **Não presumir que o Plus equivale a créditos de API, permite toda modalidade de automação ou sustenta produção contínua.** Na ausência de acesso oficial adequado, ou ao atingir limites, registrar o impedimento e **pausar com segurança, sem cobrança, bypass de quotas, aproveitamento de sessão privada ou migração financeira automática**. A orquestração do Motor é requisito antes da operação dos agentes reais; esta decisão **não autoriza ligar agentes, agendamento, gastos, publicação ou ampliar o escopo da v0.2**. Referência: `docs/engenharia/ANALISE-PROVISORIA-FUNDADOR-ORQUESTRACAO-N8N-2026-10-17.md`.
 
 ## Hipóteses de trabalho, não decisões irrevogáveis
 
