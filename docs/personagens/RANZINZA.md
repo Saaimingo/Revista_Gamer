@@ -13,10 +13,10 @@
 - **Aparição editorial:** pequeno retrato ilustrado em círculo ou quadrado junto ao nome e à coluna.
 - **Origem da referência:** ilustração original produzida nesta conversa, versão A da comparação A/B; não é retrato de Ronaldo Buassali.
 
-**Situação dos arquivos binários:** os PNGs de referência, retrato e avatar existem como artefatos desta conversa, mas **ainda não foram confirmados como arquivos enviados ao GitHub**. Não presumir endereço de arquivo ou versão no repositório até haver upload e verificação. Nomes e SHA-256 previstos para conferência após upload:
-- `RANZINZA_Prototipo_A_Referencia.png` — `5dcfb7b41d59b2526a7566007bf10cf1ef80c602532947ce8c9d50ae2ec3ac00`
-- `RANZINZA_Prototipo_A_Retrato.png` — `b6b3c607b7fa2fc43e0a037a1d215b84557d3d339db2e2cbabe28e8cabeb73fe`
-- `RANZINZA_Prototipo_A_Avatar.png` — `08ced6eb9d0426e6e9bae70d2fcfba3555846353599604208ef32fe265e2dcba`
+**Arquivos binários verificados nesta branch de revisão:** os três PNGs originais aprovados do Protótipo A estão versionados para conferência. Os bytes foram copiados sem edição, redimensionamento, conversão ou recompressão; os hashes abaixo foram recalculados após a cópia e coincidem com os aprovados. A PR ainda aguarda revisão e merge em main.
+- [RANZINZA_Prototipo_A_Referencia.png](assets/ranzinza/RANZINZA_Prototipo_A_Referencia.png) — SHA-256 5dcfb7b41d59b2526a7566007bf10cf1ef80c602532947ce8c9d50ae2ec3ac00
+- [RANZINZA_Prototipo_A_Retrato.png](assets/ranzinza/RANZINZA_Prototipo_A_Retrato.png) — SHA-256 b6b3c607b7fa2fc43e0a037a1d215b84557d3d339db2e2cbabe28e8cabeb73fe
+- [RANZINZA_Prototipo_A_Avatar.png](assets/ranzinza/RANZINZA_Prototipo_A_Avatar.png) — SHA-256 08ced6eb9d0426e6e9bae70d2fcfba3555846353599604208ef32fe265e2dcba
 
 ## Núcleo editorial discutido (a desenvolver e testar)
 

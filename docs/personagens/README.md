@@ -12,7 +12,7 @@ Criar perfis públicos de jornalistas virtuais reconhecíveis, com nomes, retrat
 - [Gamer](GAMER.md): jogos, recepção crítica e comunidade, tom adulto descontraído.
 - [Historiador](HISTORIADOR.md): bastidores, memória, indústria e nostalgia, investigação histórica.
 
-Gamer e Historiador seguem como **codinomes de trabalho**. O nome **Ranzinza** e seu **Protótipo A** foram aprovados, com os arquivos PNG originais ainda pendentes de confirmação de upload para o repositório. Nenhuma voz ou frase/bordão foi aprovada.
+Gamer e Historiador seguem como codinomes de trabalho. O nome Ranzinza e seu Protótipo A foram aprovados. Os PNGs originais estão versionados nesta branch para revisão: [referência](assets/ranzinza/RANZINZA_Prototipo_A_Referencia.png), [retrato](assets/ranzinza/RANZINZA_Prototipo_A_Retrato.png) e [avatar](assets/ranzinza/RANZINZA_Prototipo_A_Avatar.png); os hashes foram confirmados após a cópia no perfil do personagem. Esta entrega aguarda revisão e merge; nenhuma voz ou frase/bordão foi aprovada.
 
 ## Entregas do setor
 
