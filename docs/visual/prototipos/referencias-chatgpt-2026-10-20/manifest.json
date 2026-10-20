@@ -1,12 +1,13 @@
-﻿{
+{
     "title":  "Referências visuais recebidas do Bloco 03",
     "received_local_date":  "2026-10-20",
-    "status":  "LOCAL_ONLY_PENDING_BLOCK05_RIGHTS_REVIEW",
+    "status":  "DIRECTOR_AUTHORIZED_PUBLIC_REFERENCE_ARCHIVE_PENDING_PR_REVIEW",
     "notes":  [
                   "Dois conjuntos de oito páginas identificados visualmente como Mock 03 e Mock 04.",
                   "Ambos representam Resident Evil 9 / Requiem; não são o par documentado Mock A (terror) e Mock B (GTA VI).",
                   "Bytes copiados sem conversão ou recompressão; nomes de destino seguem a ordem de página visível.",
-                  "Não enviar ao repositório público antes da análise de direitos do Bloco 05."
+                  "O Diretor autorizou em 20/10/2026 o versionamento público destas imagens somente como referências visuais do Bloco 03.",
+                  "A autorização não concede direitos de terceiros nem aprova uso editorial, comercial ou publicação; esses usos seguem pendentes de análise."
               ],
     "files":  [
                   {
@@ -185,5 +186,16 @@
                       "height":  1402,
                       "sha256":  "3ce816e1c9bb21df3f0340b6e68ef9e5798c690c51e1413c23c65110341b6b06"
                   }
-              ]
+              ],
+    "authorization":  {
+                          "authorized_by":  "Diretor",
+                          "date":  "2026-10-20",
+                          "scope":  "Versionar estes PNGs no repositório público como referências visuais do Bloco 03.",
+                          "excludes":  [
+                                           "licença de terceiros",
+                                           "uso editorial",
+                                           "uso comercial",
+                                           "publicação da revista"
+                                       ]
+                      }
 }
