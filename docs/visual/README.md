@@ -51,4 +51,7 @@ O laboratório revisado de **casca editorial** está disponível **como HTML rea
 
 **Motivo da revisão:** [parecer provisório do fundador sobre v0.3](analises-fundador/PARECER-PROVISORIO-2026-10-19-ESTRUTURA-VAZIA-V03.md), em especial **F1 (texto escondido com matéria longa/150%)** e **F2 (contracapa emparelhada quando contagem ímpar)**. A revisão também testa compactação dos controles mobile e elimina barra flutuante sobre a leitura contínua.
 
+
+- [Parecer provisório do fundador sobre o laboratório v0.3 **revisado** — 20/10/2026](analises-fundador/PARECER-PROVISORIO-2026-10-20-V03-REVISADA.md) — reconhecimento das correções e dos testes registrados, com pendências para comportamento de preferências ao trocar mobile↔desktop, explicação do contador de faces, cobertura de testes e uso de conteúdo real. Não constitui homologação independente nem nova ordem ao Codex.
+
 **Estado:** HTML e documentos acima versionados e verificados; ZIP e capturas PNG originais da v0.3 revisada ainda **não** transferidos ao GitHub. Os PNGs anteriores dos mocks A/B continuam com sua pendência própria. **Nada está aprovado como identidade final ou produção.** A próxima ação é análise da direção e do fundador, sem encaminhamento automático ao Codex.
