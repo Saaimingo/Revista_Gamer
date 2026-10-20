@@ -52,3 +52,30 @@ A nova proposta de correspondência do Ranzinza (Bloco 02) poderá futuramente e
 ## 4. Parecer
 
 **Favorável à continuidade da base v0.3 revisada, mas NÃO ao congelamento da solução.** F1/F2 contam com correções plausíveis e evidências internas positivas; permanecem pendentes validação independente e ajustes de responsividade. Não exigir recomeço, nem converter automaticamente problemas de UX em decisão de identidade visual. **Próximo passo:** Bloco 03 discute este parecer com a direção, propõe solução enxuta e apresenta nova evidência. Sem implementação do Codex, PR extra, merge ou publicação por inferência.
+
+
+---
+
+## Aditivo do fundador — versão v0.3 **consolidada** (20/10/2026, revisão posterior)
+
+**Base examinada:** [estrutura-vazia-v03-consolidada/](../prototipos/estrutura-vazia-v03-consolidada/README.md) — HTML real, `tests/test_integridade.py` e `resultado-testes.json`, commit de publicação `f4bc80a60` e indexação na `main`. **Estado: respostas ao parecer anterior CONFERIDAS EM CÓDIGO E EM EVIDÊNCIA REPORTADA, sem homologação final.** Este aditivo não apaga as falhas historicamente encontradas na versão anterior nem aprova a identidade final.
+
+**B03-R1 — tratado no código:** rotina `syncSettingsShell()` e escuta de `matchMedia('(max-width:560px)')` impedem que o painel permaneça fechado e inacessível no desktop. A opção mobile é preservada. O teste versionado cobre 390→1024→390 e 1024→390→1024, inclusive escolha manual de abrir/fechar, modo e fonte.
+
+**B03-R2 — tratado em registro e teste:** `window.__rgLabAudit()` expõe chaves de faces e números; `validate_full_flip()` exige identidade única, visita exatamente uma vez a cada face e contracapa isolada. O JSON traz sequência `visited_sequence`. O cenário 1024×768/150%/espaçamento 1.3/matéria extensa reporta **56 lógicas = 56 únicas = 56 visitas**; 390×844 nas mesmas condições reporta **68 = 68 = 68**. Isto resolve a ambiguidade do relatório anterior, no escopo dos ensaios apresentados.
+
+**B03-R3 — ampliado:** script contém seis combinações de viewport/fonte/espaçamento/comprimento, além de breakpoint, sumário, publicidade condicional e rolagem por teclado de figuras/tabelas superdimensionadas: **dez cenários registrados como PASS** no JSON. A integridade textual entre Folhear e Contínua, ausência de overflow horizontal e sem erros JS são checagens codificadas. F1 (texto invisível) e F2 (contracapa isolada) estão **tecnicamente endereçados e com evidência interna positiva**, não independemente reproduzidos pelo Chat Fundador nesta rodada.
+
+**B03-R4 — parcialmente atendido no código:** foco inicial, contenção básica de Tab no sumário, Escape e retorno ao foco anterior foram adicionados. Ainda faltam **teste de acessibilidade com leitores de tela, gestos e navegação em aparelhos físicos**, desempenho em notebook modesto e demonstração ergonômica fora de Chromium headless.
+
+**B03-R5 — parcialmente atendido:** face publicitária opcional por `adPreview` está ausente por padrão e não deixa lacuna quando desativada; o ensaio ainda usa texto, mídia e tabelas de demonstração. **Integração com matéria aprovada de verdade e direitos de imagens continuam pendentes.**
+
+**Limite de verificação do fundador:** inspecionei diretamente arquivos e lógica via GitHub, mas **não executei o Playwright em minha máquina nesta rodada**, pois o acesso direto ao HTML bruto para o ambiente de teste não foi possível; os números vêm do `resultado-testes.json` do Bloco 03. Dizer “correções implementadas e testes reportados PASS” é correto; dizer “homologado independente / pronto para produção” não é.
+
+### Decisão recomendada para o próximo passo
+
+**Não recomeçar e não solicitar v0.4 por inércia.** O Bloco 03 respondeu satisfatoriamente às pendências mais objetivas; registrar **aceite provisório da evolução do laboratório** e passar a uma fase de integração editorial **somente quando a direção autorizar**: fixtures locais curtas/longas de texto e tabelas, uma imagem+legenda autorizada e medições em celular/tablet/notebook reais. No mobile o caso extremo chegou a 68 faces em Folhear — aceitável como teste de estresse, **não** parâmetro de tamanho da edição; validar conforto de navegação e o modo Contínua com matéria real.
+
+**Intersetorial:** futura coluna do Ranzinza com cartas e réplica pode ocupar um slot de conteúdo já previsto, mas a regra de consentimento e edição deve vir do Bloco 04, com aval da direção, **sem** gerar formulário, automação ou canal privado aqui.
+
+**Resultado deste aditivo: FAVORÁVEL a seguir para ensaios editoriais reais controlados; pendente aceite de produto em dispositivos e deliberação explícita da direção. Sem código alterado nem Codex acionado.**
