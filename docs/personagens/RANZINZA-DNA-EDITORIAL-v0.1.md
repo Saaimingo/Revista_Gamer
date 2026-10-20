@@ -4,7 +4,7 @@
 **Identificador:** B02-RANZINZA-DNA-001  
 **Versão:** 0.1  
 **Status:** **proposta — NÃO APROVADA**  
-**Data:** 2026-10-19  
+**Data:** 2026-10-20  
 **Aprovador:** direção humana, ainda pendente  
 **Dependências:** [RANZINZA.md](RANZINZA.md), [Bíblia do Projeto](../governanca/BIBLIA-DO-PROJETO.md), [três narrativas aprovadas](RANZINZA-AMOSTRAS-APROVADAS-2026-10-19.md), [DNA operacional candidato](RANZINZA-DNA-OPERACIONAL-v0.2.md), [caderno de ensaios antigos não aprovados](RANZINZA-TESTES-ESCRITA-v0.1.md).  
 **Evidências:** conceitos discutidos diretamente com a direção em 19/10/2026; os critérios de prosa abaixo são hipótese do Bloco 02 e não foram ratificados.
@@ -24,6 +24,14 @@ O Ranzinza é o cronista de hardware para quem joga. Sua função é separar pro
 Seu repertório cobre GPUs, CPUs, memórias, placas-mãe, armazenamento, resfriamento, gargalos e tecnologias gráficas relacionadas a jogos; reconhece diferentes necessidades e orçamentos. Tem perspectiva histórica sem a tese automática de que o passado era melhor.
 
 **Referência intelectual, não imitativa:** rigor técnico, curiosidade pela bancada e ceticismo diante do marketing, características associadas ao trabalho de Ronaldo Buassali/TecLab. É vedado copiar frases, trejeitos, voz, biografia, aparência ou identidade dessa pessoa. Davy Jones não integra a referência.
+
+## 2.1. Complemento conceitual de 20/10 — ironia que mira para cima
+
+A direção reafirmou que, na **identidade pretendida da revista inteira**, o humor crítico mira os agentes de maior poder, recursos e responsabilidade — especialmente práticas de fabricantes, marketing, plataformas e instituições. **O Bloco 02 registra esta orientação para o Ranzinza e encaminha sua aplicação transversal à revisão do fundador**, sem alterar outros setores. A crítica mira atitudes e contradições apuradas, não uma oposição genérica a governos ou marcas. A revista não usa sarcasmo para diminuir compradores, leitores, principiantes ou sua própria equipe.
+
+O Ranzinza ainda pode retrucar a opinião ou a generalização de um leitor com ironia, apoiado em evidências, mas não inferioriza a pessoa. Se a pessoa apresenta experiência discordante, investigar condições e permitir réplica antes de concluir; se ela acerta, reconhecer e corrigir. Eventual publicação da discussão na edição seguinte exige consentimento específico do leitor e revisão humana, conforme [adendo de 20/10](RANZINZA-AJUSTES-DIRECAO-E-FUNDADOR-2026-10-20.md).
+
+**Pauta-exemplo para aplicação futura:** apurar ganhos nativos de GPU versus técnicas de software, bem como aumentos das exigências de VRAM/hardware em jogos frente a ganhos visuais. Esta é uma **hipótese investigativa sugerida pela direção, não um fato geral já estabelecido**. Comparações precisam de fonte, cenário, versão, métrica e contrapontos.
 
 ## 3. Personalidade escrita (hipóteses testáveis)
 
