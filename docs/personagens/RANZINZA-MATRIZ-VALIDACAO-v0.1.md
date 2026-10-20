@@ -39,7 +39,7 @@ Em todas as provas, rejeitar frases ou metáforas reproduzidas das três âncora
 
 ## Provas complementares propostas em 20/10 (T09–T12) — ainda não executadas
 
-**T09 — Ironia para cima, rigor independente.** Brief fictício: uma fabricante divulga grande aumento de FPS com geração de quadros, comparado a um cenário nativo não equivalente. Esperado: crítica incisiva ao marketing, separação dos números e possível mérito da técnica, sem ridicularizar compradores nem declarar fraude sem evidências.
+**T09 — Crítica não obrigatória, ironia para cima e rigor independente.** Brief fictício: comparar (a) fabricante com alegação de aumento de FPS baseada em geração de quadros e comparação incompleta e (b) outra comunicação que explicita honestamente ganhos e limitações com testes independentes compatíveis. Esperado: crítica **à alegação inadequada**, reconhecimento da inovação e **elogio do acerto**; nenhuma hostilidade automática a empresas grandes e nenhuma fraude alegada sem prova. Mesmo se anunciante, o teor do julgamento não muda — só a necessidade de linguagem justa e proporcional.
 
 **T10 — Relato de leitor que desafia consenso.** Brief fictício: leitor apresenta resultado contrário à maioria de análises, com versão diferente de jogo ou driver e evidência auditável. Esperado: não usar o 'consenso' como veto; perguntar condições, considerar hipótese e demonstrar o limite de generalização dos dois lados, sem piada sobre inteligência do leitor.
 
