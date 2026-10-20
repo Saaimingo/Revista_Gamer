@@ -1,0 +1,189 @@
+﻿{
+    "title":  "Referências visuais recebidas do Bloco 03",
+    "received_local_date":  "2026-10-20",
+    "status":  "LOCAL_ONLY_PENDING_BLOCK05_RIGHTS_REVIEW",
+    "notes":  [
+                  "Dois conjuntos de oito páginas identificados visualmente como Mock 03 e Mock 04.",
+                  "Ambos representam Resident Evil 9 / Requiem; não são o par documentado Mock A (terror) e Mock B (GTA VI).",
+                  "Bytes copiados sem conversão ou recompressão; nomes de destino seguem a ordem de página visível.",
+                  "Não enviar ao repositório público antes da análise de direitos do Bloco 05."
+              ],
+    "files":  [
+                  {
+                      "mock":  "03",
+                      "page":  1,
+                      "path":  "mock-03-resident-evil/png/pagina-01.png",
+                      "source_download":  "Imagem do ChatGPT 20 de out. de 2026, 20_39_56-1.png",
+                      "source_modified_local":  "2026-10-20 20:39:57 -03:00",
+                      "bytes":  2332858,
+                      "width":  1122,
+                      "height":  1402,
+                      "sha256":  "22d75933a91ec5c09c5acee331752e7c306dc88566cec3269a36c85c22ee69ea"
+                  },
+                  {
+                      "mock":  "03",
+                      "page":  2,
+                      "path":  "mock-03-resident-evil/png/pagina-02.png",
+                      "source_download":  "Imagem do ChatGPT 20 de out. de 2026, 20_39_57-2.png",
+                      "source_modified_local":  "2026-10-20 20:39:59 -03:00",
+                      "bytes":  2390827,
+                      "width":  1122,
+                      "height":  1402,
+                      "sha256":  "a26551fc787146a2f3e3083507c8df60cf1dc2a18320d5b7e44e1858b14ad9f7"
+                  },
+                  {
+                      "mock":  "03",
+                      "page":  3,
+                      "path":  "mock-03-resident-evil/png/pagina-03.png",
+                      "source_download":  "Imagem do ChatGPT 20 de out. de 2026, 20_39_58-3.png",
+                      "source_modified_local":  "2026-10-20 20:39:59 -03:00",
+                      "bytes":  2436664,
+                      "width":  1122,
+                      "height":  1402,
+                      "sha256":  "b565a1becb43568446ed248ae1732a6ee10126bc84274ec96edeeee520bac8c7"
+                  },
+                  {
+                      "mock":  "03",
+                      "page":  4,
+                      "path":  "mock-03-resident-evil/png/pagina-04.png",
+                      "source_download":  "Imagem do ChatGPT 20 de out. de 2026, 20_40_00-4.png",
+                      "source_modified_local":  "2026-10-20 20:40:01 -03:00",
+                      "bytes":  2510624,
+                      "width":  1122,
+                      "height":  1402,
+                      "sha256":  "c9ddde64029072313dacf3dc8c634c32fda2406f6ba7b80f30377dd6b11e5116"
+                  },
+                  {
+                      "mock":  "03",
+                      "page":  5,
+                      "path":  "mock-03-resident-evil/png/pagina-05.png",
+                      "source_download":  "Imagem do ChatGPT 20 de out. de 2026, 20_40_01-5.png",
+                      "source_modified_local":  "2026-10-20 20:40:01 -03:00",
+                      "bytes":  2370861,
+                      "width":  1122,
+                      "height":  1402,
+                      "sha256":  "2aa61dd38029bf7f8ac3411ce7bfe0c80360814c2000c015435f4529d6d3eb8c"
+                  },
+                  {
+                      "mock":  "03",
+                      "page":  6,
+                      "path":  "mock-03-resident-evil/png/pagina-06.png",
+                      "source_download":  "Imagem do ChatGPT 20 de out. de 2026, 20_40_02-6.png",
+                      "source_modified_local":  "2026-10-20 20:40:03 -03:00",
+                      "bytes":  2339891,
+                      "width":  1122,
+                      "height":  1402,
+                      "sha256":  "a1420730fd775487a2ae4a6e56d2e7874b24f548a3a5972908c6052e41bcb030"
+                  },
+                  {
+                      "mock":  "03",
+                      "page":  7,
+                      "path":  "mock-03-resident-evil/png/pagina-07.png",
+                      "source_download":  "Imagem do ChatGPT 20 de out. de 2026, 20_40_03-7.png",
+                      "source_modified_local":  "2026-10-20 20:40:05 -03:00",
+                      "bytes":  2618817,
+                      "width":  1122,
+                      "height":  1402,
+                      "sha256":  "a26592db532301131ff3ffe3b415100176178e264add5c23d6307468d5eba769"
+                  },
+                  {
+                      "mock":  "03",
+                      "page":  8,
+                      "path":  "mock-03-resident-evil/png/pagina-08.png",
+                      "source_download":  "Imagem do ChatGPT 20 de out. de 2026, 20_40_04-8.png",
+                      "source_modified_local":  "2026-10-20 20:40:05 -03:00",
+                      "bytes":  2197219,
+                      "width":  1122,
+                      "height":  1402,
+                      "sha256":  "102770409351ed0e90477cdaec9785fbe4896043656fca0717f9fbb4c0d74033"
+                  },
+                  {
+                      "mock":  "04",
+                      "page":  1,
+                      "path":  "mock-04-resident-evil/png/pagina-01.png",
+                      "source_download":  "Imagem do ChatGPT 20 de out. de 2026, 20_40_24-1.png",
+                      "source_modified_local":  "2026-10-20 20:40:26 -03:00",
+                      "bytes":  2405491,
+                      "width":  1122,
+                      "height":  1402,
+                      "sha256":  "acb55fe93522270e35f8643e05af29ec130f89879a1d50e602369b9e457e61b8"
+                  },
+                  {
+                      "mock":  "04",
+                      "page":  2,
+                      "path":  "mock-04-resident-evil/png/pagina-02.png",
+                      "source_download":  "Imagem do ChatGPT 20 de out. de 2026, 20_40_25-2.png",
+                      "source_modified_local":  "2026-10-20 20:40:26 -03:00",
+                      "bytes":  2450541,
+                      "width":  1122,
+                      "height":  1402,
+                      "sha256":  "c36d3b0f3e508ca77f9127fe436f3afc798ce4beeab0933cae8059607a9c2d61"
+                  },
+                  {
+                      "mock":  "04",
+                      "page":  3,
+                      "path":  "mock-04-resident-evil/png/pagina-03.png",
+                      "source_download":  "Imagem do ChatGPT 20 de out. de 2026, 20_40_26-3.png",
+                      "source_modified_local":  "2026-10-20 20:40:26 -03:00",
+                      "bytes":  2584928,
+                      "width":  1122,
+                      "height":  1402,
+                      "sha256":  "6c5ad570753816fdb72a846e329279a3bec849152a20e0c93d6eb4c2e3095db9"
+                  },
+                  {
+                      "mock":  "04",
+                      "page":  4,
+                      "path":  "mock-04-resident-evil/png/pagina-04.png",
+                      "source_download":  "Imagem do ChatGPT 20 de out. de 2026, 20_40_27-4.png",
+                      "source_modified_local":  "2026-10-20 20:40:29 -03:00",
+                      "bytes":  2525819,
+                      "width":  1122,
+                      "height":  1402,
+                      "sha256":  "3f23487c5a8d59a23ae4cc5f0eacc1ec60afbf2191e5d91b2d66a72ae376f443"
+                  },
+                  {
+                      "mock":  "04",
+                      "page":  5,
+                      "path":  "mock-04-resident-evil/png/pagina-05.png",
+                      "source_download":  "Imagem do ChatGPT 20 de out. de 2026, 20_40_29-5.png",
+                      "source_modified_local":  "2026-10-20 20:40:29 -03:00",
+                      "bytes":  2338551,
+                      "width":  1122,
+                      "height":  1402,
+                      "sha256":  "1dd7f02eb4f2c7cd415bc8f2311c37f91894ebc301bae737cac48eda89a39951"
+                  },
+                  {
+                      "mock":  "04",
+                      "page":  6,
+                      "path":  "mock-04-resident-evil/png/pagina-06.png",
+                      "source_download":  "Imagem do ChatGPT 20 de out. de 2026, 20_40_30-6.png",
+                      "source_modified_local":  "2026-10-20 20:40:30 -03:00",
+                      "bytes":  2310857,
+                      "width":  1122,
+                      "height":  1402,
+                      "sha256":  "4c64207a45745608df88f2dd802fa9d3e90d22ddff07abf740a67795bc9f9bf1"
+                  },
+                  {
+                      "mock":  "04",
+                      "page":  7,
+                      "path":  "mock-04-resident-evil/png/pagina-07.png",
+                      "source_download":  "Imagem do ChatGPT 20 de out. de 2026, 20_40_31-7.png",
+                      "source_modified_local":  "2026-10-20 20:40:31 -03:00",
+                      "bytes":  2376085,
+                      "width":  1122,
+                      "height":  1402,
+                      "sha256":  "520f1885aa4a9ca916dc439ce810cce1ca6b22d89eee66b0c9c9daabeb73f9f8"
+                  },
+                  {
+                      "mock":  "04",
+                      "page":  8,
+                      "path":  "mock-04-resident-evil/png/pagina-08.png",
+                      "source_download":  "Imagem do ChatGPT 20 de out. de 2026, 20_40_32-8.png",
+                      "source_modified_local":  "2026-10-20 20:40:33 -03:00",
+                      "bytes":  2345648,
+                      "width":  1122,
+                      "height":  1402,
+                      "sha256":  "3ce816e1c9bb21df3f0340b6e68ef9e5798c690c51e1413c23c65110341b6b06"
+                  }
+              ]
+}
