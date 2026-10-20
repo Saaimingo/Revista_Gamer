@@ -1,6 +1,6 @@
 # Setor: engenharia e Codex
 
-Status: **Motor Editorial v0.2 implementado e validado localmente no Windows 11; PR #6 aberto para revisão arquitetural, sem merge.**
+Status: **Motor Editorial v0.2 integrado à `main` pelo PR #6; etapa CODEX-003 aprovada para implementação nesta branch.**
 
 ## Primeiro marco técnico concluído
 
@@ -15,17 +15,21 @@ Este marco não ativa os blocos conceituais e não autoriza integrações reais 
 
 - [Especificação ENG-MOTOR-002](ESPECIFICACAO-MOTOR-EDITORIAL-V0.2-MULTIPAUTA.md): multipauta, fluxos independentes, montagem de uma edição com matérias múltiplas e salvaguardas herdadas.
 - [Ordem do construtor CODEX-002](ORDEM-CODEX-002-MOTOR-MULTIPAUTA.md) e [Issue #5](https://github.com/Saaimingo/Revista_Gamer/issues/5).
-- **Status: implementação e testes concluídos; [PR #6](https://github.com/Saaimingo/Revista_Gamer/pull/6) aberto para revisão arquitetural.** O protótipo continua offline e sem publicação.
+- **Implementação e testes concluídos; [PR #6](https://github.com/Saaimingo/Revista_Gamer/pull/6) integrado à `main`.** O núcleo editorial v0.2 continua offline e sem publicação.
 
-## Estudo arquitetural em debate
+## Terceira missão — CODEX-003: orquestração e SIWC
 
-- [Análise provisória do fundador — orquestração orientada a eventos e referência n8n](ANALISE-PROVISORIA-FUNDADOR-ORQUESTRACAO-N8N-2026-10-17.md). **Não autoriza implementação, ativação de agentes reais, agendamento ou mudança na v0.2.**
+- [Especificação aprovada ENG-CODEX-003](ESPECIFICACAO-CODEX-003-ORQUESTRACAO-PLUS.md): fila SQLite, dispatcher, executores, perfis versionados, retomada, agenda desativada por padrão e prova local SIWC de uma tarefa sintética.
+- [Relatório técnico ENG-CODEX-003](RELATORIO-ORQUESTRACAO-AGENTES-PLUS.md): implementação, evidências de teste, status de autenticação real, elegibilidade remota e migração futura para Debian 12.
+- **PR #8 aberto como draft**, sem merge: [CODEX-003: orquestração durável e integração SIWC](https://github.com/Saaimingo/Revista_Gamer/pull/8).
+- [Unidade systemd de exemplo](../../deploy/systemd/revista-gamer-orchestrator.service.example): preparar operação contínua futura; não instalada nem habilitada.
+- [Anteprojeto de 2026-10-19](ANTEPROJETO-ORQUESTRACAO-AGENTES-E-PLUS-2026-10-19.md) permanece como registro da proposta e dos pontos debatidos; foi sucedido, para este escopo, pela especificação aprovada acima.
 
-- [Anteprojeto da próxima etapa — orquestração de agentes e integração oficial com Plus](ANTEPROJETO-ORQUESTRACAO-AGENTES-E-PLUS-2026-10-19.md). **EM DISCUSSÃO, não autoriza Codex, ativação de IA, autenticação, custos ou v0.3.**
+O trabalho fica isolado em branch/PR. Somente a prova técnica SIWC local pode chamar o provedor, após consentimento do diretor. Agenda Plus, conteúdo editorial real, hospedagem remota e publicação não são ativados por esta etapa.
 
 ## Evolução futura
 
-O protótipo já possui estados, validações, tentativas limitadas, trilha de auditoria e aprovação humana interna. Ainda faltam agenda real, filas operacionais de produção, integrações, controle de acesso e backup; só implementar após nova especificação e autorização. Os agentes de IA são chamados sob demanda. Não construir um harness alternativo sem evidência de necessidade.
+O protótipo possui estados, validações, tentativas limitadas, fila técnica, trilha de eventos e aprovação humana interna. Permanecem pendentes perfis públicos aprovados, fluxo editorial real, coleta/fonte autorizada, controle de acesso e backup. Agendas vêm desativadas; não ativar produção sem nova decisão e autorização.
 
 Três funções operacionais candidatas: editor-pesquisador, redator que recebe perfil público de persona, revisor independente. O número definitivo depende de testes. Persona ≠ processo. Não multiplique modelos por personagem.
 
@@ -35,7 +39,7 @@ Consumir somente especificações `aprovado`; anexar referências de versão/com
 
 ## Custo e autonomia
 
-Antes de automatizar: verificar oficialmente limites da assinatura Codex, possibilidade de chamadas programáticas elegíveis e necessidade de API separada. Medir por tarefa, tempo, iterações e esgotamento da franquia; manter margem de segurança. GitHub Actions e nuvem só quando custos, autenticação e permissões forem validados. Não supor acesso à conta do ChatGPT por runner em nuvem.
+O fluxo oficial SIWC permite chamadas elegíveis com consentimento, sujeitas a limites compartilhados do plano. O acesso a apps privados hospedados permanece não confirmado; a elegibilidade precisa ser confirmada com a OpenAI antes da VPS. Não supor acesso à conta do ChatGPT por runner em nuvem.
 
 ## Tecnologia e testes
 
