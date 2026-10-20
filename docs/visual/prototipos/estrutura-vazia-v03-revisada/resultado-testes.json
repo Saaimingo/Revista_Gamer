@@ -1,0 +1,98 @@
+{
+  "produto": "Revista Gamer - Bloco 03 Estrutura Vazia v0.3 revisada",
+  "status": "EXPERIMENTAL / NAO APROVADO",
+  "documentacao": "Resumo estruturado dos ensaios realizados durante a montagem do pacote original; nao e auditoria completa.",
+  "fonte_local": "Revista_Gamer_Bloco03_v03_revisada.zip/resultado-testes.json",
+  "cenario": "Folhear; Matéria extensa; Fonte 150%; inspecao de texto cortado, preservacao da contracapa, JS e largura da pagina",
+  "ensaios_pacote_original": [
+    {
+      "viewport": "1440x960",
+      "faces_apos_fonte_150_e_materia_extensa": 38,
+      "faces_examinadas": 20,
+      "texto_oculto": 0,
+      "texto_exato": true,
+      "contracapa_isolada": true,
+      "overflow_horizontal_px": 0,
+      "erros_js": 0
+    },
+    {
+      "viewport": "1024x768",
+      "faces_apos_fonte_150_e_materia_extensa": 56,
+      "faces_examinadas": 29,
+      "texto_oculto": 0,
+      "texto_exato": true,
+      "contracapa_isolada": true,
+      "overflow_horizontal_px": 0,
+      "erros_js": 0
+    },
+    {
+      "viewport": "800x1100",
+      "faces_apos_fonte_150_e_materia_extensa": 38,
+      "faces_examinadas": 38,
+      "texto_oculto": 0,
+      "texto_exato": true,
+      "contracapa_isolada": true,
+      "overflow_horizontal_px": 0,
+      "erros_js": 0
+    },
+    {
+      "viewport": "390x844",
+      "faces_apos_fonte_150_e_materia_extensa": 56,
+      "faces_examinadas": 56,
+      "texto_oculto": 0,
+      "texto_exato": true,
+      "contracapa_isolada": true,
+      "overflow_horizontal_px": 0,
+      "erros_js": 0
+    },
+    {
+      "viewport": "360x740",
+      "faces_apos_fonte_150_e_materia_extensa": 56,
+      "faces_examinadas": 56,
+      "texto_oculto": 0,
+      "texto_exato": true,
+      "contracapa_isolada": true,
+      "overflow_horizontal_px": 0,
+      "erros_js": 0
+    },
+    {
+      "viewport": "320x700",
+      "faces_apos_fonte_150_e_materia_extensa": 72,
+      "faces_examinadas": 72,
+      "texto_oculto": 0,
+      "texto_exato": true,
+      "contracapa_isolada": true,
+      "overflow_horizontal_px": 0,
+      "erros_js": 0
+    }
+  ],
+  "reteste_2026_10_20": {
+    "descricao": "Verificacao adicional com Chromium headless via Playwright, HTML injetado; foram percorridas faces e confrontado texto do Folhear com Contínua.",
+    "cenarios": [
+      {
+        "viewport": "1024x768",
+        "faces_visiveis_visitadas": 57,
+        "contracapa_isolada": true,
+        "erro_texto_oculto": 0,
+        "overflow_horizontal": 0,
+        "texto_entre_modos_igual": true,
+        "erros_js": 0
+      },
+      {
+        "viewport": "390x844",
+        "faces_visiveis_visitadas": 57,
+        "contracapa_isolada": true,
+        "erro_texto_oculto": 0,
+        "overflow_horizontal": 0,
+        "texto_entre_modos_igual": true,
+        "erros_js": 0
+      }
+    ]
+  },
+  "limitacoes": [
+    "Nao testado em aparelhos fisicos",
+    "Nao e auditoria completa de acessibilidade",
+    "Paginação de material editorial real e imagens complexas ainda pendente",
+    "HTML versionado; PNG e ZIP do pacote original nao enviados ao GitHub"
+  ]
+}
