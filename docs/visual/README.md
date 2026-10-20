@@ -39,6 +39,10 @@ O diretor autorizou documentar dois estudos gráficos comparáveis, **sem aprov�
 
 **Estado operacional:** documentação em GitHub; arquivos PNG binários gerados e organizados no pacote de entrega ao diretor, mas **pendentes de transferência efetiva para o repositório**. Não alegar que os arquivos visuais estão presentes até validação por leitura do próprio GitHub. As imagens contêm IP/marcas reconhecíveis e informações fictícias, exigindo análise de direitos e revisão antes de uso público.
 
+## Conciliação visual solicitada pela direção — estudo de capa e miolo (20/10/2026)
+
+O Chat Fundador registrou o **[exemplo integrado dos Mocks A/B e do novo Estudo Visual 01](prototipos/demonstracao-integrada-fundador-2026-10-20/README.md)**, com **[HTML autocontido](prototipos/demonstracao-integrada-fundador-2026-10-20/index.html)** para comparação. A direção rejeitou a substituição implícita por uma capa genérica e pediu retomar **nome grande central no topo, destaque central com arte cinematográfica, chamadas laterais e espaço publicitário somente se houver patrocinador**. Este exemplo não aprova marca final, mídias externas nem substitui o leitor funcional da v0.3. O Bloco 03 deve distinguir se o Estudo Visual 01 anterior era abstração deliberada ou mudança de conceito não autorizada e dialogar sobre o resultado.
+
 ## Entrega navegável do Bloco 03 — v0.3 revisada (20/10/2026)
 
 O laboratório revisado de **casca editorial** está disponível **como HTML real e documentos de teste no GitHub**, em:
