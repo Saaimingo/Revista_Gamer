@@ -168,12 +168,14 @@ function one(){return window.innerWidth<=800}
 function spread(){if(one())return [face];if(face===0||face===7)return [face];return face%2===1?[face,face+1]:[face-1,face]}
 function page(i){return document.getElementById("p"+(i+1)).content.cloneNode(true)}
 function syncCover(){
-document.getElementById("coverTitle").innerHTML=theme==="horror"?"O MEDO<br>CONTINUA.":"A CIDADE<br>NÃO DORME.";
-document.getElementById("coverSub").textContent=theme==="horror"?"A linguagem do survival horror vista pela narrativa, pela atmosfera e pela memória do jogador.":"Como um mundo aberto cria histórias entre ruas, personagens, escolhas e possibilidades.";
-document.getElementById("coverLeft").textContent=theme==="horror"?"A máquina do medo":"Hardware sem truques";
-document.getElementById("coverRight").textContent=theme==="horror"?"Clássicos que resistem":"Memórias em movimento";
-document.getElementById("specialHeading").innerHTML=theme==="horror"?"O MEDO TEM<br>UMA LINGUAGEM.":"UMA CIDADE,<br>MUITAS HISTÓRIAS.";
-document.getElementById("specialDeck").textContent=theme==="horror"?"Luz, silêncio e cenário não são apenas decoração: estabelecem as perguntas que uma reportagem precisa investigar.":"Ruas, escolhas e personagens podem fazer da exploração parte da narrativa. A diagramação precisa acompanhar esse ritmo.";
+var t=document.getElementById("coverTitle"),sub=document.getElementById("coverSub"),left=document.getElementById("coverLeft"),right=document.getElementById("coverRight");
+var head=document.getElementById("specialHeading"),deck=document.getElementById("specialDeck");
+if(t)t.innerHTML=theme==="horror"?"O MEDO<br>CONTINUA.":"A CIDADE<br>NÃO DORME.";
+if(sub)sub.textContent=theme==="horror"?"A linguagem do survival horror vista pela narrativa, pela atmosfera e pela memória do jogador.":"Como um mundo aberto cria histórias entre ruas, personagens, escolhas e possibilidades.";
+if(left)left.textContent=theme==="horror"?"A máquina do medo":"Hardware sem truques";
+if(right)right.textContent=theme==="horror"?"Clássicos que resistem":"Memórias em movimento";
+if(head)head.innerHTML=theme==="horror"?"O MEDO TEM<br>UMA LINGUAGEM.":"UMA CIDADE,<br>MUITAS HISTÓRIAS.";
+if(deck)deck.textContent=theme==="horror"?"Luz, silêncio e cenário não são apenas decoração: estabelecem as perguntas que uma reportagem precisa investigar.":"Ruas, escolhas e personagens podem fazer da exploração parte da narrativa. A diagramação precisa acompanhar esse ritmo.";
 }
 function render(){
 book.replaceChildren();var ids=mode==="continuous"?Array.from({length:total},function(_,i){return i}):spread();
