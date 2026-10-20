@@ -4,9 +4,21 @@
 **Identificador:** B02-RANZINZA-HANDOFF-20261019  
 **Versão:** 0.1  
 **Status:** **PRONTO PARA AVALIAÇÃO CONCEITUAL / NÃO APROVADO COMO DNA FINAL**  
-**Atualização:** 2026-10-19  
+**Atualização:** 2026-10-20 (pacote inicial de 19/10, adendo de 20/10)  
 **Aprovador da identidade operacional:** diretor humano (pendente)  
 **Base do pacote:** [PR #13 — DNA, amostras e proposta operacional](https://github.com/Saaimingo/Revista_Gamer/pull/13). **Não efetuar merge por inferência.**
+
+## NOVO: direção e fundador — adendo de 20/10/2026
+
+**Ler primeiro:** [Ajustes de direção e parecer do fundador — 20/10](RANZINZA-AJUSTES-DIRECAO-E-FUNDADOR-2026-10-20.md). O diretor confirmou preliminarmente as orientações, pediu sua incorporação aos documentos do Bloco 02 e reservou o **aceite definitivo** para após nova conversa com o fundador.
+
+- **Ironia dirigida para cima:** crítica a grandes estruturas, fabricantes, marketing e instituições pelas práticas comprováveis, não para humilhar consumidores, leitores, iniciantes ou a própria revista. É **proposta de princípio transversal**, a ser decidida com o fundador, não regra já imposta aos outros blocos.
+- **Debate sem arrogância:** mesmo diante de opiniões categóricas, apurar relatos divergentes, pedir circunstâncias e metodologia, deixar espaço real para réplica/tréplica, corrigir quando surgirem dados melhores; não forçar consenso.
+- **Duas etapas:** conversar primeiro, preferencialmente no canal privado de origem quando privado; depois, apenas com autorização específica, revisão humana e fidelidade aos trechos, considerar quadro de leitores na edição seguinte. Sem canal ou publicação automáticos.
+- **Pauta-exemplo do diretor:** investigar desempenho bruto de GPUs versus ganhos de software e exigências de VRAM/otimização nos jogos, com método e fontes — **hipótese investigativa, não conclusão publicada**.
+- **Validação ampliada:** cenários T09–T12 acrescentados à matriz para ironia ascendente, relato de usuário divergente, retificação e consentimento. **Nenhum teste foi executado.**
+
+**As três narrativas já aprovadas NÃO foram reescritas. O DNA final, a adoção transversal de política editorial e o contrato de execução permanecem em revisão.**
 
 ## 1. Mensagem de encaminhamento
 
