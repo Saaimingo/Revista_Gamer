@@ -55,3 +55,16 @@ O laboratório revisado de **casca editorial** está disponível **como HTML rea
 - [Parecer provisório do fundador sobre o laboratório v0.3 **revisado** — 20/10/2026](analises-fundador/PARECER-PROVISORIO-2026-10-20-V03-REVISADA.md) — reconhecimento das correções e dos testes registrados, com pendências para comportamento de preferências ao trocar mobile↔desktop, explicação do contador de faces, cobertura de testes e uso de conteúdo real. Não constitui homologação independente nem nova ordem ao Codex.
 
 **Estado:** HTML e documentos acima versionados e verificados; ZIP e capturas PNG originais da v0.3 revisada ainda **não** transferidos ao GitHub. Os PNGs anteriores dos mocks A/B continuam com sua pendência própria. **Nada está aprovado como identidade final ou produção.** A próxima ação é análise da direção e do fundador, sem encaminhamento automático ao Codex.
+
+## Laboratório v0.3 consolidado — correções B03-R1 a B03-R5 (20/10/2026)
+
+Após o [parecer provisório sobre a v0.3 revisada](analises-fundador/PARECER-PROVISORIO-2026-10-20-V03-REVISADA.md), o Bloco 03 disponibilizou a **[v0.3 consolidada, executável e testável](prototipos/estrutura-vazia-v03-consolidada/README.md)**.
+
+- [HTML autocontido](prototipos/estrutura-vazia-v03-consolidada/index.html) — Folhear/Contínua, preferências reativas a mudanças de tamanho e publicidade facultativa
+- [Resultados com faces geradas, identidades únicas, visitas e sequências](prototipos/estrutura-vazia-v03-consolidada/resultado-testes.json)
+- [Teste Playwright com casos responsivos, leitura, diálogo, imagem/legenda e tabela oversized](prototipos/estrutura-vazia-v03-consolidada/tests/test_integridade.py)
+- [Guia de revisão e limitações](prototipos/estrutura-vazia-v03-consolidada/README.md)
+
+**Evidência local:** 10 cenários automatizados concluídos em Chromium headless. Cenário 1024×768/150%/espaçamento ampliado/matéria longa: 56 faces geradas, 56 identidades únicas e 56 visitas. Cenário 390×844 nas mesmas condições: 68/68/68. Não é teste em aparelhos físicos ou homologação externa.
+
+**Estado:** fase de integridade/ergonomia do protótipo consolidada para avaliação da direção. **Nenhuma identidade, edição nem implementação definitiva aprovada**. A v0.3 revisada anterior permanece íntegra para comparação; o ZIP e as prévias locais da consolidação não constam como binários no repositório, mas o HTML é reproduzível a partir do GitHub.
