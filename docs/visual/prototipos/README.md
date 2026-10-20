@@ -35,3 +35,15 @@ Os nomes de revista, fotos, caricaturas, nomes comerciais, QR codes, perfis, ava
 - [Parecer provisório de origem](../analises-fundador/PARECER-PROVISORIO-2026-10-19-ESTRUTURA-VAZIA-V03.md)
 
 Este laboratório é **distinto** dos 16 PNGs dos mocks A/B acima. O fundador pode clonar/baixar o repositório e abrir localmente `index.html`, sem API, servidor ou conteúdo editorial real. A entrega não autoriza publicação, nome, identidade definitiva ou implementação pelo Codex. O pacote ZIP v0.3 revisado e suas capturas PNG originais ainda não foram enviados ao repositório; os documentos acima têm estado de transferência verificado.
+
+## Estrutura Vazia v0.3 consolidada — 20/10/2026
+
+**[Pasta da entrega e instruções para o fundador](estrutura-vazia-v03-consolidada/README.md)**.
+
+Esta versão continua a anterior e foi publicada para validar as observações B03-R1/R2/R3 do parecer de 20/10, incluindo o painel de preferências ao cruzar 560px, relatório de faces únicas versus visitas, comparação de texto no Folhear e Contínua, componente grande rolável ao teclado, e espaço publicitário inexistente sem anunciante.
+
+- [Protótipo real (HTML)](estrutura-vazia-v03-consolidada/index.html)
+- [Relatório das verificações](estrutura-vazia-v03-consolidada/resultado-testes.json)
+- [Script de teste reproduzível](estrutura-vazia-v03-consolidada/tests/test_integridade.py)
+
+**Condição:** experimento; testes de aparelho físico, leitor de tela, desempenho e conteúdos editoriais reais continuam pendentes. Não confundir com os 16 PNGs dos dois mocks A/B, que permanecem fora do GitHub.
