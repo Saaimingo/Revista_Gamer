@@ -2,6 +2,12 @@
 
 Status: conceito aprovado em linhas gerais; designs e requisitos mensuráveis pendentes.
 
+## Diretriz expressa da direção — integração visual/funcional (20/10/2026)
+
+**Leitura PRIORITÁRIA do Bloco 03:** [“Integrar a força dos quatro mocks cinematográficos ao leitor v0.3 consolidado”](analises-fundador/DIRETRIZ-DA-DIRECAO-INTEGRAR-MOCKS-E-LEITOR-V03-2026-10-20.md).
+
+O diretor reforçou: **não quer escolher entre capas/miolo bonitos em PNG e a experiência responsiva já criada**. Exige **a estética das quatro imagens de referência (capa, reportagem, editorial/sumário, hardware/comunidade) rodando DENTRO do mesmo sistema que Folheia/Continua, recompõe páginas, ajusta fonte, funciona em desktop e celular e preserva conteúdo**. As imagens recebidas no Chat Fundador não foram anexadas a esta pasta; o documento faz uma descrição detalhada de cada referência. O HTML simplificado de demonstração do fundador **não atinge o impacto estético dessas imagens e não substitui a v0.3 técnica**. Entregar protótipo unificado navegável e testes antes de pedir aprovação do padrão visual. Não publicar ou reabrir o nome da revista por inferência.
+
 ## Pilares
 
 Identidade central reconhecível com direção temática por edição (horror pode ser escuro, hardware mais tecnológico, nostalgia colorida); páginas com riqueza visual de revista tradicional e interatividade opcional.
