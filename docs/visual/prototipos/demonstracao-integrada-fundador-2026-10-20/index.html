@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Revista Gamer — demonstração integrada de capa e miolo — Bloco 03</title>
+<style>
+:root{color-scheme:dark;--base:#0c0d16;--panel:#161b2a;--ink:#ebe7e5;--muted:#abb3c4;--red:#d63f5c;--purple:#8e69dc;--sheet:#f1eee8;--type:1;font-family:Arial,Helvetica,sans-serif}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 55% -20%,#31304f,transparent 57%),var(--base);color:var(--ink)}
+button,select{font:inherit}button{cursor:pointer}button:focus-visible,select:focus-visible{outline:3px solid #e4c67e;outline-offset:3px}
+header.top{max-width:1300px;padding:15px 22px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand{font-size:14px;font-weight:900;letter-spacing:.14em}.brand small{display:block;font-size:10px;letter-spacing:.08em;color:#aab4c8;font-weight:500;margin-top:5px}
+.controls{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.controls button,.controls select{border:1px solid #51536d;border-radius:8px;background:#1c2233;color:white;padding:9px 12px;font-size:12px;font-weight:700}
+.controls [aria-pressed=true]{background:#b43957;border-color:#e16e82}.controls label{font-size:12px;display:flex;gap:7px;align-items:center;color:#dedde7}.controls input{accent-color:#cc415a}
+.notice{max-width:1250px;margin:0 auto 12px;padding:9px 20px;color:#c8bfd2;font-size:11px;border-top:1px solid #ffffff16;border-bottom:1px solid #ffffff16;line-height:1.5}
+.notice b{color:#f7acb6}.stage{max-width:1250px;margin:0 auto;padding:10px 13px 30px}
+.book{display:flex;align-items:stretch;justify-content:center;gap:0;filter:drop-shadow(0 24px 24px #0009)}
+.page{color:#222c35;background:var(--sheet);position:relative;width:min(46vw,500px);max-width:500px;min-height:740px;display:flex;flex-direction:column;border:1px solid #cfc6ba;overflow:visible;box-shadow:inset 0 0 0 1px #fff8}
+.book:not(.all)>.page:first-child:not(:last-child){box-shadow:inset -11px 0 13px #17111c22}.book:not(.all)>.page:last-child:not(:first-child){box-shadow:inset 12px 0 14px #1b13271d}
+.page .inner{padding:27px 29px 20px;display:flex;flex-direction:column;flex:1;min-width:0}
+.running{display:flex;justify-content:space-between;gap:10px;border-bottom:2px solid #ac4a62;padding-bottom:10px;text-transform:uppercase;font-size:9px;letter-spacing:.15em;font-weight:800;color:#505765}
+.running strong{color:#aa2d4f}.kicker{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#a83152;font-weight:900;margin:18px 0 7px}
+h1,h2,h3,p{margin-top:0}.serif{font-family:Georgia,'Times New Roman',serif}.bigtitle{font:900 clamp(28px,3vw,42px)/.99 Arial,Helvetica,sans-serif;letter-spacing:-.05em;margin-bottom:12px}
+.deck{font-size:calc(13px * var(--type));line-height:1.52;color:#626874;margin:0 0 16px}
+.bodytext{font:calc(14px * var(--type))/1.62 Georgia,'Times New Roman',serif;color:#313741}
+.bodytext p{margin:0 0 12px}.bodytext b{font-weight:800}.bodytext .drop:first-letter{font-size:2.3em;line-height:.76;float:left;padding-right:5px;font-weight:900;color:#b53654}
+.cols{columns:2;column-gap:19px;column-rule:1px solid #cfc8bc}.cols p{break-inside:avoid}
+.sectionline{height:4px;width:63px;background:#c13655;margin:8px 0 17px}
+.folio{font-size:9px;letter-spacing:.13em;text-transform:uppercase;border-top:1px solid #b9b8b4;margin-top:auto;padding-top:11px;color:#69737f;display:flex;justify-content:space-between;align-items:center;gap:9px}
+.folio strong{font-size:17px;color:#b73758}
+.figure{margin:11px 0 15px}.figure svg{width:100%;height:auto;display:block;background:#201f36}
+.caption{font-size:10px;line-height:1.43;color:#68727d;border-left:3px solid #b63a54;padding-left:8px;margin:7px 0 0}
+.pill-row{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0 14px}.pill{border:1px solid #bdb9b5;padding:5px 7px;font-size:9px;letter-spacing:.08em;text-transform:uppercase;font-weight:800}
+.softcard{background:#e8e2da;border-top:3px solid #b73d57;padding:11px 12px}.softcard h3{font-size:13px;margin:0 0 5px}.softcard p{font-size:12px;line-height:1.43;margin:0;color:#485360}
+.highlight{background:#22293c;color:#f3eef2;padding:16px 18px;margin:16px 0;font:italic 19px/1.18 Georgia,serif}.highlight small{display:block;margin-top:11px;font:700 9px Arial;letter-spacing:.13em;color:#eeaeb9}
+.avatars{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:12px 0}.avatar{border-top:3px solid #bc3956;background:#e8e4de;padding:10px 7px;min-width:0}.face{width:39px;height:39px;border-radius:50%;display:grid;place-items:center;color:white;background:linear-gradient(130deg,#603f5d,#a74155);font-size:17px;font-weight:900;margin-bottom:7px}.avatar b{display:block;font-size:12px}.avatar span{display:block;font-size:10px;line-height:1.4;color:#56616d;margin-top:3px}
+.small-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin:10px 0 15px}.tinybox{padding:11px;border:1px solid #c9c1b7;background:#faf7f1}.tinybox strong{font-size:12px;display:block}.tinybox p{font-size:11px;line-height:1.45;margin:5px 0 0}
+.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:11px 0}.facts div{border-top:3px solid #bd3c57;background:#e8e1d6;padding:10px 7px}.facts strong{display:block;font-size:10px}.facts span{display:block;font-size:10px;margin-top:5px;line-height:1.4}
+.table{width:100%;border-collapse:collapse;font-size:11px;margin:12px 0}.table th{background:#292d3d;color:white;text-align:left;padding:9px}.table td{border-bottom:1px solid #c9c6c0;padding:9px}.table td:last-child{text-align:right}
+.disclaimer{font-size:10px;line-height:1.5;color:#706b67;margin:8px 0}
+.mag-cover{overflow:hidden;background:#101421;color:white;border:1px solid #593444;min-height:740px;isolation:isolate}
+.cover-art{position:absolute;inset:0;z-index:-3;overflow:hidden}
+.cover-art svg{width:100%;height:100%;display:block;position:absolute;inset:0}
+.mag-cover .smokefade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,#04070bdc 0%,#03080a19 31%,#06060930 60%,#06070ade 99%);z-index:-2}
+.cover-header{padding:27px 23px 0;text-align:center;position:relative;z-index:4}
+.editionline{display:flex;justify-content:space-between;font-size:9px;letter-spacing:.16em;font-weight:900;color:#f3c9d1}
+.masthead{font-weight:1000;font-size:clamp(43px,5.5vw,72px);line-height:.84;letter-spacing:-.085em;text-align:center;margin:27px 0 12px;text-shadow:0 6px 17px #000d}
+.masthead span{display:block}.masthead .dot{display:inline;color:#f66581}
+.strap{text-transform:uppercase;letter-spacing:.18em;font-size:10px;font-weight:900;color:#f3d8d9;border-top:1px solid #ffffff75;padding-top:9px}
+.cover-center{flex:1;min-height:325px;position:relative}
+.side-teaser{position:absolute;top:35%;max-width:124px;width:30%;z-index:3;padding:9px 8px;background:#09101c94;border-top:3px solid #ee7b93;backdrop-filter:blur(2px)}
+.side-teaser.left{left:13px;text-align:left}.side-teaser.right{right:13px;text-align:right;top:48%}
+.side-teaser b{display:block;font-size:12px;line-height:1.16}.side-teaser small{display:block;font-size:9px;line-height:1.4;color:#f0b5c3;margin-top:5px}
+.cover-bottom{padding:10px 24px 25px;position:relative;z-index:3}
+.feature-label{font-size:10px;text-transform:uppercase;font-weight:900;letter-spacing:.2em;color:#ff9eb1}
+.feature-title{font-size:clamp(40px,5vw,58px);line-height:.88;font-weight:1000;letter-spacing:-.067em;text-transform:uppercase;margin:8px 0 11px;max-width:430px;text-shadow:0 4px 15px #000d}
+.feature-sub{max-width:390px;font-size:12px;line-height:1.45;color:#f5d6dc;text-shadow:0 1px 9px #000}
+.cover-footer{display:flex;justify-content:space-between;gap:7px;border-top:1px solid #ffffff78;padding-top:11px;margin-top:20px;font-size:9px;letter-spacing:.1em}
+.sponsor-bar{background:#181827f2;border:1px solid #e3bfcb;color:#f7e6ed;margin-top:13px;padding:10px 13px;font-size:10px;letter-spacing:.1em;font-weight:800;text-align:center}
+body:not(.sponsored) .sponsor-bar{display:none}
+#cityArt{display:none}body[data-theme=city] #cityArt{display:block}body[data-theme=city] #horrorArt{display:none}
+body[data-theme=city] .mag-cover{background:#293454}body[data-theme=city] .feature-label{color:#ffdcaa}body[data-theme=city] .side-teaser{border-color:#ffbc75;background:#1c2856af}body[data-theme=city] .side-teaser small{color:#ffe0b1}body[data-theme=city] .sponsor-bar{background:#24406aeb}
+body[data-theme=city] .theme-special{background:#fff0df}body[data-theme=city] .theme-special .running{border-color:#f1915b}body[data-theme=city] .theme-special .kicker{color:#b65b48}body[data-theme=city] .theme-special .sectionline{background:#e6936d}
+body[data-theme=city] .theme-special .softcard{border-color:#eb906b}body[data-theme=city] .theme-special .caption{border-color:#e09362}
+.page.theme-special .inner{background:linear-gradient(180deg,#fff7ef,#f6eadd)}body[data-theme=horror] .page.theme-special .inner{background:linear-gradient(180deg,#f6f1ea,#eae3df)}
+.theme-tag{font-size:11px;font-weight:900;letter-spacing:.15em;padding:9px 11px;background:#30354a;color:white;display:inline-block;align-self:start;margin:8px 0}
+.darkpage{background:#202436;color:#f2edf1;border-color:#555064}.darkpage .inner{background:linear-gradient(160deg,#262b40,#171c2b);color:#f2edf1}.darkpage .running{color:#d2b8cf;border-color:#d75672}.darkpage .deck,.darkpage .bodytext{color:#f1eaf0}.darkpage .kicker{color:#f5a1b7}.darkpage .folio{color:#bfc3d3;border-color:#737288}.darkpage .folio strong{color:#f2a1b1}.darkpage .caption{color:#c4c0d2}.darkpage .tinybox,.darkpage .softcard{background:#343a50;border-color:#a76e8a;color:white}.darkpage .tinybox p,.darkpage .softcard p{color:#e1d9e4}.darkpage .highlight{background:#0c101e}.darkpage .avatar{background:#36364a}.darkpage .avatar span{color:#ded0e1}.darkpage .pill{border-color:#9e95ad}
+.backpage{position:relative;background:linear-gradient(155deg,#252d42,#131827);color:white;overflow:hidden}
+.backpage:before{content:'';position:absolute;inset:70px -50px auto;height:450px;border:2px solid #925d89;transform:rotate(-27deg);box-shadow:0 0 0 40px #ffffff05,0 0 0 100px #ffffff04;border-radius:50%}
+.backpage .inner{position:relative;z-index:1}.backpage .kicker{color:#ff9db5}.backpage .bigtitle{font-size:50px}.backpage .folio{color:#d1c4cf;border-color:#ffffff40}
+.nav{display:flex;justify-content:center;align-items:center;gap:15px;padding:8px 20px 30px}
+.nav button{border:1px solid #50566a;background:#252b3f;color:white;padding:10px 17px;border-radius:9px;font-size:12px}.nav button:disabled{opacity:.3}
+.counter{min-width:105px;font-size:12px;color:#e8e0e7;text-align:center}
+.is-hidden{display:none!important}
+.book.all{display:flex;flex-direction:column;align-items:center;gap:14px;filter:none}
+.book.all .page{width:min(100%,790px);max-width:790px;min-height:0}
+.book.all .mag-cover{min-height:780px;max-width:530px}
+.book.all .backpage{max-width:530px;min-height:680px}
+.book.all .page:not(.mag-cover):not(.backpage) .inner{padding:37px 42px}
+.book.all .cols{columns:1}
+body[data-mode=continuous] .nav{display:none}
+.noteend{max-width:1050px;margin:4px auto 35px;padding:0 15px;color:#b6bad0;font-size:11px;line-height:1.6;text-align:center}
+@media(max-width:1000px){.page{min-height:700px}.page .inner{padding:21px}.side-teaser{max-width:108px}.masthead{font-size:clamp(42px,5.5vw,64px)}.bodytext{font-size:calc(13px * var(--type))}.cover-center{min-height:250px}}
+@media(max-width:800px){.top{padding:12px!important}.brand{width:100%}.controls{width:100%}.controls button,.controls select{flex:1}.stage{padding:6px 8px 12px}.book:not(.all) .page{width:min(100%,560px);max-width:560px;min-height:0}.book:not(.all) .mag-cover{min-height:725px}.book:not(.all) .backpage{min-height:650px}.page .inner{padding:24px!important}.cols{columns:1}.bodytext{font-size:calc(16px * var(--type));line-height:1.56}.deck{font-size:calc(14px * var(--type))}.cover-header{padding:23px 16px 0}.cover-bottom{padding:10px 19px 21px}.masthead{font-size:clamp(49px,12vw,73px)}.feature-title{font-size:clamp(36px,9vw,58px)}.cover-center{min-height:315px}.side-teaser{width:28%;max-width:118px}.book.all .page{width:min(100%,560px);min-height:0}.book.all .mag-cover{min-height:725px}.book.all .backpage{min-height:650px}.book.all .page:not(.mag-cover):not(.backpage) .inner{padding:24px}.book.all .bodytext{font-size:calc(16px * var(--type))}}
+@media(max-width:390px){.masthead{font-size:46px}.cover-center{min-height:275px}.side-teaser{width:30%;top:29%}.side-teaser.right{top:48%}.side-teaser b{font-size:10px}.feature-title{font-size:37px}.cover-footer{font-size:8px}.avatars{gap:5px}.avatar{padding:7px 5px}.running{font-size:8px}.page .inner{padding:20px!important}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+</style>
+</head>
+<body data-theme="horror" data-mode="flip">
+<header class="top"><div class="brand">REVISTA GAMER / ENSAIO DO FUNDADOR<small>Reconciliação dos mocks A/B (17/10) com a prova estética 01 (20/10) • Não é marca aprovada</small></div>
+<div class="controls"><button id="horror" aria-pressed="true">◐ Sombria / terror</button><button id="city" aria-pressed="false">◉ Colorida / cidade</button><button id="flip" aria-pressed="true">◧ Folhear</button><button id="continuous" aria-pressed="false">☰ Contínua</button><label>Fonte <select id="scale" aria-label="Tamanho do texto"><option value="1">100%</option><option value="1.2">120%</option><option value="1.4">140%</option></select></label><label><input type="checkbox" id="sponsor"> Patrocínio fictício</label></div></header>
+<div class="notice"><b>REFERÊNCIA VISUAL, NÃO EDIÇÃO:</b> a arquitetura da capa e das editorias vem dos mocks Resident Evil/terror e GTA VI; a composição tipográfica e os modos de leitura dialogam com o novo Estudo Visual 01. As cenas abaixo são ilustrações vetoriais originais, sem imagens oficiais, notícias ou anúncios reais.</div>
+<main class="stage"><div class="book" id="book" aria-label="Exemplo editorial visual"></div></main>
+<nav id="nav" class="nav" aria-label="Navegação entre páginas"><button id="prev">← Anterior</button><span id="counter" class="counter">01 / 08</span><button id="next">Próxima →</button></nav>
+<p class="noteend">Laboratório de demonstração • oito faces por tema. A edição real e os textos definitivos dependem da Redação; os assets dos mocks originais não foram republicados aqui. Teste conceitual, não homologação do leitor funcional.</p>
+<template id="p1"><article class="page mag-cover" aria-label="Capa"><div class="cover-art">
+<svg id="horrorArt" viewBox="0 0 1000 1500" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Ilustração original: figura diante de casarão sombrio, névoa e luz vermelha"><defs>
+<linearGradient id="hn" x2="0" y2="1"><stop stop-color="#080e1e"/><stop offset=".46" stop-color="#1d2540"/><stop offset="1" stop-color="#551c30"/></linearGradient>
+<radialGradient id="hr"><stop stop-color="#ff896e" stop-opacity=".93"/><stop offset=".33" stop-color="#ae344a" stop-opacity=".72"/><stop offset="1" stop-color="#241126" stop-opacity="0"/></radialGradient>
+<linearGradient id="hf" x2="0" y2="1"><stop stop-color="#151d2b"/><stop offset="1" stop-color="#020407"/></linearGradient></defs>
+<rect width="1000" height="1500" fill="url(#hn)"/><ellipse cx="555" cy="760" rx="640" ry="480" fill="url(#hr)"/>
+<path d="M0 700L120 630 250 710 390 565 510 675 680 580 800 700 1000 620V1500H0Z" fill="#111624" opacity=".83"/>
+<path d="M300 1030V655H366V559H425V516H600V556H653V657H731V1030Z" fill="#12121c" stroke="#7e5360" stroke-width="7"/>
+<path d="M395 645V558H610V646 M463 558V510H538V558" fill="none" stroke="#70394a" stroke-width="8"/>
+<path d="M403 710H455V796H403Z M554 710H612V797H554Z" fill="#f48365" opacity=".63"/>
+<path d="M485 1030V843Q485 824 504 824Q525 824 525 843V1030" fill="#05070c"/>
+<g fill="#060b15"><path d="M0 1500V400L60 700 110 420 155 780 195 560 254 1100 290 750 330 1500Z"/><path d="M1000 1500V350L935 725 887 465 835 805 780 520 730 1140 684 780 640 1500Z"/></g>
+<path d="M0 1040Q250 890 480 1080T1000 1010V1500H0Z" fill="#bc4860" opacity=".19"/><path d="M0 1170Q300 1040 530 1160T1000 1120V1500H0Z" fill="#e6a0a5" opacity=".08"/>
+<path d="M490 1040l-29 30-26 115-70 315h306l-80-322-30-108-36-30Z" fill="url(#hf)"/><ellipse cx="509" cy="1013" rx="42" ry="52" fill="#07090e"/><path d="M497 1062L475 1270 420 1500h180L544 1260l-22-198Z" fill="#070a0f"/>
+<path d="M571 1125L760 1260 750 1290 551 1173Z" fill="#edb59b" opacity=".7"/><path d="M752 1260L950 1238 968 1295 745 1293Z" fill="#f1ba9c" opacity=".2"/>
+<path d="M0 1430Q350 1360 600 1420T1000 1400V1500H0Z" fill="#0a0b0f"/></svg>
+<svg id="cityArt" viewBox="0 0 1000 1500" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Ilustração original: cidade costeira ao pôr do sol com palmeiras, arranha-céus e carro"><defs><linearGradient id="cs" x2="0" y2="1"><stop stop-color="#31529b"/><stop offset=".37" stop-color="#ef6b82"/><stop offset=".7" stop-color="#f6a26c"/><stop offset="1" stop-color="#362655"/></linearGradient><linearGradient id="road" x2="0" y2="1"><stop stop-color="#4d305c"/><stop offset="1" stop-color="#151829"/></linearGradient></defs>
+<rect width="1000" height="1500" fill="url(#cs)"/><circle cx="590" cy="700" r="250" fill="#ffd19b" opacity=".68"/><path d="M0 860Q280 825 500 855T1000 838V1500H0Z" fill="#68527b" opacity=".4"/>
+<g fill="#2c335b" opacity=".88"><path d="M0 1030V730H80V820H125V660H225V770H270V700H335V1000Z"/><path d="M490 1000V720H550V612H630V760H710V640H774V740H858V600H935V1030Z"/></g>
+<g fill="#1b2746"><path d="M0 1110V835H130V880H220V760H296V990H382V800H472V1090Z"/><path d="M590 1090V800H676V845H754V735H800V825H878V780H1000V1150Z"/></g>
+<path d="M0 1180L340 1140 450 1500H0Z M1000 1180L675 1150 550 1500H1000Z" fill="#16223a"/>
+<path d="M390 1120L615 1120 1000 1500H0Z" fill="url(#road)"/><path d="M498 1150L510 1150 513 1270 490 1270Z M486 1380H520L548 1500H464Z" fill="#ffd4a0" opacity=".75"/>
+<g stroke="#142c3a" stroke-width="19" fill="none"><path d="M155 1500Q135 1100 100 810"/><path d="M875 1500Q864 1160 932 790"/></g>
+<g fill="#11263a"><path d="M100 819Q-10 755 -75 790Q-5 810 100 845Z M104 810Q78 700 7 670Q28 754 104 834Z M105 810Q157 721 240 745Q183 790 105 844Z M104 803Q132 700 109 628Q92 744 104 825Z"/><path d="M930 792Q855 719 766 736Q844 797 924 821Z M930 791Q920 691 972 643Q971 746 930 817Z M932 797Q1040 714 1115 757Q1020 814 930 829Z"/></g>
+<path d="M320 1300L390 1245H615L688 1314 713 1400H301Z" fill="#151a33" stroke="#ef87a9" stroke-width="7"/>
+<path d="M412 1251L455 1210H575L611 1251Z" fill="#b8c7ed" opacity=".4"/>
+<path d="M315 1365H390V1398H306Z M610 1365H693V1398H610Z" fill="#ffe2b5"/>
+<path d="M0 1470Q300 1450 500 1470T1000 1440V1500H0Z" fill="#14192d"/></svg>
+</div><div class="smokefade"></div>
+<div class="cover-header"><div class="editionline"><span>EDIÇÃO CONCEITUAL / 01</span><span>PARA QUEM JOGA</span></div><div class="masthead"><span>REVISTA</span><span>GAMER<span class="dot">.</span></span></div><div class="strap">JOGOS • HARDWARE • MEMÓRIA</div></div>
+<div class="cover-center"><div class="side-teaser left"><b id="coverLeft">A máquina do medo</b><small>HARDWARE / ANÁLISE</small></div><div class="side-teaser right"><b id="coverRight">Clássicos que resistem</b><small>NOSTALGIA / ESPECIAL</small></div></div>
+<div class="cover-bottom"><div class="feature-label">ESPECIAL DE CAPA</div><div class="feature-title" id="coverTitle">O MEDO<br>CONTINUA.</div><p class="feature-sub" id="coverSub">A linguagem do survival horror vista pela narrativa, pela atmosfera e pela memória do jogador.</p><div class="cover-footer"><span>ARTE ORIGINAL DE DEMONSTRAÇÃO</span><span>01 / 08</span></div><div class="sponsor-bar">ESPAÇO DE PATROCÍNIO • APENAS SIMULAÇÃO • NÃO CONTRATADO</div></div></article></template>
+<template id="p2"><article class="page darkpage" aria-label="Editorial, sumário e cronistas"><div class="inner"><div class="running"><span>REVISTA GAMER / REDAÇÃO</span><strong>EDITORIAL + SUMÁRIO</strong></div><div class="kicker">Uma revista para voltar a ler</div><h2 class="bigtitle">JOGAR É<br>MAIS QUE PASSAR<br>DE FASE.</h2><div class="sectionline"></div>
+<div class="bodytext"><p class="drop">Uma revista memorável precisa ter o que contar. Capa grandiosa chama a atenção; é a reportagem que faz o leitor permanecer. Esta demonstração resgata o miolo informativo dos mocks anteriores e preserva a clareza da nova experiência digital.</p><p>Games vêm primeiro. Hardware aparece para explicar a experiência de jogar, enquanto os cronistas dão personalidade à apuração e à memória.</p></div>
+<div class="avatars"><div class="avatar"><div class="face">R</div><b>Ranzinza</b><span>Hardware e evidências. Retrato final não inserido.</span></div><div class="avatar"><div class="face">G</div><b>Gamer</b><span>Jogos, narrativa e comunidade.</span></div><div class="avatar"><div class="face">H</div><b>Historiador</b><span>Memória, bastidores e nostalgia.</span></div></div>
+<div class="kicker" style="color:#f2a6b6">NESTA EDIÇÃO — ORDEM DEMONSTRATIVA</div><div class="bodytext" style="font-size:calc(13px * var(--type))"><p><b>03–04 • Especial de capa.</b> Narrativa e atmosfera com imagens de apoio e texto em primeiro plano.</p><p><b>05 • Por dentro da máquina.</b> Dados explicados e inspeção contextual.</p><p><b>06 • Setups da comunidade.</b> Beleza, organização e potência, sem ranking automático.</p><p><b>07 • Mods e memória.</b> Comparações, contexto e tira de humor.</p></div>
+<div class="folio"><span>Apresentação e rostos ilustrativos / não são perfis finais</span><strong>02</strong></div></div></article></template>
+<template id="p3"><article class="page theme-special" aria-label="Abertura do especial de capa"><div class="inner"><div class="running"><span>RG / ESPECIAL DE CAPA</span><strong>ATMOSFERA</strong></div><div class="kicker">03 / ABERTURA</div><h2 class="bigtitle" id="specialHeading">O MEDO TEM<br>UMA LINGUAGEM.</h2><p class="deck" id="specialDeck">Luz, silêncio e cenário não são apenas decoração: estabelecem as perguntas que uma reportagem precisa investigar.</p>
+<figure class="figure"><svg viewBox="0 0 800 310" role="img" aria-label="Ilustração abstrata original de cena e luz para abertura do especial"><defs><linearGradient id="i1" x2="1" y2="1"><stop stop-color="#22223b"/><stop offset=".5" stop-color="#87405b"/><stop offset="1" stop-color="#d18c74"/></linearGradient></defs><rect width="800" height="310" fill="url(#i1)"/><circle cx="525" cy="130" r="116" fill="#edb89a" opacity=".63"/><path d="M0 310L220 110 380 310 555 90 800 310Z" fill="#151a2e" opacity=".8"/><path d="M340 310L390 182 438 310Z" fill="#0e1527"/><path d="M0 270Q370 185 800 273V310H0Z" fill="#111527" opacity=".6"/></svg><figcaption class="caption">Imagem de abertura demonstrativa, original e separada do texto. Substituir por acervo autorizado na edição real.</figcaption></figure>
+<div class="pill-row"><span class="pill">Narrativa</span><span class="pill">Ambiente</span><span class="pill">Experiência</span><span class="pill">Apuração futura</span></div>
+<div class="bodytext"><p class="drop">O destaque de capa merece espaço visual maior do que uma notícia comum. Mas a imagem precisa apresentar o assunto, não expulsar a reportagem. Por isso, depois da abertura, o texto recupera o protagonismo.</p><p>Este material não analisa um título específico nem atribui resultados a ninguém. Ele demonstra como um especial pode ter ritmo, assinatura e legibilidade sem sacrificar a atmosfera.</p></div>
+<div class="folio"><span>Autoria, fontes e retrato somente após aprovação editorial</span><strong>03</strong></div></div></article></template>
+<template id="p4"><article class="page theme-special" aria-label="Desenvolvimento da reportagem"><div class="inner"><div class="running"><span>RG / REPORTAGEM</span><strong>CONTINUAÇÃO DO ESPECIAL</strong></div><div class="kicker">04 / TEXTO DOMINANTE</div><h2 class="bigtitle">NÃO É<br>UM PÔSTER.<br>É REPORTAGEM.</h2>
+<div class="bodytext cols"><p class="drop">A diagramação deve oferecer conteúdo em quantidade suficiente para justificar a atenção do leitor. As imagens entram onde enriquecem a explicação, com legenda clara, fonte verificável e relação direta com o argumento.</p><p>Os dois mocks anteriores ensinaram algo importante: a capa pede impacto, enquanto o miolo precisa entregar investigação, explicação e contexto. Se a revista tiver apenas grandes fotografias e frases curtas, ela perde a razão de existir.</p><p>Uma reportagem pode comparar narrativa, jogabilidade, tecnologia e recepção pública, desde que não invente testes, depoimentos ou resultados. O que for medido por terceiros deve indicar cenário e metodologia.</p><p>No ambiente digital, essa composição precisa responder ao tamanho da tela. Desktop pode usar colunas; celular deve voltar a uma única coluna legível e permitir ampliar o texto sem desaparecer com nenhum parágrafo.</p></div>
+<div class="small-grid"><figure class="figure"><svg viewBox="0 0 350 170"><rect width="350" height="170" fill="#32334f"/><circle cx="115" cy="83" r="49" fill="#d18b7c" opacity=".55"/><path d="M0 170L122 46 260 170Z" fill="#131a30"/></svg><figcaption class="caption">Imagem 01 — atmosfera; lugar marcado para licença e crédito.</figcaption></figure><figure class="figure"><svg viewBox="0 0 350 170"><rect width="350" height="170" fill="#644467"/><path d="M0 170L160 25 350 170Z" fill="#25233c"/><circle cx="230" cy="60" r="33" fill="#eaa67a" opacity=".62"/></svg><figcaption class="caption">Imagem 02 — detalhe e contexto; figura independente.</figcaption></figure></div>
+<div class="bodytext"><p>Esse é o equilíbrio procurado: linguagem visual forte, porém subordinada a uma leitura agradável. Não há obrigação de manter 70% exatos em toda página; a proporção varia conforme editoria e necessidade da matéria.</p></div>
+<div class="folio"><span>Textos ilustrativos • nenhuma reportagem publicada</span><strong>04</strong></div></div></article></template>
+<template id="p5"><article class="page" aria-label="Hardware com análise e afiliados separados"><div class="inner"><div class="running"><span>RG / HARDWARE PARA JOGAR</span><strong>RANZINZA • COLUNA</strong></div><div class="kicker">05 / DADOS COM CONTEXTO</div><h2 class="bigtitle">O QUE A PEÇA<br>MUDA NO JOGO?</h2><p class="deck">A promessa de desempenho só é útil quando o leitor entende as condições, as limitações e o benefício prático.</p>
+<div class="small-grid" style="grid-template-columns:1.1fr .9fr"><figure class="figure"><svg viewBox="0 0 380 265" role="img" aria-label="Ilustração esquemática de uma placa eletrônica, não produto real"><rect width="380" height="265" fill="#212b3b"/><rect x="36" y="38" width="305" height="186" rx="9" fill="#41606a" stroke="#af94b9" stroke-width="5"/><rect x="101" y="70" width="152" height="120" rx="11" fill="#111e2d"/><circle cx="177" cy="129" r="50" fill="#6d8498" stroke="#c2bbdb" stroke-width="8"/><circle cx="177" cy="129" r="27" fill="#1c2e41"/><g stroke="#b3b0a1" stroke-width="4"><path d="M49 88H96 M258 100H325 M50 165H95 M258 179H333"/></g></svg><figcaption class="caption">Figura técnica original, para testar inspeção e legenda; nenhuma especificação factual.</figcaption></figure><div class="softcard"><h3>Interação útil</h3><p>Pontos de zoom poderão destacar conectores e refrigeração quando houver fotografias autorizadas e informação verificada.</p><p style="margin-top:9px">A presença da imagem não substitui o argumento do cronista.</p></div></div>
+<div class="bodytext"><p class="drop">O Ranzinza não precisa reclamar de tudo. Se o componente entrega benefícios reais, há mérito a reconhecer. Quando os números dependem de cenário, de driver ou de uma tecnologia auxiliar, a revista tem obrigação de explicar isso ao consumidor.</p></div>
+<table class="table"><thead><tr><th>Critério</th><th>O que conferir</th></tr></thead><tbody><tr><td>FPS</td><td>Nativo ou gerado?</td></tr><tr><td>Estabilidade</td><td>1% low e latência</td></tr><tr><td>Imagem</td><td>Resolução e preset</td></tr><tr><td>Contexto</td><td>Fonte e versão</td></tr></tbody></table>
+<div class="disclaimer"><b>AFILIADOS / SIMULAÇÃO:</b> futura indicação comercial, se existir, ficará identificada e separada da conclusão do artigo. Não há produtos ou lojas contratados neste protótipo.</div>
+<div class="folio"><span>Assinatura visual do cronista a integrar pelo Bloco 02</span><strong>05</strong></div></div></article></template>
+<template id="p6"><article class="page darkpage" aria-label="Setups da comunidade"><div class="inner"><div class="running"><span>RG / COMUNIDADE</span><strong>SEU CANTO GAMER</strong></div><div class="kicker">06 / PARTICIPAÇÃO</div><h2 class="bigtitle">TRÊS JEITOS<br>DE MONTAR<br>SEU MUNDO.</h2><p class="deck" style="color:#dfd2df">Beleza, organização e potência são categorias diferentes, não um pódio que despreza quem tem equipamento modesto.</p>
+<div class="small-grid" style="grid-template-columns:1fr 1fr"><figure class="figure"><svg viewBox="0 0 360 190"><rect width="360" height="190" fill="#151929"/><rect x="55" y="28" width="236" height="126" rx="6" fill="#8a4fa2"/><rect x="65" y="37" width="216" height="106" fill="#25385f"/><circle cx="170" cy="95" r="47" fill="#c2668b" opacity=".5"/><path d="M20 171H332" stroke="#da7abd" stroke-width="8"/></svg><figcaption class="caption">Beleza — composição ilustrativa.</figcaption></figure><figure class="figure"><svg viewBox="0 0 360 190"><rect width="360" height="190" fill="#151c2a"/><rect x="58" y="34" width="220" height="119" fill="#3d6183"/><path d="M87 70H251 M87 91H251 M87 112H251" stroke="#bdc9cf" stroke-width="9"/><path d="M20 171H332" stroke="#a1b2bb" stroke-width="8"/></svg><figcaption class="caption">Organização — composição ilustrativa.</figcaption></figure></div>
+<figure class="figure"><svg viewBox="0 0 780 225"><rect width="780" height="225" fill="#1d2133"/><rect x="95" y="16" width="590" height="174" fill="#303a56" stroke="#c16fba" stroke-width="9"/><g stroke="#9d7dc6" stroke-width="5"><path d="M120 64H650 M120 104H650 M120 144H650"/></g><circle cx="585" cy="105" r="51" stroke="#80c2dc" stroke-width="9" fill="none"/></svg><figcaption class="caption">Potência — ilustração esquemática sem marca ou benchmark.</figcaption></figure>
+<div class="bodytext"><p>A futura seção de comunidade só publicará fotos, nomes e fichas técnicas depois da autorização de seus participantes. A escolha dos destaques deve ser transparente, não uma competição de orçamento.</p></div>
+<div class="folio"><span>Fotos e perfis de leitores não fornecidos</span><strong>06</strong></div></div></article></template>
+<template id="p7"><article class="page darkpage" aria-label="Mods, memória e tira ilustrativa"><div class="inner"><div class="running"><span>RG / HISTÓRIA E MODS</span><strong>PASSADO + PRESENTE</strong></div><div class="kicker">07 / HISTORIADOR • LAB</div><h2 class="bigtitle">QUANDO<br>O CLÁSSICO<br>VOLTA A BRILHAR.</h2>
+<div class="bodytext"><p class="drop">Nostalgia não significa fingir que tudo era melhor. O Historiador poderá recuperar contexto, mudanças de tecnologia, experiências do público e transformações culturais sem inventar memórias de quem viveu determinados lançamentos.</p></div>
+<div class="small-grid"><figure class="figure"><svg viewBox="0 0 350 210"><rect width="350" height="210" fill="#252d44"/><rect x="23" y="23" width="304" height="163" fill="#64708a"/><path d="M10 175L130 70 210 151 290 41 350 175Z" fill="#2b3851"/></svg><figcaption class="caption">Antes — ilustração original.</figcaption></figure><figure class="figure"><svg viewBox="0 0 350 210"><rect width="350" height="210" fill="#202b48"/><rect x="23" y="23" width="304" height="163" fill="#c16e80"/><path d="M10 175L130 70 210 151 290 41 350 175Z" fill="#543c62"/></svg><figcaption class="caption">Depois — não representa mod real testado.</figcaption></figure></div>
+<div class="highlight">“Se você vai voltar ao passado, traga contexto junto na viagem.”<small>FALA FICTÍCIA PARA TESTE DE DIAGRAMAÇÃO; NÃO É CITAÇÃO APROVADA</small></div>
+<div class="softcard"><h3>Tirinha / módulo editorial</h3><p>Um pequeno quadro de humor pode acompanhar o texto, mas não precisa aparecer em toda edição. É uma reserva gráfica, não um personagem novo aprovado.</p></div>
+<div class="folio"><span>Direitos de mods e imagens pendentes do Bloco 05</span><strong>07</strong></div></div></article></template>
+<template id="p8"><article class="page backpage" aria-label="Contracapa"><div class="inner"><div class="running"><span style="color:#fff">RG / ENCERRAMENTO</span><strong>CONTRACAPA</strong></div><div style="flex:1;display:flex;flex-direction:column;justify-content:center"><div class="kicker">A JORNADA NÃO ACABA AQUI</div><h2 class="bigtitle">ATÉ A<br>PRÓXIMA<br>FASE.</h2><div class="sectionline"></div><div class="bodytext" style="color:#e7e4ef"><p>Uma revista feita para quem joga, investiga, lembra e compartilha. Este encerramento é ilustrativo; nenhuma periodicidade, pauta ou anunciante foi anunciado.</p></div><div style="font-size:56px;font-weight:1000;letter-spacing:-.07em;color:#ff9fb6;margin:38px 0">RG<span style="color:white">.</span></div></div><div class="folio"><span>Protótipo conceitual • sem publicação</span><strong>08</strong></div></div></article></template>
+<script>
+(function(){
+"use strict";
+var body=document.body,book=document.getElementById("book"),nav=document.getElementById("nav"),counter=document.getElementById("counter");
+var face=0,mode="flip",theme="horror",total=8;
+function one(){return window.innerWidth<=800}
+function spread(){if(one())return [face];if(face===0||face===7)return [face];return face%2===1?[face,face+1]:[face-1,face]}
+function page(i){return document.getElementById("p"+(i+1)).content.cloneNode(true)}
+function syncCover(){
+document.getElementById("coverTitle").innerHTML=theme==="horror"?"O MEDO<br>CONTINUA.":"A CIDADE<br>NÃO DORME.";
+document.getElementById("coverSub").textContent=theme==="horror"?"A linguagem do survival horror vista pela narrativa, pela atmosfera e pela memória do jogador.":"Como um mundo aberto cria histórias entre ruas, personagens, escolhas e possibilidades.";
+document.getElementById("coverLeft").textContent=theme==="horror"?"A máquina do medo":"Hardware sem truques";
+document.getElementById("coverRight").textContent=theme==="horror"?"Clássicos que resistem":"Memórias em movimento";
+document.getElementById("specialHeading").innerHTML=theme==="horror"?"O MEDO TEM<br>UMA LINGUAGEM.":"UMA CIDADE,<br>MUITAS HISTÓRIAS.";
+document.getElementById("specialDeck").textContent=theme==="horror"?"Luz, silêncio e cenário não são apenas decoração: estabelecem as perguntas que uma reportagem precisa investigar.":"Ruas, escolhas e personagens podem fazer da exploração parte da narrativa. A diagramação precisa acompanhar esse ritmo.";
+}
+function render(){
+book.replaceChildren();var ids=mode==="continuous"?Array.from({length:total},function(_,i){return i}):spread();
+ids.forEach(function(i){book.appendChild(page(i))});book.className="book"+(mode==="continuous"?" all":"");
+syncCover();document.getElementById("nav").classList.toggle("is-hidden",mode==="continuous");
+counter.textContent=ids.length===1?String(ids[0]+1).padStart(2,"0")+" / 08":String(ids[0]+1).padStart(2,"0")+"–"+String(ids[1]+1).padStart(2,"0")+" / 08";
+document.getElementById("prev").disabled=face===0;document.getElementById("next").disabled=face===7;
+document.getElementById("horror").setAttribute("aria-pressed",String(theme==="horror"));document.getElementById("city").setAttribute("aria-pressed",String(theme==="city"));
+document.getElementById("flip").setAttribute("aria-pressed",String(mode==="flip"));document.getElementById("continuous").setAttribute("aria-pressed",String(mode==="continuous"));
+}
+function move(d){if(mode!=="flip")return;if(one())face=Math.max(0,Math.min(7,face+d));else if(d>0)face=face===0?1:face===5?7:Math.min(7,face+2);else face=face===7?5:face===1?0:Math.max(0,face-2);render();scrollTo({top:0,behavior:"instant"})}
+document.getElementById("prev").addEventListener("click",function(){move(-1)});
+document.getElementById("next").addEventListener("click",function(){move(1)});
+document.getElementById("horror").addEventListener("click",function(){theme="horror";body.dataset.theme=theme;render()});
+document.getElementById("city").addEventListener("click",function(){theme="city";body.dataset.theme=theme;render()});
+document.getElementById("flip").addEventListener("click",function(){mode="flip";body.dataset.mode=mode;render()});
+document.getElementById("continuous").addEventListener("click",function(){mode="continuous";body.dataset.mode=mode;render()});
+document.getElementById("scale").addEventListener("change",function(e){document.documentElement.style.setProperty("--type",e.target.value)});
+document.getElementById("sponsor").addEventListener("change",function(e){body.classList.toggle("sponsored",e.target.checked)});
+document.addEventListener("keydown",function(e){if(e.target.closest("select,button,input"))return;if(e.key==="ArrowRight")move(1);if(e.key==="ArrowLeft")move(-1)});
+var startX=null;book.addEventListener("touchstart",function(e){if(e.touches.length===1)startX=e.touches[0].clientX},{passive:true});
+book.addEventListener("touchend",function(e){if(startX==null||mode!=="flip")return;var dx=e.changedTouches[0].clientX-startX;startX=null;if(Math.abs(dx)>70)move(dx<0?1:-1)},{passive:true});
+window.addEventListener("resize",function(){if(mode==="flip"&&!one()&&face!==0&&face!==7&&face%2===0)face--;render()});
+render();
+})();
+</script></body></html>
