@@ -28,10 +28,11 @@ Trocar solicitações por [GitHub Issues](https://github.com/Saaimingo/Revista_G
 
 ## Ranzinza — pacote para revisão do Chat Fundador (19/10/2026)
 
+- **[Atualização de 20/10 — orientação sobre ironia, leitores e hardware](RANZINZA-AJUSTES-DIRECAO-E-FUNDADOR-2026-10-20.md)** — diretriz conceitual aceita preliminarmente, sujeita à revisão conjunta com o fundador; não altera as âncoras aprovadas.
 - **[Índice e handoff para o fundador](RANZINZA-PACOTE-REVISAO-FUNDADOR-2026-10-19.md)** — leitura prioritária; separa decisões ratificadas de hipóteses, pendências e limites.
 - [Três narrativas-âncora aprovadas](RANZINZA-AMOSTRAS-APROVADAS-2026-10-19.md) — textos preservados, **aprovados somente como referência de escrita**.
 - [DNA editorial candidato v0.1](RANZINZA-DNA-EDITORIAL-v0.1.md) e [DNA operacional candidato v0.2](RANZINZA-DNA-OPERACIONAL-v0.2.md).
-- [Contrato para o agente carregar a persona](RANZINZA-CONTRATO-CARREGAMENTO-AGENTE-v0.1.md) e [matriz de validação T01–T08](RANZINZA-MATRIZ-VALIDACAO-v0.1.md) — **ambos ainda não aprovados/não executados**.
+- [Contrato para o agente carregar a persona](RANZINZA-CONTRATO-CARREGAMENTO-AGENTE-v0.1.md) e [matriz de validação T01–T12 (T09–T12 são provas adicionais propostas)](RANZINZA-MATRIZ-VALIDACAO-v0.1.md) — **ambos ainda não aprovados/não executados**.
 - [PR #13](https://github.com/Saaimingo/Revista_Gamer/pull/13) reúne o pacote textual do Bloco 02, ainda para revisão; [PR #14](https://github.com/Saaimingo/Revista_Gamer/pull/14) trata separadamente dos PNGs do Protótipo A.
 
 **Situação:** o diretor aprovou as três amostras mais provocadoras e orientou que o personagem pode debater opiniões de leitores com argumentos, em uma “polêmica do bem”. Isso não equivale à validação da personalidade em execução real. O fundador deverá ler e discutir com a direção; alterações conceituais retornam ao Bloco 02, sem merge, implementação ou publicação por inferência.
