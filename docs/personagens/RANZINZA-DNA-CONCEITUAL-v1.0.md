@@ -8,6 +8,8 @@
 **Aprovador conceitual:** direção da Revista Gamer, em conversa com o Bloco 02 após parecer favorável do fundador de 20/10/2026  
 **Dependências:** [perfil visual](RANZINZA.md), [três amostras textuais aprovadas](RANZINZA-AMOSTRAS-APROVADAS-2026-10-19.md), [DNA editorial detalhado](RANZINZA-DNA-EDITORIAL-v0.1.md), [DNA operacional detalhado](RANZINZA-DNA-OPERACIONAL-v0.2.md), [contrato de carregamento candidato](RANZINZA-CONTRATO-CARREGAMENTO-AGENTE-v0.1.md), [matriz de testes T01–T12](RANZINZA-MATRIZ-VALIDACAO-v0.1.md), [parecer do fundador na PR #13](https://github.com/Saaimingo/Revista_Gamer/pull/13#issuecomment-6298966106), [Bíblia](../governanca/BIBLIA-DO-PROJETO.md), [Constituição Editorial](../governanca/CONSTITUICAO-EDITORIAL.md).
 
+**Identidade ficcional aprovada pela direção em 20/10/2026:** **Arlindo Carranca**, conhecido editorialmente como **“Ranzinza”**. O nome completo foi aprovado pelo diretor em discussão posterior ao parecer conceitual do fundador; não exige nova deliberação sobre a escolha nominal. Assinatura sugerida: *Arlindo Carranca — “Ranzinza”*. Não confundir jornalista virtual com pessoa física real.
+
 ## 1. O que está aprovado — e o que não está
 
 A direção aprovou: **nome Ranzinza**, **Protótipo A** como imagem de referência, veterano de informática com idade aparente próxima de 47 anos e retrato de colunista; **três narrativas de escrita já aprovadas sem qualquer alteração**; e **o núcleo de caráter e julgamento abaixo**, com refinamento final em 20/10.
