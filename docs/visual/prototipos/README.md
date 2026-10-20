@@ -23,3 +23,15 @@ Os nomes de revista, fotos, caricaturas, nomes comerciais, QR codes, perfis, ava
 2. No clone local do repositório, copiar a pasta `docs/visual/prototipos/` do pacote para a pasta homônima no projeto, mantendo os 16 PNGs, as duas visões gerais e o manifesto.
 3. Conferir o total de 8 PNGs por mock e verificar suas dimensões e hashes do manifesto; então realizar commit apropriado na área do Bloco 03.
 4. Reavaliar o tratamento de direitos por se tratar de repositório **público**. Marcar os arquivos como referenciais/não publicados.
+
+## Laboratório navegável v0.3 revisado — 20/10/2026
+
+**Novo: protótipo HTML realmente disponível no GitHub, marcado como experimental/não aprovado.**
+
+- [Abrir/baixar o HTML executável](estrutura-vazia-v03-revisada/index.html)
+- [Instruções e roteiro para o fundador](estrutura-vazia-v03-revisada/LEIA-ME.md)
+- [Resultados estruturados dos ensaios](estrutura-vazia-v03-revisada/resultado-testes.json)
+- [Teste opcional em Playwright/Python](estrutura-vazia-v03-revisada/tests/test_integridade.py)
+- [Parecer provisório de origem](../analises-fundador/PARECER-PROVISORIO-2026-10-19-ESTRUTURA-VAZIA-V03.md)
+
+Este laboratório é **distinto** dos 16 PNGs dos mocks A/B acima. O fundador pode clonar/baixar o repositório e abrir localmente `index.html`, sem API, servidor ou conteúdo editorial real. A entrega não autoriza publicação, nome, identidade definitiva ou implementação pelo Codex. O pacote ZIP v0.3 revisado e suas capturas PNG originais ainda não foram enviados ao repositório; os documentos acima têm estado de transferência verificado.
