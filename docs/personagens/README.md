@@ -1,6 +1,6 @@
 # Setor: personagens e assinaturas
 
-**Status:** DNAs das demais personas em desenvolvimento. **Ranzinza:** nome, Protótipo A, três âncoras e **DNA conceitual v1.0 aprovados pela direção em 20/10/2026**; contrato técnico, testes reais de identidade e voz pendentes.
+**Status:** DNAs das demais personas em desenvolvimento. **Ranzinza:** identidade fictícia **Arlindo Carranca**, apelido **“Ranzinza”**, Protótipo A, três âncoras e **DNA conceitual v1.0 aprovados pela direção em 20/10/2026**; contrato técnico, testes reais de identidade e voz pendentes.
 
 ## Missão
 
@@ -8,11 +8,11 @@ Criar perfis públicos de jornalistas virtuais reconhecíveis, com nomes, retrat
 
 ## Primeiros perfis em elaboração
 
-- [Ranzinza](RANZINZA.md): visual e três âncoras de escrita aprovados; [DNA conceitual v1.0 aprovado](RANZINZA-DNA-CONCEITUAL-v1.0.md); validação por agente e voz pendentes.
+- [Ranzinza](RANZINZA.md) (**Arlindo Carranca**): visual e três âncoras de escrita aprovados; [DNA conceitual v1.0 aprovado](RANZINZA-DNA-CONCEITUAL-v1.0.md); validação por agente e voz pendentes.
 - [Gamer](GAMER.md): jogos, recepção crítica e comunidade, tom adulto descontraído.
 - [Historiador](HISTORIADOR.md): bastidores, memória, indústria e nostalgia, investigação histórica.
 
-Gamer e Historiador seguem como **codinomes de trabalho**. O nome **Ranzinza** e seu **Protótipo A** foram aprovados, com os arquivos PNG originais ainda pendentes de confirmação de upload para o repositório. Nenhuma voz ou frase/bordão foi aprovada.
+Gamer e Historiador seguem como **codinomes de trabalho**. O nome completo fictício **Arlindo Carranca**, o apelido **Ranzinza** e seu **Protótipo A** foram aprovados, com os arquivos PNG originais ainda pendentes de confirmação de upload para o repositório. Nenhuma voz ou frase/bordão foi aprovada.
 
 ## Entregas do setor
 
@@ -38,3 +38,7 @@ Trocar solicitações por [GitHub Issues](https://github.com/Saaimingo/Revista_G
 - [PR #13](https://github.com/Saaimingo/Revista_Gamer/pull/13) reúne o pacote textual do Bloco 02, ainda para revisão; [PR #14](https://github.com/Saaimingo/Revista_Gamer/pull/14) trata separadamente dos PNGs do Protótipo A.
 
 **Situação em 20/10:** diretor aprovou o núcleo conceitual do Ranzinza após parecer favorável do fundador e refinou a crítica: **não criticar grandes instituições por obrigação; quando necessário, fazê-lo com apuração, elegância e independência dos patrocinadores**. As três âncoras anteriores permanecem inalteradas. O conceito v1.0 está aprovado; o contrato para agente, os testes T01–T12 e qualquer execução, merge ou publicação seguem pendentes de autorização própria.
+
+## Encaminhamento do bloco — 20/10/2026
+
+A direção aprovou **Arlindo Carranca — “Ranzinza”** sem exigir nova rodada de debate conceitual com o fundador sobre o nome. O conceito do Ranzinza pode ser considerado fechado para desenvolvimento, **não** validado operacionalmente; os testes T01–T12 seguem pendentes. Para acelerar o trabalho, desenvolver as duas personas restantes na ordem **Gamer → Historiador**, usando seus perfis v0 como ponto de partida, sem importar a personalidade do Ranzinza para elas e sem transformar nomes ou exemplos sugeridos em decisões aprovadas.
