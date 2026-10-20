@@ -11,7 +11,7 @@
 
 Foi preparado um pacote com **dois conjuntos de oito PNGs**, identificados nas próprias imagens como Mock 03 e Mock 04: [abrir o inventário e manifesto](referencias-chatgpt-2026-10-20/README.md). Ambos representam Resident Evil 9 / Requiem; não são o par documentado Mock A (terror) e Mock B (GTA VI), e não devem ser misturados nessas pastas.
 
-**Autorização da Direção (20/10/2026):** o Diretor autorizou subir estes arquivos ao repositório público como referências visuais do Bloco 03. Esta autorização cobre o arquivamento de estudo; não é licença de terceiros nem autorização para uso editorial, comercial ou publicação da revista. Hashes confirmam integridade, não direitos. A análise de direitos para usos futuros continua pendente. O pacote não é identidade aprovada nem material editorial/publicitário.
+**Autorização da Direção (20/10/2026):** o Diretor autorizou subir estes arquivos ao repositório público como referências visuais do Bloco 03. As imagens são contexto dos mocks, não peças de divulgação, capas finais nem conteúdo para publicação da revista. A autorização cobre apenas o arquivamento público dos mocks como referências visuais; não é licença de terceiros nem aprovação de uso editorial ou comercial. Hashes confirmam integridade, não direitos. A análise de direitos para usos futuros continua pendente. O pacote não é identidade aprovada nem material editorial/publicitário.
 
 ## Exemplo integrado do Chat Fundador — 20/10/2026
 

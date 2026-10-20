@@ -1,6 +1,7 @@
 ﻿# Referências visuais recebidas — 20/10/2026
 
 **Setor:** Bloco 03 — Identidade Visual e Experiência de Leitura
+**Natureza:** imagens de contexto incluídas nos mocks da revista; não são peças de divulgação, capas finais nem conteúdo destinado à publicação da revista.
 **Status:** material de estudo, não aprovado; o Diretor autorizou o versionamento público como referência visual em 20/10/2026; [PR #16](https://github.com/Saaimingo/Revista_Gamer/pull/16) aberto para revisão, ainda sem merge.
 **Limite da autorização:** arquivamento visual de referência. Não concede licença de terceiros nem autoriza uso editorial, comercial ou publicação da revista. A análise de direitos para usos futuros permanece pendente.
 
