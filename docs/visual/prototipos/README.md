@@ -7,6 +7,12 @@
 - [Mock A — Terror / Resident Evil: 8 faces](mock-a-terror/README.md)
 - [Mock B — GTA VI / tema colorido: 8 faces](mock-b-gta/README.md)
 
+## Exemplo integrado do Chat Fundador — 20/10/2026
+
+**[Abrir pasta e instruções da demonstração integrada](demonstracao-integrada-fundador-2026-10-20/README.md)** · **[HTML navegável](demonstracao-integrada-fundador-2026-10-20/index.html)**
+
+Por solicitação expressa da direção, o fundador combinou **a arquitetura das capas dos dois mocks A/B** — marca grande centrada em cima, arte editorial dominante, chamadas laterais, patrocínio inferior apenas se houver — com a composição de miolo e controles do novo Estudo Visual 01. São **duas temáticas selecionáveis, oito faces por tema, e publicidade fictícia alternável**. Artes SVG próprias; não há PNGs dos jogos, matéria factual nem publicação. **Exemplo estético**, não substitui paginação dinâmica da v0.3. Antes de aprovação, Bloco 03 deve verificar funcionamento em navegador/dispositivos e discutir o design com a direção.
+
 ## Localização esperada dos 16 PNGs
 
 Dentro de cada pasta, subdiretório `png/`, nomenclatura idêntica: `pagina-01.png` (capa), `pagina-02.png` a `pagina-07.png` (miolo), `pagina-08.png` (contracapa). Arquivos extras de apoio: `visao-geral.jpg` de cada mock e `manifesto.json` com dimensões, fontes locais e SHA-256.
