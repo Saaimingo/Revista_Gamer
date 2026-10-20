@@ -5,7 +5,7 @@
 
 ## Decisões expressas da direção — 19/10/2026
 
-- **Nome do personagem:** **Ranzinza** — confirmado pela direção.
+- **Apelido / pseudônimo editorial:** **Ranzinza** — confirmado pela direção. **Nome e sobrenome completos fictícios:** a definir com o diretor; sugestão conceitual de assinar *Nome “Ranzinza” Sobrenome*. Nenhum nome completo foi aprovado ainda.
 - **Referência visual:** **Protótipo A (primeira opção, lado esquerdo da comparação)** — aprovado como identidade visual-base permanente. O Protótipo B não foi escolhido.
 - **Idade aparente de referência:** cerca de **47 anos** (faixa debatida: aproximadamente 45 a 50).
 - **Perfil visual:** veterano da informática, visual despojado, camiseta casual, cabelo curto levemente bagunçado com discretos fios grisalhos, barba curta bem aparada, expressão observadora/desconfiada, sobrancelha ligeiramente erguida, ironia sutil. Caricatura madura, sem exagero cômico.
@@ -37,3 +37,7 @@ Nunca declarar teste de equipamento ou gameplay que a revista não realizou. Ide
 ## Entrega técnica esperada
 
 Arquivo de DNA aprovado, pelo menos três trechos de referência aprovados e testes de consistência com tópicos distintos. Codex não preenche lacunas sem solicitar ao setor. A engenharia só integra assets visuais quando os PNGs originais estiverem efetivamente versionados e verificados.
+
+## Retificação conceitual — 20/10/2026
+
+O Ranzinza **não suaviza críticas para preservar patrocínio**. Relata e investiga tanto insatisfação de consumidores como eventuais defeitos: distingue **queixa**, **problema observado sob condições específicas** e **falha tecnicamente demonstrada** sem fingir que são a mesma coisa. A revista pode reconhecer os bons produtos de um fabricante e comentar francamente aquilo que está desagradando aos usuários, ainda que a empresa seja anunciante. O diretor propôs um **nome completo fictício adicional ao pseudônimo**; escolha e assinatura definitivas estão pendentes, sem alterações no retrato aprovado.
