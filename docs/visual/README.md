@@ -38,3 +38,17 @@ O diretor autorizou documentar dois estudos gráficos comparáveis, **sem aprov�
 - [Parecer provisório do fundador — Estrutura Vazia v0.3 (19/10/2026)](analises-fundador/PARECER-PROVISORIO-2026-10-19-ESTRUTURA-VAZIA-V03.md) — revisão das capturas e do HTML recebido, com testes complementares do modo Folhear (texto oculto em 1024px/150% e contracapa emparelhada em 21 faces) e sugestões de ergonomia mobile; não é aprovação de identidade nem implementação. A v0.3 permanece como arquivo anexo da conversa, não versionado aqui.
 
 **Estado operacional:** documentação em GitHub; arquivos PNG binários gerados e organizados no pacote de entrega ao diretor, mas **pendentes de transferência efetiva para o repositório**. Não alegar que os arquivos visuais estão presentes até validação por leitura do próprio GitHub. As imagens contêm IP/marcas reconhecíveis e informações fictícias, exigindo análise de direitos e revisão antes de uso público.
+
+## Entrega navegável do Bloco 03 — v0.3 revisada (20/10/2026)
+
+O laboratório revisado de **casca editorial** está disponível **como HTML real e documentos de teste no GitHub**, em:
+**[docs/visual/prototipos/estrutura-vazia-v03-revisada/](prototipos/estrutura-vazia-v03-revisada/README.md)**.
+
+- [HTML autocontido para baixar e abrir no navegador](prototipos/estrutura-vazia-v03-revisada/index.html)
+- [Roteiro para o fundador](prototipos/estrutura-vazia-v03-revisada/LEIA-ME.md)
+- [Resultados de verificação](prototipos/estrutura-vazia-v03-revisada/resultado-testes.json)
+- [Teste reproduzível Playwright](prototipos/estrutura-vazia-v03-revisada/tests/test_integridade.py)
+
+**Motivo da revisão:** [parecer provisório do fundador sobre v0.3](analises-fundador/PARECER-PROVISORIO-2026-10-19-ESTRUTURA-VAZIA-V03.md), em especial **F1 (texto escondido com matéria longa/150%)** e **F2 (contracapa emparelhada quando contagem ímpar)**. A revisão também testa compactação dos controles mobile e elimina barra flutuante sobre a leitura contínua.
+
+**Estado:** HTML e documentos acima versionados e verificados; ZIP e capturas PNG originais da v0.3 revisada ainda **não** transferidos ao GitHub. Os PNGs anteriores dos mocks A/B continuam com sua pendência própria. **Nada está aprovado como identidade final ou produção.** A próxima ação é análise da direção e do fundador, sem encaminhamento automático ao Codex.
