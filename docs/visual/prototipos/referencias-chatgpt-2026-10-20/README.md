@@ -1,7 +1,7 @@
 ﻿# Referências visuais recebidas — 20/10/2026
 
 **Setor:** Bloco 03 — Identidade Visual e Experiência de Leitura
-**Status:** material de estudo, não aprovado; o Diretor autorizou o versionamento público como referência visual em 20/10/2026; PR para revisão, ainda sem merge.
+**Status:** material de estudo, não aprovado; o Diretor autorizou o versionamento público como referência visual em 20/10/2026; [PR #16](https://github.com/Saaimingo/Revista_Gamer/pull/16) aberto para revisão, ainda sem merge.
 **Limite da autorização:** arquivamento visual de referência. Não concede licença de terceiros nem autoriza uso editorial, comercial ou publicação da revista. A análise de direitos para usos futuros permanece pendente.
 
 Foram localizados em Downloads **16 PNGs**, em dois grupos de oito. A leitura visual dos cabeçalhos identifica um grupo como **Mock 03** e o outro como **Mock 04**. Ambos mostram Resident Evil 9 / Requiem; portanto, estes arquivos não correspondem ao par já documentado Mock A (terror) e Mock B (GTA VI), e não devem ser colocados nessas pastas.
