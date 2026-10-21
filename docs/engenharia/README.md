@@ -1,6 +1,15 @@
 # Setor: engenharia e Codex
 
-Status: **Motor Editorial v0.2 implementado e validado localmente no Windows 11; PR #6 aberto para revisão arquitetural, sem merge.**
+Status: **Motor Editorial v0.2 integrado à main; PR #8 e PR #10 aguardam integração; contratos da nova Fase 0 de agentes e composição em preparação para execução offline pelo Codex.**
+
+## Arquitetura operacional dos futuros agentes — 20/10/2026
+
+**Diretriz da direção:** os Blocos 02–06 são **chats de concepção**, não workers. Os operadores futuros serão **agentes e módulos identificados, executados sob demanda pelo orquestrador**, com entradas e saídas versionadas. O diagramador terá **memória histórica privada e indexada** de soluções editoriais e produzirá `LayoutPlan`; o motor determinístico comporá/validará páginas sobre o leitor v0.3 e a identidade visual do Bloco 03.
+
+- [Especificação arquitetural: papéis, contratos, acervo histórico e diagramador](ARQUITETURA-AGENTES-ACERVO-VISUAL-E-COMPOSICAO-2026-10-20.md).
+- [Issue #17 — missão ENG-CODEX-005, Fase 0 offline](https://github.com/Saaimingo/Revista_Gamer/issues/17): começar interfaces, índice local, simulação de diagramador e testes, **sem SIWC, sem mídia histórica pública e sem merge automático**.
+- [Issue #15 — composição visual e leitor integrados](https://github.com/Saaimingo/Revista_Gamer/issues/15): frente estética/UX separada, mas coordenada.
+- **Baseline real:** v0.2 integrada à `main` via [PR #6](https://github.com/Saaimingo/Revista_Gamer/pull/6); orquestração e fluxo editorial avançados continuam respectivamente em [PR #8](https://github.com/Saaimingo/Revista_Gamer/pull/8) e [PR #10](https://github.com/Saaimingo/Revista_Gamer/pull/10), não na `main`.
 
 ## Primeiro marco técnico concluído
 
@@ -15,7 +24,7 @@ Este marco não ativa os blocos conceituais e não autoriza integrações reais 
 
 - [Especificação ENG-MOTOR-002](ESPECIFICACAO-MOTOR-EDITORIAL-V0.2-MULTIPAUTA.md): multipauta, fluxos independentes, montagem de uma edição com matérias múltiplas e salvaguardas herdadas.
 - [Ordem do construtor CODEX-002](ORDEM-CODEX-002-MOTOR-MULTIPAUTA.md) e [Issue #5](https://github.com/Saaimingo/Revista_Gamer/issues/5).
-- **Status: implementação e testes concluídos; [PR #6](https://github.com/Saaimingo/Revista_Gamer/pull/6) aberto para revisão arquitetural.** O protótipo continua offline e sem publicação.
+- **Status: implementação e testes concluídos; [PR #6](https://github.com/Saaimingo/Revista_Gamer/pull/6) integrado à `main`.** O protótipo continua offline e sem publicação.
 
 ## Estudo arquitetural em debate
 
