@@ -3,7 +3,7 @@
 - **Setor responsável:** Engenharia e Codex
 - **Identificador:** ENG-CODEX-005-FASE0-OFFLINE
 - **Versão:** v0.1
-- **Status:** em_revisao
+- **Status:** em_revisao, [PR #18 aberta para revisão](https://github.com/Saaimingo/Revista_Gamer/pull/18)
 - **Atualização:** 2026-10-20
 - **Aprovador da missão:** Diretor, que autorizou a Fase 0 na [Issue #17](https://github.com/Saaimingo/Revista_Gamer/issues/17). A aprovação desta implementação continua pendente de revisão.
 - **Dependências:** [arquitetura de agentes, acervo visual e composição](ARQUITETURA-AGENTES-ACERVO-VISUAL-E-COMPOSICAO-2026-10-20.md); [Issue #17](https://github.com/Saaimingo/Revista_Gamer/issues/17); [Issue #15](https://github.com/Saaimingo/Revista_Gamer/issues/15); [PR #8](https://github.com/Saaimingo/Revista_Gamer/pull/8); [PR #10](https://github.com/Saaimingo/Revista_Gamer/pull/10).
@@ -122,5 +122,5 @@ A validação automatizada inspeciona conteúdo, legendas, páginas 2–3, contr
 
 - A biblioteca contém somente metadados sintéticos; aquisição, armazenamento privado e autorização de referências reais exigem decisões e controle de direitos posteriores.
 - A interface preparada para ativos autorizados exige hash, dimensões, licença, crédito e vínculo editorial; nenhum ativo real foi incluído nesta execução.
-- A revisão da implementação está pendente no PR independente desta Issue. Não fazer merge automático.
+- A revisão da implementação está pendente na [PR #18](https://github.com/Saaimingo/Revista_Gamer/pull/18); não fazer merge automático.
 - PR #8, PR #10, PR #13, PR #14 e PR #16 não foram alteradas nem mescladas nesta execução. Issue #15 permanece separada e não é concluída por este trabalho.

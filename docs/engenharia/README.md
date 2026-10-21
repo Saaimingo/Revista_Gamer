@@ -1,6 +1,6 @@
 # Setor: engenharia e Codex
 
-Status: **Motor Editorial v0.2 integrado à main; PR #8 e PR #10 seguem separados; ENG-CODEX-005 Fase 0 implementada e validada offline, aguardando revisão em PR independente.**
+Status: **Motor Editorial v0.2 integrado à main; PR #8 e PR #10 seguem separados; ENG-CODEX-005 Fase 0 implementada e validada offline, em revisão na [PR #18](https://github.com/Saaimingo/Revista_Gamer/pull/18).**
 
 ## Arquitetura operacional dos futuros agentes — 20/10/2026
 
@@ -59,3 +59,4 @@ Uma pauta real -> investigação com fonte -> texto com persona -> revisão -> e
 - [Relatório técnico da Fase 0](RELATORIO-ENG-CODEX-005-FASE0-OFFLINE.md), status em_revisao, vinculado à [Issue #17](https://github.com/Saaimingo/Revista_Gamer/issues/17).
 - Código e testes estão em implementação isolada, baseada em main@b44daf1; o Motor reutiliza _execute_step e não duplica o dispatcher das PRs [#8](https://github.com/Saaimingo/Revista_Gamer/pull/8) e [#10](https://github.com/Saaimingo/Revista_Gamer/pull/10).
 - Cenários e referências são sintéticos. Fase 0 não usa SIWC, API paga, rede, scans, mídia real ou publicação. A integração visual com o leitor continua na [Issue #15](https://github.com/Saaimingo/Revista_Gamer/issues/15).
+- PR independente de revisão [#18](https://github.com/Saaimingo/Revista_Gamer/pull/18) está aberta e sem merge.

@@ -70,3 +70,5 @@ A demonstração restrita da Fase 0 é totalmente sintética: deriva necessidade
 ~~~
 
 Relatórios, planos, validações e prévias ficam na pasta local artifacts/layout-demo/. Os placeholders não são as imagens de contexto do Bloco 03. Nada nesta demonstração é publicado; não há rede, SIWC ou API paga. A execução aprovada termina aguardando revisão humana interna.
+
+Código e relatório desta Fase 0 estão na [PR #18](https://github.com/Saaimingo/Revista_Gamer/pull/18), aberta para revisão e sem merge.
