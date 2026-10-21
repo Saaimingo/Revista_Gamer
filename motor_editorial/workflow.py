@@ -65,6 +65,13 @@ class Motor:
         self.max_attempts = max_attempts
         self.force_v2_review_failure = force_v2_review_failure
 
+    @_serialized_operation
+    def run_layout_demo(self, fixture_path: Path | None = None) -> dict[str, Any]:
+        """Run the offline diagrammer through this Motor's existing stage ledger."""
+        from .layout.pipeline import run_layout_demo
+
+        return run_layout_demo(self, fixture_path)
+
     def load_fixture(self) -> dict[str, Any]:
         with self.fixture_path.open("r", encoding="utf-8") as fixture_file:
             data = json.load(fixture_file)
