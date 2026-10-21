@@ -13,7 +13,16 @@
 
 Por solicitação expressa da direção, o fundador combinou **a arquitetura das capas dos dois mocks A/B** — marca grande centrada em cima, arte editorial dominante, chamadas laterais, patrocínio inferior apenas se houver — com a composição de miolo e controles do novo Estudo Visual 01. São **duas temáticas selecionáveis, oito faces por tema, e publicidade fictícia alternável**. Artes SVG próprias; não há PNGs dos jogos, matéria factual nem publicação. **Exemplo estético**, não substitui paginação dinâmica da v0.3. Antes de aprovação, Bloco 03 deve verificar funcionamento em navegador/dispositivos e discutir o design com a direção.
 
-## Localização esperada dos 16 PNGs
+## Arquivamento verificado — Mocks 03/04 (PR #16)
+
+Em 20/10/2026, o Codex colocou **16 PNGs novos no GitHub**, em duas séries de oito faces chamadas **Mock 03** e **Mock 04**, ambas de temática Resident Evil. Foram verificados **8 arquivos em cada diretório**, de `pagina-01.png` a `pagina-08.png`, com **38.535.681 bytes no total**. O manifesto da entrega informa dimensão **1122 × 1402** por arquivo e hashes SHA-256; a presença e os tamanhos foram conferidos via GitHub, mas **não foram recalculados os hashes binários** pelo Chat Fundador.
+
+- **[PR #16 — entrega existente na branch do Codex](https://github.com/Saaimingo/Revista_Gamer/pull/16)** (`codex/bloco03-mocks-03-04-2026-10-20`), ainda **aberto e sem merge**.
+- **[Pasta dos 16 PNGs, README e manifesto na branch](https://github.com/Saaimingo/Revista_Gamer/tree/codex/bloco03-mocks-03-04-2026-10-20/docs/visual/prototipos/referencias-chatgpt-2026-10-20)**.
+- **Não confundir séries:** estes 16 PNGs **não são o pacote antigo Mock A (terror) / Mock B (GTA VI)** descrito abaixo; o acervo A/B continua documentado separadamente e sua pendência não desaparece pelo upload do PR #16. Também não declarar que os sete novos exemplos visuais BOOT apresentados em outra conversa tenham sido enviados pelo mesmo PR: não há essa identificação verificada.
+- **Uso:** arquivo de referência visual autorizado pela direção, **não edição publicada nem identidade final**. O código de navegação permanece na v0.3 consolidada; o upload de imagens não implementa folheamento ou responsividade.
+
+## Localização esperada dos 16 PNGs do pacote ANTIGO A/B
 
 Dentro de cada pasta, subdiretório `png/`, nomenclatura idêntica: `pagina-01.png` (capa), `pagina-02.png` a `pagina-07.png` (miolo), `pagina-08.png` (contracapa). Arquivos extras de apoio: `visao-geral.jpg` de cada mock e `manifesto.json` com dimensões, fontes locais e SHA-256.
 
@@ -23,7 +32,7 @@ Dentro de cada pasta, subdiretório `png/`, nomenclatura idêntica: `pagina-01.p
 
 Os nomes de revista, fotos, caricaturas, nomes comerciais, QR codes, perfis, avaliações, preços, cronologias e especificações técnicas apresentados são **ilustrações sintéticas e fictícias**, não matéria apurada, testes, patrocínios ou campanhas. A presença de franquias e marcas reconhecíveis **não significa licença**. Solicitar avaliação do Bloco 05 antes de divulgação externa. Arquivar não implica aprovação. A estrutura final, a edição real e os efeitos interativos ainda precisam ser debatidos e testados.
 
-## Se for transferir os arquivos manualmente
+## Instruções históricas para eventual transferência do pacote A/B
 
 1. Extrair o ZIP preservando a árvore de pastas.
 2. No clone local do repositório, copiar a pasta `docs/visual/prototipos/` do pacote para a pasta homônima no projeto, mantendo os 16 PNGs, as duas visões gerais e o manifesto.
@@ -40,7 +49,7 @@ Os nomes de revista, fotos, caricaturas, nomes comerciais, QR codes, perfis, ava
 - [Teste opcional em Playwright/Python](estrutura-vazia-v03-revisada/tests/test_integridade.py)
 - [Parecer provisório de origem](../analises-fundador/PARECER-PROVISORIO-2026-10-19-ESTRUTURA-VAZIA-V03.md)
 
-Este laboratório é **distinto** dos 16 PNGs dos mocks A/B acima. O fundador pode clonar/baixar o repositório e abrir localmente `index.html`, sem API, servidor ou conteúdo editorial real. A entrega não autoriza publicação, nome, identidade definitiva ou implementação pelo Codex. O pacote ZIP v0.3 revisado e suas capturas PNG originais ainda não foram enviados ao repositório; os documentos acima têm estado de transferência verificado.
+Este laboratório é **distinto** tanto do pacote antigo Mock A/B quanto do arquivamento Mock 03/04 no PR #16. O fundador pode clonar/baixar o repositório e abrir localmente `index.html`, sem API, servidor ou conteúdo editorial real. A entrega não autoriza publicação, nome, identidade definitiva ou implementação pelo Codex. O pacote ZIP v0.3 revisado e suas capturas PNG originais ainda não foram enviados ao repositório; os documentos acima têm estado de transferência verificado.
 
 ## Estrutura Vazia v0.3 consolidada — 20/10/2026
 
@@ -52,4 +61,4 @@ Esta versão continua a anterior e foi publicada para validar as observações B
 - [Relatório das verificações](estrutura-vazia-v03-consolidada/resultado-testes.json)
 - [Script de teste reproduzível](estrutura-vazia-v03-consolidada/tests/test_integridade.py)
 
-**Condição:** experimento; testes de aparelho físico, leitor de tela, desempenho e conteúdos editoriais reais continuam pendentes. Não confundir com os 16 PNGs dos dois mocks A/B, que permanecem fora do GitHub.
+**Condição:** experimento; testes de aparelho físico, leitor de tela, desempenho e conteúdos editoriais reais continuam pendentes. Não confundir com as séries de PNGs: Mock A/B antigo ainda não transferido para a `main`; Mock 03/04 disponível na branch do PR #16, ainda sem merge.
