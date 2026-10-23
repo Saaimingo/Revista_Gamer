@@ -25,3 +25,9 @@ Depois de aprovado e lançado, o DNA vira referência estável. Mudanças de mod
 ## Dependências e comunicação
 
 Trocar solicitações por [GitHub Issues](https://github.com/Saaimingo/Revista_Gamer/issues) conforme `docs/operacao/PROTOCOLO-HANDOFF.md`. Engenharia só implementa perfil aprovado. Arquivos de imagem originais ficam no armazenamento de mídia autorizado, e a documentação aponta para suas versões/identificadores.
+
+## Gamer X — pacote de contratos v0.2, pendente de aprovação (23/10/2026)
+
+A personalidade de Gamer X foi aprofundada com **hospitalidade de apresentador, repertório geracional (43 anos ficcionais) e interpretação da experiência de jogar**. Existem [quatro contratos, âncoras e testes](GAMER.md) e um [handoff provisório ao fundador](GAMER-ENTREGA-BLOCO-02-PARA-FUNDADOR-v0.2.md).
+
+Restam decisões **criativas** da direção sobre **nome, identidade visual e frase do ritual de acolhimento**. O conjunto não está implementado nem validado em LLMs; [matriz T01–T12](GAMER-MATRIZ-DE-TESTES-v0.2.md) ainda não foi executada. O Historiador pode avançar em paralelo no plano conceitual.
