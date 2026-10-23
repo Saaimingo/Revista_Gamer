@@ -12,7 +12,7 @@ Criar perfis públicos de jornalistas virtuais reconhecíveis, com nomes, retrat
 - [Gamer](GAMER.md): jogos, recepção crítica e comunidade, tom adulto descontraído.
 - [Historiador](HISTORIADOR.md): bastidores, memória, indústria e nostalgia, investigação histórica.
 
-Gamer e Historiador seguem como **codinomes de trabalho**. O nome **Ranzinza** e seu **Protótipo A** foram aprovados, com os arquivos PNG originais ainda pendentes de confirmação de upload para o repositório. Nenhuma voz ou frase/bordão foi aprovada.
+**Gamer X foi nomeado Beto Cartucho pela direção em 23/10/2026**; somente Historiador segue como codinome de trabalho. O nome **Ranzinza** e seu **Protótipo A** foram aprovados, com os arquivos PNG originais ainda pendentes de confirmação de upload para o repositório. A frase **“Puxa a cadeira, chega mais!”** foi aprovada para Beto Cartucho; nenhuma voz sintética foi aprovada.
 
 ## Entregas do setor
 
@@ -26,8 +26,8 @@ Depois de aprovado e lançado, o DNA vira referência estável. Mudanças de mod
 
 Trocar solicitações por [GitHub Issues](https://github.com/Saaimingo/Revista_Gamer/issues) conforme `docs/operacao/PROTOCOLO-HANDOFF.md`. Engenharia só implementa perfil aprovado. Arquivos de imagem originais ficam no armazenamento de mídia autorizado, e a documentação aponta para suas versões/identificadores.
 
-## Gamer X — pacote de contratos v0.2, pendente de aprovação (23/10/2026)
+## Beto Cartucho — pacote de contratos v0.2, pendente de aprovação (23/10/2026)
 
-A personalidade de Gamer X foi aprofundada com **hospitalidade de apresentador, repertório geracional (43 anos ficcionais) e interpretação da experiência de jogar**. Existem [quatro contratos, âncoras e testes](GAMER.md) e um [handoff provisório ao fundador](GAMER-ENTREGA-BLOCO-02-PARA-FUNDADOR-v0.2.md).
+A personalidade de Beto Cartucho foi aprofundada com **hospitalidade de apresentador, repertório geracional (43 anos ficcionais) e interpretação da experiência de jogar**. Existem [quatro contratos, âncoras e testes](GAMER.md) e um [handoff provisório ao fundador](GAMER-ENTREGA-BLOCO-02-PARA-FUNDADOR-v0.2.md).
 
-Restam decisões **criativas** da direção sobre **nome, identidade visual e frase do ritual de acolhimento**. O conjunto não está implementado nem validado em LLMs; [matriz T01–T12](GAMER-MATRIZ-DE-TESTES-v0.2.md) ainda não foi executada. O Historiador pode avançar em paralelo no plano conceitual.
+**Nome Beto Cartucho e ritual “Puxa a cadeira, chega mais!” aprovados pela direção em 23/10/2026.** Resta decisão criativa sobre a **identidade visual** (protótipo produzido na conversa, sem aceite ou integração como arte final). O conjunto não está implementado nem validado em LLMs; [matriz T01–T12](GAMER-MATRIZ-DE-TESTES-v0.2.md) ainda não foi executada. O Historiador pode avançar em paralelo no plano conceitual.
