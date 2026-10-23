@@ -3,7 +3,7 @@
 **Setor:** Bloco 02 — Personagens e Assinaturas  
 **Identificador:** B02-BETO-VIS-001 | **Versão do registro:** 1.0 | **Data:** 2026-10-23  
 **Status criativo:** **APROVADO PELA DIREÇÃO, INTEGRALMENTE, SEM ALTERAÇÕES**  
-**Estado do ativo binário:** **PENDENTE DE ARQUIVAMENTO PERMANENTE** — arquivo PNG original disponível como anexo da conversa do Bloco 02, mas **ainda não anexado ao GitHub**. NÃO declarar mídia integrada ou disponível ao Codex.  
+**Estado do ativo binário master:** **PENDENTE DE ARQUIVAMENTO PERMANENTE** — o PNG original aprovado ainda não foi anexado ao GitHub. Há uma cópia JPG suplementar recebida da direção, mas ela não é o master nem comprova que o PNG exato esteja arquivado.
 **Aprovador:** diretor, aprovação verbal expressa na conversa de 23/10/2026.
 
 ## Decisão inequívoca
@@ -23,6 +23,16 @@ A direção aprovou o **painel visual completo gerado na conversa**, reconhecend
 - **Armazenamento futuro sugerido:** `docs/personagens/assets/beto-cartucho/visual-master-aprovado-2026-10-23.png` (caminho candidato, **AINDA INEXISTENTE no repositório**); confirmar permissão de mídia e estratégia de binários no GitHub antes de realizar cópia.
 
 **Procedimento de preservação:** obter o mesmo PNG original da conversa, salvar cópia em armazenamento autorizado, comparar SHA-256 e dimensões, registrar URI/commit e só então mudar `asset_status` de `pending_archive` para `archived_verified`. Se hash divergente, o arquivo não é o master aprovado. Não fazer upload de uma recriação em seu lugar.
+
+## Cópia JPG suplementar recebida da direção
+
+A direção enviou nesta solicitação uma cópia da arte para armazenamento no diretório de assets do Bloco 02. Foi copiada sem conversão ou edição para [`assets/beto-cartucho/beto-cartucho-referencia-recebida-2026-10-23.jpg`](assets/beto-cartucho/beto-cartucho-referencia-recebida-2026-10-23.jpg).
+
+- **Tipo e dimensões:** JPEG, 1280 × 853 pixels.
+- **Tamanho:** 222.814 bytes.
+- **SHA-256:** `8104e3deb4b282498cf381f7171e2c70d46943095b87b68e4326766080523d25`.
+- **Integridade da cópia:** checksum calculado antes e depois da cópia; bytes idênticos à imagem recebida nesta solicitação.
+- **Status:** referência suplementar, não verificada como arquivo master aprovado. O PNG de 1536 × 1024 com o checksum acima no manifesto continua pendente; esta cópia JPG não muda `asset_status`.
 
 ## Referência visual do retrato
 
@@ -45,4 +55,4 @@ Apresentador masculino fictício de aproximadamente 43 anos, cabelo curto castan
 4. Articular com Blocos 03/05 aplicação editorial e direitos; com Codex apenas em missão técnica futura e aprovada.
 5. Manter o PR como rascunho enquanto detalhes técnicos/amostras estiverem sob revisão.
 
-**Testes:** checksum local calculado; **upload binário no GitHub NÃO realizado**.
+**Verificação:** checksum da cópia JPG conferido antes e depois da cópia. O **PNG master exato continua sem upload binário no GitHub** e sua pendência de preservação permanece aberta.

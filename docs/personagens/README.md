@@ -32,6 +32,8 @@ A personalidade de Beto Cartucho foi aprofundada com **hospitalidade de apresent
 
 **Nome Beto Cartucho e ritual “Puxa a cadeira, chega mais!” aprovados pela direção em 23/10/2026.** A **identidade visual integral está aprovada pela direção**; conferir [registro do painel visual aprovado e checksum](BETO-CARTUCHO-IDENTIDADE-VISUAL-APROVADA-2026-10-23.md). O **PNG original ainda não foi arquivado no GitHub** e a aprovação estética não equivale a licença de uso de todos os elementos na publicação. O conjunto não está implementado nem validado em LLMs; [matriz T01–T12](GAMER-MATRIZ-DE-TESTES-v0.2.md) ainda não foi executada. A direção propôs **adiar o Historiador** e conceber uma **terceira jornalista gamer jovem** (aproximadamente 19–22 anos), ainda em fase embrionária, sem nome, DNA, forma de escrita ou visual definidos; o Historiador permanece possibilidade futura. Ver handoff ao fundador.
 
+A cópia JPG enviada pela direção está em [assets/beto-cartucho](assets/beto-cartucho/beto-cartucho-referencia-recebida-2026-10-23.jpg) como **referência suplementar**. Ela não substitui o PNG master aprovado; formato, dimensões e checksum estão registrados no manifesto visual.
+
 
 ## Encaminhamento ao fundador — panorama dos personagens e terceira cadeira (23/10/2026)
 
