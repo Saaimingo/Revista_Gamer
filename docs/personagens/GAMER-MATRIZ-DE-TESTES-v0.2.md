@@ -1,4 +1,4 @@
-# Gamer X — Matriz de Validação Editorial e de Identidade v0.2
+# Beto Cartucho — Matriz de Validação Editorial e de Identidade v0.2
 
 **Setor:** Bloco 02 | **ID:** B02-GAMER-QA-002 | **Data:** 2026-10-23  
 **Status:** EM REVISÃO — **NENHUM TESTE EXECUTADO**.  
