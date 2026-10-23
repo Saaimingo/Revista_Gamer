@@ -25,3 +25,8 @@ Depois de aprovado e lançado, o DNA vira referência estável. Mudanças de mod
 ## Dependências e comunicação
 
 Trocar solicitações por [GitHub Issues](https://github.com/Saaimingo/Revista_Gamer/issues) conforme `docs/operacao/PROTOCOLO-HANDOFF.md`. Engenharia só implementa perfil aprovado. Arquivos de imagem originais ficam no armazenamento de mídia autorizado, e a documentação aponta para suas versões/identificadores.
+
+
+## Proposta transversal para o fundador — continuidade editorial e skills (23/10/2026)
+
+A direção solicitou debate sobre **memória longitudinal por personagem, skills evolutivas de personalidade e presença assinada dos cronistas nas contas institucionais da revista em Instagram/Facebook**. A proposta detalhada, em status **PROPOSTA / NÃO APROVADA**, está em [Memória longitudinal, skills e redes v0.1](PROPOSTA-MEMORIA-LONGITUDINAL-SKILLS-E-REDES-v0.1.md) e no [handoff para o fundador — Issue #20](https://github.com/Saaimingo/Revista_Gamer/issues/20). **Não autoriza implementação, conexão com Meta, criação de agente, automação, gasto ou publicação.**
