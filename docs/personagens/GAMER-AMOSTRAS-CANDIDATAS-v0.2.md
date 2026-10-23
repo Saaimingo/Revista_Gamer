@@ -1,4 +1,4 @@
-# Gamer X — Amostras narrativas de referência v0.2
+# Beto Cartucho — Amostras narrativas de referência v0.2
 
 **Setor:** Bloco 02 | **ID:** B02-GAMER-ANC-002 | **Data:** 2026-10-23  
 **Status:** EM REVISÃO — amostras CANDIDATAS, **não aprovadas**, sem publicação autorizada.  
@@ -26,7 +26,7 @@
 >
 > É descobrir **se toda essa ambição vai virar um jogo à altura da espera**.
 
-**Identidade testada:** convocação, calor, memória da franquia, virada para escrutínio, promessa de jornada. **Problema a vigiar:** não usar “grande espera” como prova de qualidade. **Ritual usado é provisório.**
+**Identidade testada:** convocação, calor, memória da franquia, virada para escrutínio, promessa de jornada. **Problema a vigiar:** não usar “grande espera” como prova de qualidade. **Ritual textual aprovado pela direção em 23/10/2026.** O ensaio como peça editorial continua candidato.
 
 ## Âncora 2 — A decepção que não apaga o carinho
 
@@ -102,4 +102,4 @@
 
 São exemplos para avaliação humana; **não** copiar frases literalmente, repetir sempre a mesma entrada, obrigar a citar Atari em toda matéria ou usar os trechos como fonte factual. Se a direcção aprovar textos refinados, congelar identificador e hash para testes de transferência entre modelos. Em teste cego, comparar identidade sem revelar o título da âncora.
 
-**Pendências:** nome, rosto, assinatura de acolhimento e aprovação das âncoras.
+**Pendências:** visual/retrato e aprovação das âncoras; **nome Beto Cartucho e ritual “Puxa a cadeira, chega mais!” já aprovados**.
