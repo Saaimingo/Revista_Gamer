@@ -1,4 +1,4 @@
-# Gamer X — Contrato Editorial e de Apuração v0.2
+# Beto Cartucho — Contrato Editorial e de Apuração v0.2
 
 **Setor:** Bloco 02 (fronteira com Bloco 04) | **ID:** B02-GAMER-EDI-002 | **Versão:** 0.2 | **Data:** 2026-10-23  
 **Status:** EM REVISÃO, não aprovado, não validado | **Aprovador:** direção; alinhamento posterior com redação.  
