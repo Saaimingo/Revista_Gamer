@@ -1,8 +1,8 @@
-# Beto Cartucho — Registro de identidade e visual pendente (v0.2)
+# Beto Cartucho — Registro de decisões criativas (v0.2)
 
 **Setor:** Bloco 02 | **ID:** B02-GAMER-FINAL-002 | **Data:** 2026-10-23  
-**Status:** **nome e ritual de acolhimento APROVADOS pela direção em 23/10/2026; visual em proposta, aguardando avaliação humana.**  
-**Escopo:** preservar a decisão humana expressa sobre nome e bordão e registrar apenas a identidade visual como decisão criativa restante; os contratos v0.2 seguem em revisão.
+**Status:** **nome, ritual de acolhimento e identidade visual APROVADOS pela direção em 23/10/2026**. Pendência OPERACIONAL: arquivar o PNG mestre exato no armazenamento autorizado e conferir o checksum.  
+**Escopo:** preservar a decisão humana expressa sobre nome, bordão e retrato; os contratos v0.2 seguem em revisão. [Identidade visual aprovada e integridade do arquivo](BETO-CARTUCHO-IDENTIDADE-VISUAL-APROVADA-2026-10-23.md).
 
 ## Decisão 1 — Nome público: APROVADO — Beto Cartucho
 
@@ -15,11 +15,11 @@ O nome deve soar como o de um apresentador adulto brasileiro, permitir uma assin
 
 **Decisão da direção:** **Beto Cartucho** é o nome público escolhido. Não renomear por preferência de LLM. Disponibilidade de marca e identidade digital continua como verificação jurídica/comercial posterior, sem desfazer esta aprovação criativa.
 
-## Decisão 2 — Identidade visual
+## Decisão 2 — Identidade visual: APROVADA SEM ALTERAÇÕES
 
 **Invariantes já definidos conceitualmente:** homem ilustrado fictício aparente **41–44 anos**; experiência e energia simultâneas; sorriso expressivo, olhos vivos, postura de quem acolhe; presença de apresentador, não avatar adolescente. Não parecer pessoa real conhecida. Integrar a paleta/linguagem gráfica aprovada posteriormente pelo Bloco 03: grafite escuro, tons de vermelho/roxo, estética premium com calor humano.
 
-**Direções conceituais anteriores:** foi gerado um primeiro painel visual exploratório em 23/10/2026 nesta conversa, em estética gamer premium; **nenhum retrato foi aprovado, catalogado ou integrado ao GitHub**. O painel é protótipo conceitual; não tratar como arte final.
+**Decisão da direção:** o primeiro painel visual gerado na conversa em 23/10/2026 está **integralmente aprovado como rosto definitivo**, com todas as expressões, poses e identidade gráfica do painel. **Não regenerar nem alterar.** O PNG original de 1536×1024 ainda não foi carregado no GitHub; arquivar cópia idêntica com SHA-256 conforme o [manifesto](BETO-CARTUCHO-IDENTIDADE-VISUAL-APROVADA-2026-10-23.md). As opções A/B/C abaixo permanecem como história de exploração, não alternativas ativas.
 - **Visual A — O anfitrião:** cabelo com sinais sutis de maturidade, barba leve opcional, camiseta discreta com sobreposição casual, tronco inclinado convidando, mãos expressivas; sensação de “chega mais”.
 - **Visual B — O veterano curioso:** poucos fios grisalhos, olhar de quem encontrou novidade, sorriso de canto, jaqueta minimalista; clássico sem parecer rabugento.
 - **Visual C — O narrador de mundos:** expressão teatral controlada, gestos elegantes, roupa contemporânea e detalhe sutil da cultura gamer **sem marcas ou logotipos de games**; apto para capa, coluna e áudio ilustrado.
@@ -37,10 +37,10 @@ O nome deve soar como o de um apresentador adulto brasileiro, permitir uma assin
 
 **Próxima ação técnica:** testar em três leituras de 45–75 segundos, positivas e negativas. A expressão R1 foi escolhida; R2 e R3 não devem ser carregadas como variantes automáticas. O bordão entra uma vez em matéria longa quando encaixar; nunca repetir mecanicamente em nota, detonado ou correção.
 
-## Próximas ações — somente visual e validação
+## Próximas ações — preservação do arquivo e validação operacional
 
-1. Nome e bordão já registrados conceitualmente; selecionar e aprovar o retrato, então preencher `visual_identity_id`. Preservar alternativas rejeitadas no histórico.
-2. Validar o retrato protótipo com a direção, produzir as expressões/versões derivadas somente após escolha; não assumir que o painel exploratório já está aprovado.
+1. Nome, bordão e retrato aprovados. Fixar `visual_identity_id` somente depois de arquivar o **arquivo original exato** e registrar o destino/commit verificado; não escolher outro retrato.
+2. O painel já está aprovado pela direção; caso sejam necessárias peças derivadas, conferir que preservam o rosto, as expressões e a identidade. Qualquer alteração criativa exige nova aprovação.
 3. Marcar âncoras como aprovadas somente após leitura/revisão específica.
 4. Handoff para fundador/redação/engenharia e testes operacionais sob autorização apropriada.
 5. Só então migrar de `em_revisao` para `aprovado` e, separadamente, `implementado` e `validado`.
