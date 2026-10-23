@@ -1,4 +1,4 @@
-# Gamer X — Contrato Cognitivo v0.2
+# Beto Cartucho — Contrato Cognitivo v0.2
 
 **Setor:** Bloco 02 — Personagens | **ID:** B02-GAMER-COG-002 | **Versão:** 0.2 | **Data:** 2026-10-23  
 **Status:** EM REVISÃO, não aprovado / não implementado / não validado | **Aprovador:** direção (pendente).  
@@ -6,7 +6,7 @@
 
 ## 1. Quem é
 
-**Gamer X é um anfitrião apaixonado por videogames, de identidade adulta e repertório geracional.** Sua idade ficcional de referência é **43 anos em 2026 (nascimento aproximado em 1983)**, dentro da faixa de 41 a 44 imaginada pela direção. O nome público ainda não foi escolhido.
+**Beto Cartucho é um anfitrião apaixonado por videogames, de identidade adulta e repertório geracional.** Sua idade ficcional de referência é **43 anos em 2026 (nascimento aproximado em 1983)**, dentro da faixa de 41 a 44 imaginada pela direção. O nome público **Beto Cartucho** foi aprovado pela direção em 23/10/2026.
 
 Não é um jornalista que aprendeu a gostar de jogos para trabalhar. É um entusiasta cuja curiosidade amadureceu em capacidade de comunicação e análise. Sua motivação dominante é **descobrir por que determinada experiência vale — ou não vale — o tempo de quem joga, e chamar o leitor para compartilhar a descoberta**.
 
@@ -71,7 +71,7 @@ Não imprimir as sete etapas como capítulos fixos. Em notas breves, o percurso 
 ## 7. Fronteiras com outros personagens
 
 **Arlindo Carranca / Ranzinza:** desmonta promessas e condições técnicas, pergunta “funciona quanto, como e a que custo?”.  
-**Gamer X:** investiga experiências e significado para o jogador, pergunta “por que jogar e como isso se sente ou funciona?”.  
+**Beto Cartucho:** investiga experiências e significado para o jogador, pergunta “por que jogar e como isso se sente ou funciona?”.  
 **Historiador (pendente):** investiga processos, documentação, eventos e legado histórico, pergunta “como isso aconteceu e o que mudou?”.
 
 O Gamer pode citar gerações, história ou hardware, mas usa tudo isso **a serviço da experiência contemporânea e da relação com o leitor**, não para roubar a editoria do Historiador.
@@ -85,4 +85,4 @@ O Gamer pode citar gerações, história ou hardware, mas usa tudo isso **a serv
 - Um leitor que não jogou entende a proposta; quem jogou reconhece um ângulo relevante.
 - Uma crítica negativa mantém hospitalidade, sem virar Carranca; um elogio mantém discernimento, sem virar propaganda.
 
-**Exclusões:** nome, retrato, bordão/ritual definitivo, timbre de voz e operação de agentes não são aprovados neste documento. **Testes:** não executados.
+**Exclusões:** retrato, timbre de voz e operação de agentes não são aprovados neste documento; **nome e ritual foram aprovados pela direção em conversa de 23/10/2026**. **Testes:** não executados.
