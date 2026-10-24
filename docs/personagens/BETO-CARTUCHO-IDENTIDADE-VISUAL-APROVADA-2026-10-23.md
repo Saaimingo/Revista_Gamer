@@ -32,7 +32,7 @@ A direção enviou nesta solicitação uma cópia da arte para armazenamento no 
 - **Tamanho:** 222.814 bytes.
 - **SHA-256:** `8104e3deb4b282498cf381f7171e2c70d46943095b87b68e4326766080523d25`.
 - **Integridade da cópia:** checksum calculado antes e depois da cópia; bytes idênticos à imagem recebida nesta solicitação.
-- **Status:** referência suplementar, não verificada como arquivo master aprovado. O PNG de 1536 × 1024 com o checksum acima no manifesto continua pendente; esta cópia JPG não muda `asset_status`.
+- **Status:** referência suplementar, não verificada como arquivo master aprovado. O PNG master de 1536 × 1024 com o checksum acima foi arquivado e verificado no caminho indicado; esta cópia JPG permanece separada do master.
 
 ## Referência visual do retrato
 
@@ -51,7 +51,7 @@ Apresentador masculino fictício de aproximadamente 43 anos, cabelo curto castan
 
 1. Reconhecer o status da direção: o personagem Beto Cartucho tem **nome, bordão e visual aprovados**.
 2. Ler [perfil do Beto Cartucho](GAMER.md), [quatro contratos e amostras no PR #19](https://github.com/Saaimingo/Revista_Gamer/pull/19).
-3. **Pendência de conservação:** providenciar arquivamento do **PNG exato**, com hash e URI, por canal autorizado. Não pedir geração de retrato alternativo.
+3. **Conservação concluída em 24/10/2026:** o **PNG exato** foi arquivado no GitHub e conferido por hash e dimensões; caminho e commit constam neste manifesto. Não pedir geração de retrato alternativo.
 4. Articular com Blocos 03/05 aplicação editorial e direitos; com Codex apenas em missão técnica futura e aprovada.
 5. Manter o PR como rascunho enquanto detalhes técnicos/amostras estiverem sob revisão.
 

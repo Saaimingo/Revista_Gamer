@@ -21,7 +21,7 @@ O personagem é **um perfil de identidade editorial carregado por um redator ope
 - `stable_traits: entusiasmo_maduro, curiosidade, humor_observacional, firmeza_critica, acolhimento`;
 - `fictional_age_reference: 43 (2026)`; não é testemunha biográfica;
 - `welcome_ritual_id: beto-puxa-cadeira-v1`; `welcome_ritual_text: Puxa a cadeira, chega mais!` (**aprovado**); seu gesto de hospitalidade é obrigatório **como comportamento**, não como frase fixa em toda pauta;
-- `visual_identity_id: beto-visual-master-2026-10-23` (**ID proposto para o painel APROVADO**; conteúdo PNG ainda pendente de arquivamento, e o identificador só deve ser resolvido para uso operacional depois da conferência de hash do [manifesto](BETO-CARTUCHO-IDENTIDADE-VISUAL-APROVADA-2026-10-23.md)); não interfere no texto;
+- `visual_identity_id: beto-visual-master-2026-10-23` (**ID proposto para o painel aprovado**; PNG master original arquivado e SHA-256 conferido no [manifesto](BETO-CARTUCHO-IDENTIDADE-VISUAL-APROVADA-2026-10-23.md)); o identificador permanece referência documental e não configura persona em execução; não interfere no texto;
 - `voice_profile_id: PENDENTE`; não equivale a uma voz de pessoa real;
 - `approved_style_anchors: PENDENTE`; amostras desta fase são **candidatas**, não aprovadas;
 - `editorial_policy_version`, `source_packet_id`, `source_checked_at`, `spoiler_policy`, `approval_gate`.
@@ -93,6 +93,6 @@ Aplicar `GAMER-MATRIZ-DE-TESTES-v0.2.md` nas mesmas pautas e com o mesmo pacote 
 
 **Critérios humanos prioritários:** (i) sente-se convidado; (ii) há paixão adulta; (iii) emerge leitura específica do jogo; (iv) há consciência geracional quando útil; (v) crítica não vira propaganda nem negatividade gratuita; (vi) fatos, spoilers e atribuição corretos.
 
-**Aceite para integração:** direção já aprovou nome, ritual e visual; ainda deve aprovar âncoras e preservar o PNG exato; revisão editorial confirma apuração; engenharia registra execução sob modelo real + avaliação; questões jurídicas e mídia autorizadas; nenhuma etapa de publicação é inferida. A ordem exata entre decisões pode variar, mas a implantação não ocorre com `PENDENTE` nos campos exigidos.
+**Aceite para integração:** direção já aprovou nome, ritual e visual; ainda deve aprovar as âncoras; o PNG exato está arquivado e verificado; revisão editorial confirma apuração; engenharia registra execução sob modelo real + avaliação; questões jurídicas e mídia autorizadas; nenhuma etapa de publicação é inferida. A ordem exata entre decisões pode variar, mas a implantação não ocorre com `PENDENTE` nos campos exigidos.
 
 **Estado de implementação:** nenhuma integração real documentada por este artefato.

@@ -8,7 +8,7 @@
 
 ## 1. Resumo executivo para o fundador
 
-**A direção concluiu o núcleo criativo de Beto Cartucho, inclusive o visual, em 23/10/2026.** Nome, ritual de acolhimento e **imagem original exata** foram aprovados. A biografia e os quatro contratos de comportamento já estão redigidos para revisão; a matriz T01–T12 foi especificada, mas nenhum agente real foi testado nem foi autorizada a publicação. **O PNG master não está ainda arquivado no GitHub**, apesar de existir e ter sido aprovado na conversa — essa pendência operacional é explícita. O fundador não deve tentar regenerar um “retrato semelhante”.
+**A direção concluiu o núcleo criativo de Beto Cartucho, inclusive o visual, em 23/10/2026.** Nome, ritual de acolhimento e **imagem original exata** foram aprovados. A biografia e os quatro contratos de comportamento já estão redigidos para revisão; a matriz T01–T12 foi especificada, mas nenhum agente real foi testado nem foi autorizada a publicação. **Atualização de conservação em 24/10/2026:** o PNG master original foi arquivado e verificado no GitHub; caminho e commit constam no manifesto visual. A frase sobre a pendência acima descreve a situação em 23/10/2026. O fundador não deve tentar regenerar um “retrato semelhante”.
 
 **Mudança proposta na terceira cadeira:** adiar a persona fixa Historiador; estudar, no lugar dela para a formação inicial, uma **jovem jornalista gamer feminina**, aproximadamente 19–22 anos, com olhar de quem cresceu na cultura contemporânea dos games. **Está no embrião:** não há nome, DNA cognitivo, temperamento, oratória, bordões, textos âncora, visual ou testes aprovados. Esta é a mudança de direção proposta para debate, não uma persona pronta.
 

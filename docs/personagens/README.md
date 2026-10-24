@@ -12,7 +12,7 @@ Criar perfis públicos de jornalistas virtuais reconhecíveis, com nomes, retrat
 - [Gamer](GAMER.md): jogos, recepção crítica e comunidade, tom adulto descontraído.
 - [Historiador](HISTORIADOR.md): bastidores, memória, indústria e nostalgia, investigação histórica.
 
-**Gamer X foi nomeado Beto Cartucho pela direção em 23/10/2026**; somente Historiador segue como codinome de trabalho. O nome **Ranzinza** e seu **Protótipo A** foram aprovados, com os arquivos PNG originais ainda pendentes de confirmação de upload para o repositório. A frase **“Puxa a cadeira, chega mais!”** foi aprovada para Beto Cartucho; nenhuma voz sintética foi aprovada.
+**Beto Cartucho foi aprovado como nome público pela direção em 23/10/2026**; somente Historiador segue como codinome de trabalho. O nome **Ranzinza** e seu **Protótipo A** foram aprovados, com os arquivos PNG originais ainda pendentes de confirmação de upload para o repositório. A frase **“Puxa a cadeira, chega mais!”** foi aprovada para Beto Cartucho; nenhuma voz sintética foi aprovada.
 
 ## Entregas do setor
 
