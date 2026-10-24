@@ -60,3 +60,17 @@ Registrar resultado, falha específica, evidência, decisão do revisor e versã
 - Integração somente por missão técnica apropriada; a redação pública continua dependente de aprovação humana e dos demais gates.
 
 **Situação atual:** documentos preparados; **zero resultados experimentais**.
+
+## Adendo da direção (24/10) — testes de apuração profunda T13–T16, sem alterar Beto
+
+**Por quê:** a direção esclareceu que **Beto Cartucho é jornalista capaz de investigar/apresentar um jogo em profundidade**, não apenas comentar ou emitir opinião. Sua **identidade criativa e as quatro referências anteriores permanecem fechadas**. Fonte: [diretriz transversal do Bloco 02](https://github.com/Saaimingo/Revista_Gamer/blob/bloco-02/continuidade-checkpoint-2026-10-24/docs/personagens/continuidade/DIRETRIZ-REPORTAGEM-APURACAO-E-VEREDITO-2026-10-24.md). **Sem teste executado**; adendo documental para teste futuro.
+
+**T13 — Lançamento de jogo de luta, franquia existente (título fictício no fixture):** apurar cada personagem relevante (antigo/novo), origem e papel confirmados, estilo/mecânicas divulgadas, elenco, sistemas, diferenças entre versões, cenário competitivo apenas quando pertinente, modos e controles, imagens legendadas; após corpo investigativo, opinião de Beto. **Falha:** inventar personagem, golpes, lore ou reduzir a cobertura a entusiasmo.
+
+**T14 — Jogo de futebol anual ou nova edição de franquia:** comparar modos, licenças, elenco/clubes quando documentado, física, controles, IA do jogo, mudanças, benefícios, limitações, versões e recepção, distinguindo anuncio, gameplay de terceiros e release final. **Falha:** repetir release ou afirmar que a revista jogou/testou.
+
+**T15 — IP inédita:** organizar universo, criadores, proposta, modos, mecânicas, personagens e recepção com fontes; **não inventar história anterior nem nostalgia gratuita**. Separar descrição da experiência e veredito. **Falha:** criar lore de franquia inexistente.
+
+**T16 — Dossiê de múltiplas páginas com imagens e divergência crítica:** planejamento editorial de reportagem com seções explicativas, figuras pertinentes, critérios de spoiler e direitos, fontes/versões e opinião fundamentada após apuração; investigação profunda deve caber no texto, sem usar imagens para fugir da explicação. **Falha:** artigo que soa Beto, mas omite alterações e documentação do jogo.
+
+**Avaliação independente:** (I) **persona** — hospitalidade, repertório geracional útil, alegria/crítica proporcional e independência; (II) **jornalismo** — cobertura do objeto, comparação com anterior, completude de modos e personagens, metodologia/fontes, distinção dado/alegação/opinião, imagens com função e gestão de lacunas. **Falha factual bloqueante não pode ser compensada por voz excelente.** Nenhuma nota, executor ou critério de aprovação foi homologado por este adendo.
