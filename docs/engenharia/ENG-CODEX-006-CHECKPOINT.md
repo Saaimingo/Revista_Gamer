@@ -1,8 +1,8 @@
 # ENG-CODEX-006 — checkpoint de continuidade
 
-Atualizado: 2026-10-24 17:30 America/Sao_Paulo
-Unidade: **C4 — multipauta, em andamento**
-Última unidade concluída: **C3 — fluxos negativos e retomada**
+Atualizado: 2026-10-24 17:31 America/Sao_Paulo
+Unidade: **C5 — entrega executável, em andamento**
+Última unidade concluída: **C4 — multipauta e gates de edição**
 
 ## Estado confirmado
 
@@ -137,15 +137,23 @@ Unidade: **C4 — multipauta, em andamento**
 - Primeira execução do módulo de orquestração falhou em 1/34 por teste que supunha que o intervalo de retry ainda não tinha vencido. O teste foi corrigido para fornecer um instante explícito antes de `available_at`; isolado e suíte passaram. Não houve mudança no código de produto para essa falha.
 - Relatório completo: [ENG-CODEX-006-C3-RELATORIO.md](ENG-CODEX-006-C3-RELATORIO.md). Atualização da regressão em `motor_editorial/tests/test_orchestration.py` aguarda commit/push junto com o checkpoint C3.
 
+### C4 — multipauta e gates de edição (concluída)
+
+- Não houve mudança de produto. A fixture demonstrou três matérias independentes: pauta bloqueada, pauta elegível e falha de pesquisa recuperável. Com bloqueador ativo, a edição fica em `waiting_on_blockers` e aprovação é rejeitada.
+- Store foi reaberto e a fila retomada sem repetir trabalho concluído; a pauta recuperável chegou a `media_checked`. Exclusão da pauta bloqueada exigiu ator, motivo e confirmação explícita e gravou evento de auditoria. A matéria excluída permanece no histórico.
+- Depois da exclusão auditada, a edição ficou `ready_for_approval`; preview reteve as duas matérias elegíveis na ordem prevista e omitiu a pauta bloqueada/ativo pendente. Teste separado rejeita exclusão inválida e comprova run IDs independentes.
+- Evidência: o foco principal passou 1/1 em 1,393 s; exclusão não auditada/distintos IDs passou 1/1 em 2,162 s; `motor_editorial.tests.test_workflow -v` passou 22/22 em 25,229 s. Python 3.11.9. A suíte inclui somente servidores loopback locais, sem serviço externo.
+- Relatório: [ENG-CODEX-006-C4-RELATORIO.md](ENG-CODEX-006-C4-RELATORIO.md). C4 permanece como estado interno de fixture e não demonstra publicação.
+
 ## Próxima ação exata
 
-C4 na branch `codex/eng-codex-006-e2e-experiment`: executar `test_multipauta_isolates_failures_resumes_and_composes_two_ordered_articles` e `test_multipauta_rejects_unaudited_or_invalid_exclusion_and_distinct_run_ids`; comprovar que uma pauta bloqueada não trava as independentes, edição não fica pronta ao ocultar pendências, exclusão exige confirmação humana e fica auditada, e duas matérias elegíveis permanecem no preview. Executar regressões restantes do workflow para validar o estado atual e registrar C4 antes de C5.
+C5 na branch `codex/eng-codex-006-e2e-experiment`: consolidar comando/fixtures, fluxos C1–C4, resultados e limites em relatório executável; rodar `python -m unittest discover -s motor_editorial/tests -q`, `compileall`, `git diff --check` e CLI do fluxo `pass` e `revise` no HEAD atual. Confirmar zero chamadas externas, `published=false`, uma fila/dispatcher/ledger, checkpoint C, corpo/comentários da PR #26 e progresso na Issue #23. Depois avançar para D0.
 
 ## Retomada segura
 
 Retomada desta sessão (2026-10-24 17:18 America/Sao_Paulo): antes de editar, a branch `codex/eng-codex-006-e2e-experiment` estava no HEAD `daecb5c31f1dd8c2fa96db7bbaae3f2ceedf8c9b8`, sincronizada com o upstream e limpa; `git ls-files -u` vazio. Estado GitHub revalidado: Issue #23 aberta com cinco comentários; a diretriz é [6378715359](https://github.com/Saaimingo/Revista_Gamer/issues/23#issuecomment-6378715359), progresso C1 é [6379591562](https://github.com/Saaimingo/Revista_Gamer/issues/23#issuecomment-6379591562). PR #26 aberta, draft, mergeable, sem reviews ou threads, base `fa6eecf3e1e2f8662b5f5b53376f245df36c6785`, head inicial `daecb5c31f1dd8c2fa96db7bbaae3f2ceedf8c9b8`; `origin/main=ce8f6a7b65c2050d5da851491c9c89835f82c3a2`; nenhum merge.
 
-C2 foi commitada e enviada em `5928b42959310f872177ea07389d5b93de91a3d3`; PR #26 recebeu o handoff [6389104533](https://github.com/Saaimingo/Revista_Gamer/pull/26#issuecomment-6389104533), e Issue #23 recebeu [6389106167](https://github.com/Saaimingo/Revista_Gamer/issues/23#issuecomment-6389106167). C3 foi commitada e enviada em `7c1a31c70da922889d38787116f27b46f917e4f7`; o checkpoint foi enviado em `7419d3d5dc9306512157c639e4c469e7019920da`. O corpo/título da PR #26 foram atualizados para C0–C3 e o handoff C3 está em [6389164938](https://github.com/Saaimingo/Revista_Gamer/pull/26#issuecomment-6389164938); Issue #23 recebeu [6389167860](https://github.com/Saaimingo/Revista_Gamer/issues/23#issuecomment-6389167860). Estado vivo: Issue #23 aberta; PR #26 aberta/draft/sem reviews ou threads, base `fa6eecf3e1e2f8662b5f5b53376f245df36c6785`, head `7419d3d5dc9306512157c639e4c469e7019920da`; `origin/main=ce8f6a7b65c2050d5da851491c9c89835f82c3a2`; nenhum merge. Os leitores GitHub divergem no campo `mergeable`: `get_pr_info` reportou `false`, `fetch_pr` reportou `true`; a comparação local `git merge-tree --write-tree origin/codex/eng-codex-006-pipeline-reconcile origin/codex/eng-codex-006-e2e-experiment` terminou exit 0 sem conflitos e produziu árvore `f7d8975bf0b168cd37b8ca7ce1b79c892948b6da`. Registrar a divergência, não inferir merge nem aceite. Próxima ação: seguir em C4 pelos dois testes multipauta listados acima.
+C2 foi commitada e enviada em `5928b42959310f872177ea07389d5b93de91a3d3`; PR #26 recebeu o handoff [6389104533](https://github.com/Saaimingo/Revista_Gamer/pull/26#issuecomment-6389104533), e Issue #23 recebeu [6389106167](https://github.com/Saaimingo/Revista_Gamer/issues/23#issuecomment-6389106167). C3 foi commitada em `7c1a31c70da922889d38787116f27b46f917e4f7` e checkpoint C3 em `7419d3d5dc9306512157c639e4c469e7019920da`; seus handoffs estão em PR #26 [6389164938](https://github.com/Saaimingo/Revista_Gamer/pull/26#issuecomment-6389164938) e Issue #23 [6389167860](https://github.com/Saaimingo/Revista_Gamer/issues/23#issuecomment-6389167860). O relatório/checkpoint C4 e os dois testes focados passaram, e `test_workflow` foi 22/22; esses documentos aguardam commit/push. PR #26 continua aberta/draft/sem reviews ou threads, base `fa6eecf3e1e2f8662b5f5b53376f245df36c6785`; a última head API antes do novo checkpoint era `7419d3d5dc9306512157c639e4c469e7019920da`. `origin/main=ce8f6a7b65c2050d5da851491c9c89835f82c3a2`; nenhum merge. `get_pr_info` e `fetch_pr` reportaram valores conflitantes para `mergeable` (`false` e `true`); a comparação local de árvore base/head não encontrou conflitos. Registrar e revalidar, sem inferir aceite. Próxima ação C5: consolidar evidência executável, rodar suíte completa atual e CLI `pass`/`revise`, depois D0.
 
 ## Pausa a pedido do usuario — 2026-10-24 01:10 America/Sao_Paulo
 
