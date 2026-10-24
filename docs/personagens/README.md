@@ -1,5 +1,7 @@
 # Setor: personagens e assinaturas
 
+> **SITUAÇÃO DO SETOR ATUALIZADA EM 24/10/2026:** a tríade Arlindo Carranca, Beto Cartucho e Nina Prisma está **criativamente fechada**, por decisão da direção/Fundador 2. **Pacotes Carranca**: [consolidado v1.0](RANZINZA-PACOTE-OPERACIONAL-CONSOLIDADO-v1.0.md), DNA, seis audições e matriz T01–T16 preparados nesta PR #13; visuais PNG [PR #14](https://github.com/Saaimingo/Revista_Gamer/pull/14). **Beto e Nina**: [PR #19](https://github.com/Saaimingo/Revista_Gamer/pull/19). **Checkpoint e ordem Fundador 2**: [PR #27](https://github.com/Saaimingo/Revista_Gamer/pull/27). Conteúdo antigo abaixo sobre “Historiador fixo”, “nomes pendentes”, “PNGs não encontrados” ou “somente três audições” está superado. **Testes operacionais e merge NÃO EXECUTADOS.**
+
 **Status:** DNAs das demais personas em desenvolvimento. **Ranzinza:** identidade fictícia **Arlindo Carranca**, apelido **“Ranzinza”**, Protótipo A, três âncoras e **DNA conceitual v1.0 aprovados pela direção em 20/10/2026**; contrato técnico, testes reais de identidade e voz pendentes.
 
 ## Missão
