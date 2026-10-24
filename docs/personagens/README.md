@@ -12,7 +12,7 @@ Criar perfis públicos de jornalistas virtuais reconhecíveis, com nomes, retrat
 - [Gamer](GAMER.md): jogos, recepção crítica e comunidade, tom adulto descontraído.
 - [Historiador](HISTORIADOR.md): bastidores, memória, indústria e nostalgia, investigação histórica.
 
-Gamer e Historiador seguem como **codinomes de trabalho**. O nome **Ranzinza** e seu **Protótipo A** foram aprovados, com os arquivos PNG originais ainda pendentes de confirmação de upload para o repositório. Nenhuma voz ou frase/bordão foi aprovada.
+**Gamer X foi nomeado Beto Cartucho pela direção em 23/10/2026**; somente Historiador segue como codinome de trabalho. O nome **Ranzinza** e seu **Protótipo A** foram aprovados, com os arquivos PNG originais ainda pendentes de confirmação de upload para o repositório. A frase **“Puxa a cadeira, chega mais!”** foi aprovada para Beto Cartucho; nenhuma voz sintética foi aprovada.
 
 ## Entregas do setor
 
@@ -25,3 +25,20 @@ Depois de aprovado e lançado, o DNA vira referência estável. Mudanças de mod
 ## Dependências e comunicação
 
 Trocar solicitações por [GitHub Issues](https://github.com/Saaimingo/Revista_Gamer/issues) conforme `docs/operacao/PROTOCOLO-HANDOFF.md`. Engenharia só implementa perfil aprovado. Arquivos de imagem originais ficam no armazenamento de mídia autorizado, e a documentação aponta para suas versões/identificadores.
+
+## Beto Cartucho — concepção aprovada, validação operacional pendente (23/10/2026)
+
+A personalidade de Beto Cartucho foi aprofundada com **hospitalidade de apresentador, repertório geracional (43 anos ficcionais) e interpretação da experiência de jogar**. Existem [quatro contratos, âncoras e testes](GAMER.md) e um [handoff provisório ao fundador](GAMER-ENTREGA-BLOCO-02-PARA-FUNDADOR-v0.2.md).
+
+**Nome Beto Cartucho e ritual “Puxa a cadeira, chega mais!” aprovados pela direção em 23/10/2026.** A **identidade visual integral está aprovada pela direção**; conferir [registro do painel visual aprovado e checksum](BETO-CARTUCHO-IDENTIDADE-VISUAL-APROVADA-2026-10-23.md). O **PNG original ainda não foi arquivado no GitHub** e a aprovação estética não equivale a licença de uso de todos os elementos na publicação. O conjunto não está implementado nem validado em LLMs; [matriz T01–T12](GAMER-MATRIZ-DE-TESTES-v0.2.md) ainda não foi executada. A direção **decidiu pela terceira jornalista gamer jovem e mulher** (faixa inicial aproximada de 19–22 anos, ainda não congelada) e a identifica como **Nina Prisma**. A referência visual foi recebida em 24/10/2026; o DNA e a forma de escrita permanecem indefinidos. **Historiador fixo foi adiado**, sem eliminar a editoria de História. Ver handoff ao fundador.
+
+A cópia JPG enviada pela direção está em [assets/beto-cartucho](assets/beto-cartucho/beto-cartucho-referencia-recebida-2026-10-23.jpg) como **referência suplementar**. Ela não substitui o PNG master aprovado; formato, dimensões e checksum estão registrados no manifesto visual.
+
+## Nina Prisma — referência visual recebida (24/10/2026)
+
+A imagem identificada pela direção como identidade visual de Nina Prisma foi preservada em [assets/nina-prisma](assets/nina-prisma/nina-prisma-identidade-visual-2026-10-24.jpg). O [registro da imagem](NINA-PRISMA-IDENTIDADE-VISUAL-REFERENCIA-2026-10-24.md) documenta a origem e a integridade do arquivo. Esta inclusão registra o ativo solicitado; não define contratos editoriais nem autoriza produção ou publicação.
+
+
+## Encaminhamento ao fundador — panorama dos personagens e terceira cadeira (23/10/2026)
+
+A pedido da direção, o [handoff completo sobre o Beto Cartucho aprovado, preservação do visual exato e proposta de substituir a terceira cadeira do Historiador por uma gamer jovem](HANDOFF-FUNDADOR-STATUS-BETO-E-TERCEIRA-CADEIRA-2026-10-23.md) foi registrado na [Issue #22 — solicitação ao fundador](https://github.com/Saaimingo/Revista_Gamer/issues/22). **Status após resposta do fundador:** formação inicial com jovem gamer feminina **decidida**, criação individual ainda pendente; não existe perfil implementado nem testes. O Historiador segue em reserva. [Registro da devolutiva do fundador](analises-fundador/REGISTRO-LEITURA-DEVOLUTIVA-2026-10-23.md) e [comentário autoritativo da Issue #22](https://github.com/Saaimingo/Revista_Gamer/issues/22#issuecomment-6376266814).
