@@ -40,7 +40,7 @@ O painel local abre em `http://127.0.0.1:8765/`. Ele oferece execução em lote,
 
 `demo-v1` executa a fixture original de uma pauta e mantém as garantias cobertas pelos 11 testes da v0.1, inclusive a rejeição anterior à gravação quando a fixture contém mais de uma pauta selecionável. A nova fixture está em `fixtures/demo-multipauta.json`; a antiga permanece em `fixtures/demo.json`.
 
-O SQLite usa o esquema v3. A abertura de bancos v1/v2 aplica migrações aditivas e mantém os registros e associações existentes.
+O SQLite usa o esquema v5. A abertura de bancos v1–v4 aplica migrações aditivas; os testes incluem a migração v3→v5 com preservação de registros e restauração de backup, além da inclusão das colunas de lease em v4. Faça e confira um backup antes de atualizar um banco local: o projeto não instala nem agenda backups automáticos. Bancos com versão posterior à suportada são recusados antes de qualquer alteração no arquivo.
 
 ## Dados e diretório
 
@@ -59,7 +59,7 @@ Os IDs de pautas, itens e edições incluem o identificador da execução para e
 py -3.11 -m unittest discover -s motor_editorial/tests -v
 ```
 
-Os testes usam diretórios temporários. Cobrem os 11 contratos herdados da v0.1, isolamento e retomada, idempotência sob chamadas concorrentes, migração v2, ordem da edição, revisão vigente, direitos por matéria, confirmação humana, rotas locais e ausência de publicação.
+Os testes usam diretórios temporários. Cobrem os contratos do Motor v0.2, migrações SQLite, isolamento e retomada, idempotência, concorrência/leases/fencing, revisão editorial vigente, fontes/citações, direitos por matéria, confirmação humana, rotas locais e ausência de publicação. Os ensaios ENG-CODEX-006 usam executores e clientes de fixture; não fazem chamadas SIWC.
 
 ## Orquestração durável — CODEX-003
 

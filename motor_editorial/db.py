@@ -82,6 +82,12 @@ class Store:
 
     def _initialize(self) -> None:
         with self.transaction() as connection:
+            version = connection.execute("PRAGMA user_version").fetchone()[0]
+            if version > SCHEMA_VERSION:
+                raise RuntimeError(
+                    f"Banco da versão {version} é mais novo que este aplicativo "
+                    f"(v{SCHEMA_VERSION})."
+                )
             connection.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS sources (
@@ -343,12 +349,6 @@ class Store:
                 );
                 """
             )
-            version = connection.execute("PRAGMA user_version").fetchone()[0]
-            if version > SCHEMA_VERSION:
-                raise RuntimeError(
-                    f"Banco da versão {version} é mais novo que este aplicativo "
-                    f"(v{SCHEMA_VERSION})."
-                )
             if version < SCHEMA_VERSION:
                 task_columns = {
                     row["name"]
