@@ -347,7 +347,10 @@ class AgentOrchestrationTests(unittest.TestCase):
         self.assertEqual(first.state, "retry_wait")
         persisted = self.queue.get(task_id)
         self.assertEqual(persisted.attempts, 1)
-        self.assertEqual(dispatcher.dispatch_one(task_id).state, "idle")
+        before_retry = (
+            datetime.fromisoformat(persisted.available_at) - timedelta(microseconds=1)
+        )
+        self.assertEqual(dispatcher.dispatch_one(task_id, now=before_retry).state, "idle")
         second = dispatcher.dispatch_one(task_id, now=persisted.available_at)
         self.assertEqual(second.state, "succeeded")
         self.assertEqual(self.queue.get(task_id).attempts, 2)

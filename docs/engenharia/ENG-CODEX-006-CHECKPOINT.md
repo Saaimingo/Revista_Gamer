@@ -1,8 +1,8 @@
 # ENG-CODEX-006 — checkpoint de continuidade
 
-Atualizado: 2026-10-24 17:23 America/Sao_Paulo
-Unidade: **C3 — fluxos negativos, em andamento**
-Última unidade concluída: **C2 — fluxo de correção**
+Atualizado: 2026-10-24 17:26 America/Sao_Paulo
+Unidade: **C4 — multipauta, em andamento**
+Última unidade concluída: **C3 — fluxos negativos e retomada**
 
 ## Estado confirmado
 
@@ -129,15 +129,23 @@ Unidade: **C3 — fluxos negativos, em andamento**
 - `& '.\.venv\Scripts\python.exe' -m unittest motor_editorial.tests.test_factory -v` → 8/8 OK; cobre também cenários iniciados em C3. `compileall` e `git diff --check` → exit 0.
 - Limites: dados exclusivamente sintéticos. O estado aprovado é apenas fixture; não é aceite humano, não altera edição real e não publica. C3 ainda requer fechamento documental e validação das regressões adjacentes.
 
+### C3 — fluxos negativos e retomada (concluída)
+
+- Cobertura em `motor_editorial/tests/test_factory.py`: divergência de fontes termina em `hold`; identidade divergente bloqueia antes do pacote; rights `pending` e `blocked` falham no gate de mídia; plano re-hashado com ordem adulterada e plano antigo diante de StoryPackage novo não avançam; interrupção/restart reaproveita tarefas concluídas; falha transitória retoma a mesma tarefa em nova tentativa.
+- A4 usa `blocked` para estado revogado; `revoked` não faz parte do enum aprovado. Nenhum novo estado de direitos foi inventado. Cenários bloqueados não criaram prévia ou gate; execuções retomadas ficaram `published=false`, zero chamadas de rede/SIWC/API paga.
+- Validação: `test_factory -v` 8/8 em 17,922 s; `test_layout -v` 14/14 em 4,388 s; `test_editorial -v` 17/17 em 10,632 s; teste isolado de retry 1/1 em 0,378 s; `test_orchestration -v` 34/34 em 19,561 s; `compileall` e `git diff --check` exit 0. Ambiente CPython 3.11.9.
+- Primeira execução do módulo de orquestração falhou em 1/34 por teste que supunha que o intervalo de retry ainda não tinha vencido. O teste foi corrigido para fornecer um instante explícito antes de `available_at`; isolado e suíte passaram. Não houve mudança no código de produto para essa falha.
+- Relatório completo: [ENG-CODEX-006-C3-RELATORIO.md](ENG-CODEX-006-C3-RELATORIO.md). Atualização da regressão em `motor_editorial/tests/test_orchestration.py` aguarda commit/push junto com o checkpoint C3.
+
 ## Próxima ação exata
 
-C3 na branch `codex/eng-codex-006-e2e-experiment`: fechar testes negativos de divergência de fontes, identidades incompatíveis, direitos pendentes/bloqueados, plano adulterado, hash obsoleto, interrupção/restart, falha/retry e retomada. Reexecutar o teste de adulteração de ordem de A4 e os módulos necessários; garantir que fluxos bloqueados não criem preview/gate e os retomados não repitam tarefas concluídas. Atualizar relatório/checkpoint com evidência final e commit/push antes de C4.
+C4 na branch `codex/eng-codex-006-e2e-experiment`: executar `test_multipauta_isolates_failures_resumes_and_composes_two_ordered_articles` e `test_multipauta_rejects_unaudited_or_invalid_exclusion_and_distinct_run_ids`; comprovar que uma pauta bloqueada não trava as independentes, edição não fica pronta ao ocultar pendências, exclusão exige confirmação humana e fica auditada, e duas matérias elegíveis permanecem no preview. Executar regressões restantes do workflow para validar o estado atual e registrar C4 antes de C5.
 
 ## Retomada segura
 
 Retomada desta sessão (2026-10-24 17:18 America/Sao_Paulo): antes de editar, a branch `codex/eng-codex-006-e2e-experiment` estava no HEAD `daecb5c31f1dd8c2fa96db7bbaae3f2ceedf8c9b8`, sincronizada com o upstream e limpa; `git ls-files -u` vazio. Estado GitHub revalidado: Issue #23 aberta com cinco comentários; a diretriz é [6378715359](https://github.com/Saaimingo/Revista_Gamer/issues/23#issuecomment-6378715359), progresso C1 é [6379591562](https://github.com/Saaimingo/Revista_Gamer/issues/23#issuecomment-6379591562). PR #26 aberta, draft, mergeable, sem reviews ou threads, base `fa6eecf3e1e2f8662b5f5b53376f245df36c6785`, head inicial `daecb5c31f1dd8c2fa96db7bbaae3f2ceedf8c9b8`; `origin/main=ce8f6a7b65c2050d5da851491c9c89835f82c3a2`; nenhum merge.
 
-C2 foi commitada e enviada em `5928b42959310f872177ea07389d5b93de91a3d3` (`feat: add corrected synthetic factory flow`); checkpoint enviado em `289453a061d2924b704c63bb5d2449524b2348d0`. PR #26 teve corpo atualizado e recebeu o handoff [6389104533](https://github.com/Saaimingo/Revista_Gamer/pull/26#issuecomment-6389104533); Issue #23 recebeu [6389106167](https://github.com/Saaimingo/Revista_Gamer/issues/23#issuecomment-6389106167). A API confirmou PR #26 aberta, draft, mergeable, sem reviews/threads, base `fa6eecf3e1e2f8662b5f5b53376f245df36c6785`, head `289453a061d2924b704c63bb5d2449524b2348d0`; `origin/main=ce8f6a7b65c2050d5da851491c9c89835f82c3a2`; nenhum merge. O commit também inclui a primeira bateria C3 (controles sintéticos para divergência/direitos e regressões de identidade/hash/restart/retry); esses cenários passaram no módulo `test_factory` 8/8. C3 permanece em andamento até executar e registrar a regressão A4 de ordem, os módulos editorial e multipauta e a suíte completa atual. Próxima ação executável: rodar esses focados, corrigir regressões e completar C3 antes de C4.
+C2 foi commitada e enviada em `5928b42959310f872177ea07389d5b93de91a3d3`; PR #26 teve corpo atualizado e recebeu [6389104533](https://github.com/Saaimingo/Revista_Gamer/pull/26#issuecomment-6389104533), e Issue #23 recebeu [6389106167](https://github.com/Saaimingo/Revista_Gamer/issues/23#issuecomment-6389106167). A API confirmou PR #26 aberta, draft e sem reviews/threads; a resposta após atualizar título marcou temporariamente `mergeable=false`, mas a consulta subsequente anterior havia retornado `true`, então revalidar o indicador antes de relatar o estado final. Base `fa6eecf3e1e2f8662b5f5b53376f245df36c6785`; HEAD remoto atual antes do commit C3 `421a9c3b175362e948102b2f8b85887db343c6ba`; `origin/main=ce8f6a7b65c2050d5da851491c9c89835f82c3a2`; nenhum merge. C3 está validada nos módulos factory/layout/editorial/orchestration e `compileall`/`git diff --check` passaram. O relatório e o ajuste de determinismo do teste de retry estão no disco, aguardando commit/push; depois continuar em C4 com os dois testes multipauta listados acima.
 
 ## Pausa a pedido do usuario — 2026-10-24 01:10 America/Sao_Paulo
 
