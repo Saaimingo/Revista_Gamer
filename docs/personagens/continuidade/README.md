@@ -17,6 +17,7 @@ O novo chat deve ler os documentos abaixo, verificar os PRs ainda pendentes em s
 1. **[CHECKPOINT-BLOCO-02-2026-10-24.md](CHECKPOINT-BLOCO-02-2026-10-24.md)** — inventário abrangente de decisões, aprovações, versões, imagens, branches, responsabilidades, pendências e ponto exato de retomada.
 2. **[CARRANCA-AUDICOES-APROVADAS-2026-10-24.md](CARRANCA-AUDICOES-APROVADAS-2026-10-24.md)** — **texto completo das três audições de 24/10 expressamente aprovadas** (requisitos, elogio e correção de erro); somam-se às três âncoras de 19/10.
 3. **[NINA-PRISMA-AUDICOES-E-DIRETRIZ-VISUAL-2026-10-24.md](NINA-PRISMA-AUDICOES-E-DIRETRIZ-VISUAL-2026-10-24.md)** — quatro audições expressivas aceitas, evolução entre monotonia, excesso de emoção e equilíbrio, nome, idade, concepção, aparência escolhida, erro visual rejeitado e referência de mídia arquivada.
+4. **[DIRETRIZ-REPORTAGEM-APURACAO-E-VEREDITO-2026-10-24.md](DIRETRIZ-REPORTAGEM-APURACAO-E-VEREDITO-2026-10-24.md)** — **adendo posterior do diretor:** nossos três jornalistas **investigam e apresentam em profundidade** produtos, hardware, jogos e comunidades; **não são apenas comentaristas**. Distingue corpo de reportagem, conclusão e resposta/correção; prevê comparativos, fontes, benchmarks, personagens, imagens explicativas e alinhamento com Bloco 04.
 
 ## Situação exata no encerramento deste checkpoint
 
@@ -30,7 +31,7 @@ O novo chat deve ler os documentos abaixo, verificar os PRs ainda pendentes em s
 
 **Futuro do motor:** memória longitudinal antes da primeira edição real (decisão **conceitual**, ainda não implementada), skills evolutivas em fase futura, contas sociais institucionais não conectadas. Discussões no [Issue #20](https://github.com/Saaimingo/Revista_Gamer/issues/20) e [Issue #22](https://github.com/Saaimingo/Revista_Gamer/issues/22).
 
-**PONTO DE RETOMADA MAIS IMPORTANTE:** imediatamente antes de pedir backup, o diretor disse: **"Eu só fiquei com a pulga atrás da orelha nos três personagens agora. [...] Eu só quero levantar outro ponto."** Ele **ainda não trouxe esse ponto**. Ao retomar, pedir que desenvolva a preocupação, sem adivinhar.
+**PONTO DE RETOMADA MAIS IMPORTANTE — ATUALIZADO após o primeiro checkpoint:** o diretor **já explicou aquela preocupação**. A distinção decisiva é que os três jornalistas não podem se limitar a opinar: devem **destrinchar profundamente objeto, documentação, diferenças e evidências antes de concluir**, separando corpo de reportagem e veredito. Ler obrigatoriamente a [diretriz de reportagem](DIRETRIZ-REPORTAGEM-APURACAO-E-VEREDITO-2026-10-24.md). **O adendo foi documentado; aguardam-se seus próximos direcionamentos**. Não voltar a perguntar qual era a questão.
 
 ## Referências operacionais
 
