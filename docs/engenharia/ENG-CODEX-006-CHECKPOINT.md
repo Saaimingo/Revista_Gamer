@@ -138,3 +138,4 @@ Antes de iniciar C2: git status --short --branch; confirmar branch codex/eng-cod
 - `git diff --check` passou para o checkpoint e o atalho.
 - Commit `dda9236ee06d229121c9759a923fd65554338d07` (`docs: add ENG-CODEX-006 resume launcher`) foi enviado para `origin/codex/eng-codex-006-e2e-experiment`.
 - Apos o push, `git status --short --branch` mostrou a branch sincronizada e sem alteracoes pendentes. Nenhuma validacao C2 foi executada porque C2 ainda nao foi iniciada.
+- Em 2026-10-24, criado tambem `C:\Users\saimi\OneDrive\Desktop\Retomar-ENG-CODEX-006.cmd`. Esse atalho da Area de Trabalho chama o launcher versionado na raiz do repositorio; o arquivo da Area de Trabalho e local desta maquina.
