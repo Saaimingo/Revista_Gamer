@@ -128,6 +128,41 @@ class LayoutContractTests(unittest.TestCase):
             "FAIL",
         )
 
+    def test_rehashed_plan_must_preserve_story_order_and_sequence(self) -> None:
+        story, inventory, local_index, plan = self.build_case(0)
+        mutations = []
+
+        reordered_payload = copy.deepcopy(plan["payload"])
+        reordered_payload["block_placements"].reverse()
+        for sequence, placement in enumerate(reordered_payload["block_placements"], start=1):
+            placement["sequence"] = sequence
+        mutations.append(reordered_payload)
+
+        resequenced_payload = copy.deepcopy(plan["payload"])
+        placements = resequenced_payload["block_placements"]
+        placements[0]["sequence"], placements[1]["sequence"] = (
+            placements[1]["sequence"], placements[0]["sequence"]
+        )
+        mutations.append(resequenced_payload)
+
+        for payload in mutations:
+            with self.subTest(placements=payload["block_placements"]):
+                tampered_plan = seal_artifact(
+                    plan["artifact_id"], SCHEMA_PLAN, plan["revision"], payload
+                )
+                # A valid new envelope hash must not legitimize semantic reordering.
+                validate_layout_plan(tampered_plan)
+                validation = validate_composition_validation(validate_plan(
+                    story, inventory, tampered_plan,
+                    local_index.fingerprint(), local_index.references(),
+                ))
+                check_status = {
+                    check["check_id"]: check["status"]
+                    for check in validation["payload"]["checks"]
+                }
+                self.assertEqual(validation["payload"]["status"], "FAIL")
+                self.assertEqual(check_status.get("editorial_order_and_sequence"), "FAIL")
+
     def test_unlicensed_or_advertising_asset_blocks_editorial_composition(self) -> None:
         story, inventory, local_index, plan = self.build_case(0)
         changed_payload = copy.deepcopy(inventory["payload"])

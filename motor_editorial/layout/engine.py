@@ -242,6 +242,14 @@ def validate_plan(
         and len(plan_block_ids) == len(set(plan_block_ids)),
         "Cada bloco semântico da matéria aparece uma vez no plano.",
     )
+    expected_sequences = list(range(1, len(input_block_ids) + 1))
+    check(
+        "editorial_order_and_sequence",
+        plan_block_ids == input_block_ids
+        and [placement["sequence"] for placement in payload["block_placements"]]
+        == expected_sequences,
+        "A ordem dos blocos e as sequências 1-based correspondem às sections do StoryPackage.",
+    )
     check(
         "requested_assets_placed",
         requested_asset_ids == editorial_asset_ids,

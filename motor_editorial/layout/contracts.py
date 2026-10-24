@@ -288,9 +288,19 @@ def validate_layout_plan(value: Any) -> dict[str, Any]:
     placements = payload.get("block_placements")
     if not isinstance(placements, list) or not placements:
         raise ContractError("LayoutPlan precisa mapear blocos semânticos.")
-    placed = [placement.get("block_id") for placement in placements if isinstance(placement, Mapping)]
-    if len(placed) != len(placements) or len(set(placed)) != len(placed):
+    if any(not isinstance(placement, Mapping) for placement in placements):
+        raise ContractError("Cada block_placement precisa ser um objeto.")
+    placed = [placement.get("block_id") for placement in placements]
+    if len(set(placed)) != len(placed):
         raise ContractError("Cada bloco deve aparecer exatamente uma vez no LayoutPlan.")
+    sequences = [placement.get("sequence") for placement in placements]
+    if any(
+        not isinstance(sequence, int) or isinstance(sequence, bool) or sequence < 1
+        for sequence in sequences
+    ):
+        raise ContractError("Cada bloco precisa ter sequence como inteiro positivo.")
+    if len(set(sequences)) != len(sequences):
+        raise ContractError("Cada sequence precisa ser única no LayoutPlan.")
     layouts = payload.get("layouts")
     if not isinstance(layouts, Mapping) or any(
         not isinstance(layouts.get(mode), Mapping) for mode in ("desktop", "mobile", "continuous")
