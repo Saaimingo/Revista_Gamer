@@ -1,6 +1,6 @@
 # ENG-CODEX-006 — checkpoint de continuidade
 
-Atualizado: 2026-10-24 17:18 America/Sao_Paulo
+Atualizado: 2026-10-24 17:23 America/Sao_Paulo
 Unidade: **C3 — fluxos negativos, em andamento**
 Última unidade concluída: **C2 — fluxo de correção**
 
@@ -137,7 +137,7 @@ C3 na branch `codex/eng-codex-006-e2e-experiment`: fechar testes negativos de di
 
 Retomada desta sessão (2026-10-24 17:18 America/Sao_Paulo): antes de editar, a branch `codex/eng-codex-006-e2e-experiment` estava no HEAD `daecb5c31f1dd8c2fa96db7bbaae3f2ceedf8c9b8`, sincronizada com o upstream e limpa; `git ls-files -u` vazio. Estado GitHub revalidado: Issue #23 aberta com cinco comentários; a diretriz é [6378715359](https://github.com/Saaimingo/Revista_Gamer/issues/23#issuecomment-6378715359), progresso C1 é [6379591562](https://github.com/Saaimingo/Revista_Gamer/issues/23#issuecomment-6379591562). PR #26 aberta, draft, mergeable, sem reviews ou threads, base `fa6eecf3e1e2f8662b5f5b53376f245df36c6785`, head inicial `daecb5c31f1dd8c2fa96db7bbaae3f2ceedf8c9b8`; `origin/main=ce8f6a7b65c2050d5da851491c9c89835f82c3a2`; nenhum merge.
 
-C2 foi commitada e enviada no commit `5928b42959310f872177ea07389d5b93de91a3d3` (`feat: add corrected synthetic factory flow`) para `origin/codex/eng-codex-006-e2e-experiment`. O commit também inclui a primeira bateria C3 (controle sintético para divergência/direitos e regressões de identidade/hash/restart/retry); esses cenários passaram no módulo `test_factory` 8/8. C3 permanece em andamento até executar e registrar a regressão A4 de ordem, os módulos editorial e multipauta e a suíte completa atual. PR #26 já contém o commit, mas ainda precisa de handoff C2/C3 nos comentários e atualizar seu corpo. Próxima ação executável: rodar os focados pendentes de layout/editorial/multipauta, corrigir qualquer regressão e completar C3 antes de C4.
+C2 foi commitada e enviada em `5928b42959310f872177ea07389d5b93de91a3d3` (`feat: add corrected synthetic factory flow`); checkpoint enviado em `289453a061d2924b704c63bb5d2449524b2348d0`. PR #26 teve corpo atualizado e recebeu o handoff [6389104533](https://github.com/Saaimingo/Revista_Gamer/pull/26#issuecomment-6389104533); Issue #23 recebeu [6389106167](https://github.com/Saaimingo/Revista_Gamer/issues/23#issuecomment-6389106167). A API confirmou PR #26 aberta, draft, mergeable, sem reviews/threads, base `fa6eecf3e1e2f8662b5f5b53376f245df36c6785`, head `289453a061d2924b704c63bb5d2449524b2348d0`; `origin/main=ce8f6a7b65c2050d5da851491c9c89835f82c3a2`; nenhum merge. O commit também inclui a primeira bateria C3 (controles sintéticos para divergência/direitos e regressões de identidade/hash/restart/retry); esses cenários passaram no módulo `test_factory` 8/8. C3 permanece em andamento até executar e registrar a regressão A4 de ordem, os módulos editorial e multipauta e a suíte completa atual. Próxima ação executável: rodar esses focados, corrigir regressões e completar C3 antes de C4.
 
 ## Pausa a pedido do usuario — 2026-10-24 01:10 America/Sao_Paulo
 
