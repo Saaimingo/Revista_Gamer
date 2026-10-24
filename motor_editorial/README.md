@@ -115,3 +115,15 @@ Passe `--run-id <UUID>` para retomar a mesma cadeia. Etapas concluídas são reu
 `deploy/systemd/revista-gamer-orchestrator.service.example` prepara um worker único, sem porta de entrada, com dados em `/var/lib/revista-gamer`, reinício por falha e diretório restrito. O exemplo não foi instalado nem habilitado. Configure usuário de serviço, venv e diretórios conforme o relatório antes de operar. Agendas permanecem desativadas por padrão.
 
 Não copie a credencial Windows DPAPI para Linux. Para VM, use um host ID estável e próprio e mantenha a elegibilidade remota por confirmar. O repositório é público, porém não tem arquivo LICENSE; isso não prova status open source. Apps privados hospedados são elegíveis somente quando selecionados/aprovados pela OpenAI. Consulte a [especificação CODEX-003](../docs/engenharia/ESPECIFICACAO-CODEX-003-ORQUESTRACAO-PLUS.md) e o [relatório técnico](../docs/engenharia/RELATORIO-ORQUESTRACAO-AGENTES-PLUS.md).
+
+## Fase 0 — diagramador offline (Issue #17)
+
+A demonstração da Fase 0 usa somente matérias, referências e direitos sintéticos. Ela deriva necessidades visuais, consulta um índice SQLite local de metadados, gera um plano versionado e bloqueia a prévia quando direitos, hashes, referências ou integridade falham. Os cenários cobrem reportagem com imagens pequenas, comparativo e mapa panorâmico.
+
+```powershell
+.\.venv\Scripts\python.exe -m motor_editorial --data-dir "$env:TEMP\revista-gamer-layout-demo" layout-demo
+```
+
+Relatórios, planos, validações e prévias ficam em `artifacts/layout-demo/` sob o diretório de dados selecionado. Os placeholders não são as imagens de contexto do Bloco 03. A prévia é interna, não há rede, SIWC ou API paga, e a demonstração termina aguardando revisão humana.
+
+Código e relatório estão na [PR #18](https://github.com/Saaimingo/Revista_Gamer/pull/18), aberta e sem merge. A cadeia C0–C5 é experimental e não integra a `main`.
