@@ -347,7 +347,10 @@ class AgentOrchestrationTests(unittest.TestCase):
         self.assertEqual(first.state, "retry_wait")
         persisted = self.queue.get(task_id)
         self.assertEqual(persisted.attempts, 1)
-        self.assertEqual(dispatcher.dispatch_one(task_id).state, "idle")
+        before_retry = (
+            datetime.fromisoformat(persisted.available_at) - timedelta(microseconds=1)
+        )
+        self.assertEqual(dispatcher.dispatch_one(task_id, now=before_retry).state, "idle")
         second = dispatcher.dispatch_one(task_id, now=persisted.available_at)
         self.assertEqual(second.state, "succeeded")
         self.assertEqual(self.queue.get(task_id).attempts, 2)
@@ -444,34 +447,87 @@ class AgentOrchestrationTests(unittest.TestCase):
         task_id = self.enqueue(key="dispatcher-heartbeat", executor="slow")
         started = threading.Event()
         release = threading.Event()
+        heartbeat_renewed = threading.Event()
+        renewal_observations: list[tuple[float, bool | str]] = []
+        lease_seconds = 6
+        lease_started_at = datetime.now(timezone.utc)
+        original_claim_next = self.queue.claim_next
+        original_renew_lease = self.queue.renew_lease
+
+        def claim_at_test_time(
+            *,
+            task_id: str | None = None,
+            lease_seconds: int = 120,
+            now: datetime | str | None = None,
+        ):
+            effective_now = lease_started_at if now is None else now
+            return original_claim_next(
+                task_id=task_id, lease_seconds=lease_seconds, now=effective_now,
+            )
+
+        self.queue.claim_next = claim_at_test_time  # type: ignore[method-assign]
+
+        def observe_renewal(
+            renewed_task_id: str,
+            lease_owner: str,
+            lease_generation: int,
+            *,
+            lease_seconds: int,
+            now: datetime | str | None = None,
+        ) -> bool:
+            attempt_at = time.monotonic()
+            try:
+                renewed = original_renew_lease(
+                    renewed_task_id, lease_owner, lease_generation,
+                    lease_seconds=lease_seconds, now=now,
+                )
+            except Exception as error:
+                renewal_observations.append((attempt_at, type(error).__name__))
+                raise
+            renewal_observations.append((attempt_at, renewed))
+            if renewed:
+                heartbeat_renewed.set()
+            return renewed
+
+        self.queue.renew_lease = observe_renewal  # type: ignore[method-assign]
 
         class SlowExecutor:
             executor_id = "slow"
 
             def execute(self, task, profile, context):
                 started.set()
-                if not release.wait(timeout=8):
+                if not release.wait(timeout=12):
                     raise AssertionError("test did not release slow executor")
                 return {"ok": True}
 
         dispatcher = TaskDispatcher(
             self.queue, executors={"slow": SlowExecutor()},
             profiles={(VALIDATION_PROFILE.profile_id, VALIDATION_PROFILE.version): VALIDATION_PROFILE},
-            lease_seconds=3,
+            lease_seconds=lease_seconds,
         )
         outcome: list[Any] = []
         worker = threading.Thread(target=lambda: outcome.append(dispatcher.dispatch_one(task_id)))
         worker.start()
         try:
             self.assertTrue(started.wait(timeout=2))
-            time.sleep(3.4)
-            second_worker = self.queue.claim_next(task_id=task_id, lease_seconds=3)
+            self.assertTrue(
+                heartbeat_renewed.wait(timeout=5.5),
+                f"heartbeat did not renew before TTL: {renewal_observations}",
+            )
+            # Compete just beyond the original deadline while the live heartbeat owns an extension.
+            competitor_time = lease_started_at + timedelta(
+                seconds=lease_seconds, milliseconds=100,
+            )
+            second_worker = self.queue.claim_next(
+                task_id=task_id, lease_seconds=lease_seconds, now=competitor_time,
+            )
             self.assertIsNone(second_worker)
         finally:
             release.set()
             worker.join(timeout=5)
         self.assertFalse(worker.is_alive())
-        self.assertEqual(outcome[0].state, "succeeded")
+        self.assertTrue(any(result is True for _, result in renewal_observations))
+        self.assertEqual(outcome[0].state, "succeeded", renewal_observations)
         self.assertEqual(self.queue.get(task_id).result, {"ok": True})
 
     def test_only_one_concurrent_worker_can_claim_a_ready_task(self) -> None:
