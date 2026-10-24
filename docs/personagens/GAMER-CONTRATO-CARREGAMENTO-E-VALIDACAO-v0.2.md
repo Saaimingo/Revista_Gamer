@@ -62,7 +62,7 @@ Os valores são **esquema ilustrativo**, não prova de um programa já implement
 ```json
 {
   "task_id": "EXEMPLO",
-  "persona_id": "gamer-x",
+  "persona_id": "beto-cartucho",
   "persona_version": "0.2-candidate",
   "status": "needs_human_review|blocked_missing_evidence|draft",
   "headline": "...",
