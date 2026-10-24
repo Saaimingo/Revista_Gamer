@@ -19,6 +19,10 @@ O novo chat deve ler os documentos abaixo, verificar os PRs ainda pendentes em s
 3. **[NINA-PRISMA-AUDICOES-E-DIRETRIZ-VISUAL-2026-10-24.md](NINA-PRISMA-AUDICOES-E-DIRETRIZ-VISUAL-2026-10-24.md)** — quatro audições expressivas aceitas, evolução entre monotonia, excesso de emoção e equilíbrio, nome, idade, concepção, aparência escolhida, erro visual rejeitado e referência de mídia arquivada.
 4. **[DIRETRIZ-REPORTAGEM-APURACAO-E-VEREDITO-2026-10-24.md](DIRETRIZ-REPORTAGEM-APURACAO-E-VEREDITO-2026-10-24.md)** — **adendo posterior do diretor:** nossos três jornalistas **investigam e apresentam em profundidade** produtos, hardware, jogos e comunidades; **não são apenas comentaristas**. Distingue corpo de reportagem, conclusão e resposta/correção; prevê comparativos, fontes, benchmarks, personagens, imagens explicativas e alinhamento com Bloco 04.
 
+## Diretriz posterior da direção — fechamento criativo e prontidão para testes (24/10/2026)
+
+**NOVA ORDEM DO BLOCO FUNDADOR 2:** [Consolidar os pacotes de Arlindo Carranca e Nina Prisma para entrega ao Codex](DIRETRIZ-FUNDADOR-2-FECHAMENTO-CRIATIVO-CARRANCA-NINA-2026-10-24.md). A direção ratificou que **Carranca, Beto e Nina estão criativamente aprovados**; o Bloco 02 deve **anexar e harmonizar as decisões já tomadas** de Carranca e Nina nos DNAs, contratos, audições, versões e matrizes, usando Beto como padrão de completude. Não reabrir decisões criativas, não inventar conteúdo não decidido e não declarar teste real executado. **Pendência após o handoff documental:** testes de persona e qualidade jornalística no Codex, dependentes de missão própria e integração técnica autorizada.
+
 ## Situação exata no encerramento deste checkpoint
 
 **Arlindo Carranca ("Ranzinza"):** 47 anos ficcionais aproximadamente, nome, DNA conceitual, Protótipo A e três âncoras anteriores aprovados. **Mais três audições de expressividade APROVADAS em 24/10**. Testes operacionais pendentes. Documento textual [PR #13](https://github.com/Saaimingo/Revista_Gamer/pull/13) e PNGs [PR #14](https://github.com/Saaimingo/Revista_Gamer/pull/14), separados e não integrados em `main` na última conferência.
