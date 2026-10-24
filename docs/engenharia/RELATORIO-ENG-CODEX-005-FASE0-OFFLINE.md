@@ -2,9 +2,9 @@
 
 - **Setor responsável:** Engenharia e Codex
 - **Identificador:** ENG-CODEX-005-FASE0-OFFLINE
-- **Versão:** v0.1
+- **Versão:** v0.2
 - **Status:** em_revisao, [PR #18 aberta para revisão](https://github.com/Saaimingo/Revista_Gamer/pull/18)
-- **Atualização:** 2026-10-20
+- **Atualização:** 2026-10-24
 - **Aprovador da missão:** Diretor, que autorizou a Fase 0 na [Issue #17](https://github.com/Saaimingo/Revista_Gamer/issues/17). A aprovação desta implementação continua pendente de revisão.
 - **Dependências:** [arquitetura de agentes, acervo visual e composição](ARQUITETURA-AGENTES-ACERVO-VISUAL-E-COMPOSICAO-2026-10-20.md); [Issue #17](https://github.com/Saaimingo/Revista_Gamer/issues/17); [Issue #15](https://github.com/Saaimingo/Revista_Gamer/issues/15); [PR #8](https://github.com/Saaimingo/Revista_Gamer/pull/8); [PR #10](https://github.com/Saaimingo/Revista_Gamer/pull/10).
 
@@ -117,6 +117,19 @@ Ambiente: Windows, CPython 3.11.9 em .venv.
 - Execução pelo CLI em diretório temporário isolado — **3/3 cenários PASS**, cada qual com 3 referências e 20 checks PASS; network_calls=0, siwc_calls=0, paid_api_calls=0 e published=false.
 
 A validação automatizada inspeciona conteúdo, legendas, páginas 2–3, controles responsivos, fallback móvel, zoom, overflow e ausência de chamadas externas. **Não foi feita inspeção visual final em navegador.** O HTML é um mock técnico de Fase 0, não a integração gráfica aprovada do produto.
+
+## Retomada ENG-CODEX-006 — aceite A4 (2026-10-24)
+
+Validação executada no Windows neste HEAD, com o ambiente existente `\.venv\Scripts\python.exe`:
+
+- `& '.\.venv\Scripts\python.exe' --version` — Python **3.11.9**.
+- `& '.\.venv\Scripts\python.exe' -m unittest motor_editorial.tests.test_layout -v` — **14 testes aprovados** em 2,965 s.
+- `& '.\.venv\Scripts\python.exe' -m unittest discover -s motor_editorial/tests -q` — **36 testes aprovados** em 24,806 s. Esta execução completa conclui a validação que havia sido interrompida antes da retomada.
+- `& '.\.venv\Scripts\python.exe' -m motor_editorial --data-dir "$env:TEMP\rg-eng-codex-006-a4-7aef31f3e2584251928d4a6dc0c6654d" layout-demo` — **3/3 cenários PASS**, 22/22 checks por cenário, zero checks com falha; `status=awaiting_approval`, `network_calls=0`, `siwc_calls=0`, `paid_api_calls=0`, `published=false`. O diretório temporário foi `C:\Users\saimi\AppData\Local\Temp\rg-eng-codex-006-a4-7aef31f3e2584251928d4a6dc0c6654d`. Os três cenários terminam `not_published`.
+- `& '.\.venv\Scripts\python.exe' -m compileall -q motor_editorial` — passou.
+- `git diff --check origin/main...HEAD` — passou antes da atualização deste relatório; `git diff --check` será repetido sobre os documentos atualizados antes do commit.
+
+As correções C-005-1/2/3 estão no HEAD `efdc478` (e no upstream da branch) e os testes atuais exercitam ordem/`sequence`, linhagem canônica das identidades e coerência entre licença/direitos. `awaiting_approval` significa que a prévia interna aguarda revisão humana; não indica aceite do Fundador, integração visual no leitor v0.3 nem publicação. Não houve inspeção visual em navegador.
 
 ## Limites e pendências
 
