@@ -127,3 +127,13 @@ A demonstração da Fase 0 usa somente matérias, referências e direitos sinté
 Relatórios, planos, validações e prévias ficam em `artifacts/layout-demo/` sob o diretório de dados selecionado. Os placeholders não são as imagens de contexto do Bloco 03. A prévia é interna, não há rede, SIWC ou API paga, e a demonstração termina aguardando revisão humana.
 
 Código e relatório estão na [PR #18](https://github.com/Saaimingo/Revista_Gamer/pull/18), aberta e sem merge. A cadeia C0–C5 é experimental e não integra a `main`.
+
+## Esteira sintética fim a fim — ENG-CODEX-006
+
+`factory-demo` percorre fonte/organização, brief editorial, rascunho, checagem, revisão vigente, inventário de direitos sintético, `StoryPackage.v0`, índice/layout, validação determinística, prévia interna e um gate de aprovação explicitamente simulado. Todas as tarefas passam por uma única `AgentQueue`/`TaskDispatcher` e pelo ledger `agent_tasks`/`agent_task_events`; não chama o runner legado `layout-demo`.
+
+```powershell
+py -3.11 -m motor_editorial --data-dir "$env:TEMP\revista-gamer-factory-demo" factory-demo
+```
+
+A fixture `fixtures/factory-demo.json` contém duas fontes fictícias sob `example.invalid` e perfis neutros versionados; nada é buscado na rede. O relatório e a prévia HTML ficam em `artifacts/factory-demo/<run_id>/`; evidências e hashes do C1 estão no [relatório técnico](../docs/engenharia/ENG-CODEX-006-C1-RELATORIO.md). `simulated_approved_internally` registra somente o resultado do teste: não altera uma edição real, não é aceite da direção e sempre mantém `published=false`. Use o mesmo `--run-id` para retomar as mesmas tarefas idempotentes.

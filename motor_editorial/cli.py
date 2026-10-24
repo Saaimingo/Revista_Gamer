@@ -16,6 +16,7 @@ from .orchestration import TaskFailure
 from .orchestration_cli import add_commands as add_orchestration_commands
 from .orchestration_cli import handle as handle_orchestration_command
 from .siwc import SIWCError
+from .factory import run_factory_demo
 
 
 DEFAULT_DATA_DIR = Path(__file__).resolve().parent / "runtime"
@@ -43,6 +44,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--fixture", type=Path, default=None,
         help="Fixture JSON local; por padrão usa os três cenários sintéticos da Fase 0.",
     )
+    factory_demo = commands.add_parser(
+        "factory-demo", help="Executar a cadeia editorial/layout inteiramente sintética e offline."
+    )
+    factory_demo.add_argument("--fixture", type=Path, default=None, help="Fixture sintética local da esteira.")
+    factory_demo.add_argument("--run-id", default=None, help="ID estável opcional para retomar a mesma esteira.")
     run_story = commands.add_parser("run-story", help="Retomar somente uma pauta multipauta.")
     run_story.add_argument("run_id")
     run_story.add_argument("story_id")
@@ -117,6 +123,12 @@ def main(argv: list[str] | None = None) -> int:
             report = motor.run_layout_demo(args.fixture)
             print(json.dumps(report, ensure_ascii=False, indent=2))
             return 0 if report["status"] == "awaiting_approval" else 2
+        if args.command == "factory-demo":
+            report = run_factory_demo(motor.store, args.fixture, run_id=args.run_id)
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+            return 0 if report["status"] in {
+                "simulated_approved_internally", "simulated_on_hold",
+            } else 2
         if args.command == "run-story":
             result = motor.run_multipauta_story(args.run_id, args.story_id)
             print(json.dumps({

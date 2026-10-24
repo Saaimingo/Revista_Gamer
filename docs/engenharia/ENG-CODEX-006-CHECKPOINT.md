@@ -1,8 +1,8 @@
 # ENG-CODEX-006 — checkpoint de continuidade
 
-Atualizado: 2026-10-24 00:46 America/Sao_Paulo
-Unidade: **C1 — fluxo feliz, em andamento**
-Última unidade concluída: **C0 — contratos e composição isolada**
+Atualizado: 2026-10-24 00:58 America/Sao_Paulo
+Unidade: **C2 — fluxo de correção, em andamento**
+Última unidade concluída: **C1 — fluxo feliz**
 
 ## Estado confirmado
 
@@ -109,10 +109,19 @@ Unidade: **C1 — fluxo feliz, em andamento**
 - Merge experimental A4→C0 commitado/enviado: `34466ef1b446f246c904c50c680e232df9e6874c`; o HEAD local e remoto C0 coincide. A branch B2/B3 `fa6eecf`, A4 `ab7d11f`, B1 `3bf9f64` e `main` `ce8f6a7` permanecem preservadas.
 - PR draft C0 [#26](https://github.com/Saaimingo/Revista_Gamer/pull/26), aberta/mergeable e sem reviews. Resultado comentado em #25 [6379472491], #26 [6379472705] e Issue #23 [6379472927].
 
+### C1 — fluxo feliz sintético (concluída)
+
+- Arquivos da unidade: `motor_editorial/factory.py`, `motor_editorial/fixtures/factory-demo.json`, `motor_editorial/tests/test_factory.py`, `motor_editorial/cli.py`, `motor_editorial/README.md` e `docs/engenharia/ENG-CODEX-006-C1-RELATORIO.md`. O relatório registra hashes completos dos artefatos; dados e HTML ficaram em `%TEMP%`.
+- A cadeia percorreu 15 tarefas por uma `AgentQueue`/`TaskDispatcher` e ledger únicos; `execution_attempts=0`. CLI `factory-demo` terminou em `simulated_approved_internally`, validação PASS (22 checks), prévia interna presente, `published=false` e zero chamadas de rede/SIWC/API paga. Nenhuma aprovação humana real ou edição real foi gravada.
+- Teste focado: `& '.\.venv\Scripts\python.exe' -m unittest motor_editorial.tests.test_factory -q` -> 2/2 OK em 3,394 s. A primeira tentativa de limpeza do SQLite falhou com `WinError 32`; o teste foi corrigido para fechar a conexão com `contextlib.closing` e passou novamente.
+- Suíte completa: primeira rodada 88/89, com `test_dispatcher_heartbeat_keeps_long_executor_owned_past_ttl` retornando `queued` em vez de `succeeded`; execução isolada passou 1/1 em 8,251 s; repetição serial completa passou 89/89 em 52,495 s. A causa da oscilação não foi isolada e permanece como observação de timing.
+- `compileall` passou. `git diff --check` passou antes dos documentos finais; será reexecutado antes do commit C1. Python 3.11.9.
+- Limites: fixture somente fictícia e offline; não houve acesso a identidade real, serviço externo, publicação ou deploy. O detalhe de execução, hashes e comandos está em [relatório C1](ENG-CODEX-006-C1-RELATORIO.md).
+
 ## Próxima ação exata
 
-Implementar C1 na branch experimental: preparar pacote sintético de fontes, tarefas versionadas, outputs estruturados de pesquisador/editor/redator/revisor com persona fictícia neutra, fact check/revisão vigente, mídia placeholder, `StoryPackage.v0`, `LayoutPlan.v0`, render/validação e aprovação humana apenas simulada. Usar um único `AgentQueue`/`TaskDispatcher`/ledger, atualizar checkpoints e validar sem rede/SIWC. Depois avançar C2. Não alterar `main`, PRs fonte ou branches A4/B1/B2.
+C2 na branch `codex/eng-codex-006-e2e-experiment`: inspecionar `run_factory_demo()` e seus testes; adicionar um cenário sintético `revise` que produza correção como revisão nova, hash de artigo novo, nova checagem/revisão e regeneração de `StoryPackage.v0`, plano e prévia. Assegurar que revisão/plano/prévia e gate da execução anterior não sejam reutilizados como atuais. Manter uma única fila/dispatcher/ledger; acrescentar regressão da invalidação e da ausência de aprovação reaproveitada; rodar validações focadas exigidas por C2, suíte completa se necessária, `compileall` e `git diff --check`; registrar evidências antes de C3.
 
 ## Retomada segura
 
-Antes de qualquer edição: `git status --short --branch`; confirmar branch/HEAD e que `git ls-files -u` está vazio; manter `.venv/` fora do stage. C0 está commitada/enviada em `34466ef`; C1 altera somente a branch experimental e a PR draft #26. Os testes de 87/87 correspondem ao HEAD `34466ef` e não validam alterações posteriores.
+Antes de qualquer nova edição: `git status --short --branch`; confirmar HEAD, `git ls-files -u` vazio e `.venv/` fora do stage. HEAD/PR #26 ainda estão em `d6e07ad` enquanto C1 aguarda commit; há alterações C1 locais listadas acima. Após o commit e push, registrar o SHA real e atualizar PR #26/Issue #23. Não refazer os testes já confirmados para o mesmo conteúdo; validar o HEAD resultante quando houver mudança de código.

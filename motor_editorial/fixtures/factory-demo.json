@@ -1,0 +1,55 @@
+{
+  "fixture_version": "SyntheticFactoryFixture.v0",
+  "run_id": "codex-006-c1-happy-path",
+  "article_type": "brief",
+  "topic": "O jogo fictício Farol de Papel",
+  "research_note": "Ensaio inteiramente sintético; nomes e acontecimentos não descrevem produtos reais.",
+  "sources": [
+    {
+      "id": "S1",
+      "title": "Comunicado fictício do Estúdio Neblina",
+      "publisher": "Estúdio Neblina (fictício)",
+      "url": "https://example.invalid/estudio-neblina/farol-de-papel",
+      "published_at": "2026-10-24T00:00:00-03:00",
+      "accessed_at": "2026-10-24T00:00:00-03:00",
+      "kind": "official",
+      "confidence": "high",
+      "evidence": "No cenário fictício, Farol de Papel é um jogo de exploração com mapas desenhados à mão e sessões solo."
+    },
+    {
+      "id": "S2",
+      "title": "Nota de cobertura fictícia do Caderno Pixel Imaginário",
+      "publisher": "Caderno Pixel Imaginário (fictício)",
+      "url": "https://example.invalid/caderno-pixel/farol-de-papel",
+      "published_at": "2026-10-24T00:05:00-03:00",
+      "accessed_at": "2026-10-24T00:05:00-03:00",
+      "kind": "secondary",
+      "confidence": "high",
+      "evidence": "A descrição inventada também destaca mapas desenhados à mão e exploração solo, sem informar data de lançamento."
+    }
+  ],
+  "identities": {
+    "editor": {
+      "profile_id": "synthetic-editor",
+      "version": "0.1.0",
+      "description": "Editora fictícia de validação que organiza uma pauta sintética sem acrescentar fatos."
+    },
+    "writer_persona": {
+      "profile_id": "neutral-fictional-writer",
+      "version": "0.1.0",
+      "description": "Persona neutra e fictícia para ensaio técnico; não representa jornalista real."
+    },
+    "reviewer": {
+      "profile_id": "synthetic-reviewer",
+      "version": "0.1.0",
+      "description": "Revisora fictícia que confere atribuição, fontes e consistência do rascunho."
+    }
+  },
+  "synthetic_figure": {
+    "asset_id": "asset-farol-placeholder",
+    "block_id_suffix": "figure-01",
+    "caption": "Placeholder inteiramente sintético; não representa captura de um jogo real.",
+    "alt_text": "Cartão de placeholder sintético para o ensaio visual."
+  },
+  "simulated_human_decision": "approve_internally"
+}
