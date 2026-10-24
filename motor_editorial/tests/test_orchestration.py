@@ -41,6 +41,7 @@ from motor_editorial.siwc import (
     SIWCExecutor,
     SIWC_PROBE_PROFILE,
     SIWC_PROBE_TASK_TYPE,
+    SIWC_REASONING_EFFORTS,
     TaskExecutionContext,
     _CallbackListener,
     _provider_code_failure,
@@ -131,6 +132,137 @@ class AgentOrchestrationTests(unittest.TestCase):
             }
         self.assertEqual(version, 5)
         self.assertTrue({"lease_owner", "lease_generation"}.issubset(columns))
+
+    def test_v3_migration_preserves_records_and_backup_restores_the_legacy_database(self) -> None:
+        legacy_path = self.root / "schema-v3.sqlite3"
+        backup_path = self.root / "schema-v3-backup.sqlite3"
+        with closing(sqlite3.connect(legacy_path)) as connection:
+            connection.executescript("""
+                CREATE TABLE runs (
+                    id TEXT PRIMARY KEY,
+                    scenario_label TEXT NOT NULL,
+                    status TEXT NOT NULL CHECK (status IN (
+                        'running', 'recoverable_failure', 'failed_intervention',
+                        'awaiting_approval', 'approved_internally'
+                    )),
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE stories (
+                    id TEXT PRIMARY KEY,
+                    run_id TEXT NOT NULL REFERENCES runs(id),
+                    topic_key TEXT NOT NULL,
+                    question TEXT NOT NULL,
+                    state TEXT NOT NULL CHECK (state IN (
+                        'selected', 'researched', 'drafted', 'blocked_by_review',
+                        'corrected', 'reviewed', 'media_checked',
+                        'awaiting_human_approval', 'approved_internally'
+                    )),
+                    current_revision_number INTEGER NOT NULL DEFAULT 0,
+                    processing_status TEXT NOT NULL DEFAULT 'in_progress',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(run_id, topic_key)
+                );
+                CREATE TABLE editions (
+                    id TEXT PRIMARY KEY,
+                    run_id TEXT NOT NULL REFERENCES runs(id),
+                    status TEXT NOT NULL CHECK (status IN (
+                        'awaiting_human_approval', 'approved_internally'
+                    )),
+                    preview_path TEXT NOT NULL,
+                    composition_status TEXT NOT NULL DEFAULT 'legacy_v1' CHECK (
+                        composition_status IN (
+                            'legacy_v1', 'preparing', 'waiting_on_blockers',
+                            'ready_for_approval', 'approved_internally'
+                        )
+                    ),
+                    composition_fingerprint TEXT,
+                    approved_by TEXT,
+                    approved_at TEXT,
+                    created_at TEXT NOT NULL,
+                    UNIQUE(run_id)
+                );
+                CREATE TABLE edition_stories (
+                    edition_id TEXT NOT NULL REFERENCES editions(id),
+                    story_id TEXT NOT NULL REFERENCES stories(id),
+                    position INTEGER NOT NULL,
+                    required INTEGER NOT NULL DEFAULT 1 CHECK (required IN (0, 1)),
+                    active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+                    exclusion_reason TEXT,
+                    excluded_by TEXT,
+                    excluded_at TEXT,
+                    PRIMARY KEY (edition_id, story_id),
+                    UNIQUE(edition_id, position)
+                );
+                INSERT INTO runs VALUES (
+                    'legacy-run', 'fixture v3', 'awaiting_approval', 'created-v3', 'updated-v3'
+                );
+                INSERT INTO stories VALUES (
+                    'legacy-story', 'legacy-run', 'legacy-topic', 'legacy question',
+                    'awaiting_human_approval', 3, 'completed', 'story-created-v3', 'story-updated-v3'
+                );
+                INSERT INTO editions VALUES (
+                    'legacy-edition', 'legacy-run', 'awaiting_human_approval',
+                    'preview/legacy.html', 'ready_for_approval', 'fingerprint-v3',
+                    NULL, NULL, 'edition-created-v3'
+                );
+                INSERT INTO edition_stories VALUES (
+                    'legacy-edition', 'legacy-story', 1, 1, 1, NULL, NULL, NULL
+                );
+                PRAGMA user_version = 3;
+            """)
+
+        def snapshot(path: Path) -> dict[str, list[tuple[object, ...]]]:
+            with closing(sqlite3.connect(path)) as connection:
+                return {
+                    table: connection.execute(
+                        f"SELECT * FROM {table} ORDER BY rowid"
+                    ).fetchall()
+                    for table in ("runs", "stories", "editions", "edition_stories")
+                }
+
+        original_rows = snapshot(legacy_path)
+        backup_path.write_bytes(legacy_path.read_bytes())
+        backup_hash = hashlib.sha256(backup_path.read_bytes()).hexdigest()
+
+        migrated = Store(legacy_path, self.root / "schema-v3-artifacts")
+        with closing(migrated.connect()) as connection:
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 5)
+            tables = {
+                row["name"] for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table'"
+                ).fetchall()
+            }
+            task_columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(agent_tasks)")
+            }
+            foreign_key_violations = connection.execute("PRAGMA foreign_key_check").fetchall()
+        self.assertEqual(snapshot(legacy_path), original_rows)
+        self.assertTrue({"agent_tasks", "agent_task_events", "agent_schedules"}.issubset(tables))
+        self.assertTrue({"lease_owner", "lease_generation"}.issubset(task_columns))
+        self.assertEqual(foreign_key_violations, [])
+
+        # Roll back by restoring the isolated backup after every DB connection is closed.
+        legacy_path.write_bytes(backup_path.read_bytes())
+        self.assertEqual(snapshot(legacy_path), original_rows)
+        with closing(sqlite3.connect(legacy_path)) as connection:
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 3)
+        self.assertEqual(hashlib.sha256(backup_path.read_bytes()).hexdigest(), backup_hash)
+
+    def test_newer_schema_is_rejected_without_mutating_the_database(self) -> None:
+        future_path = self.root / "schema-v6.sqlite3"
+        with closing(sqlite3.connect(future_path)) as connection:
+            connection.execute("CREATE TABLE future_records (id TEXT PRIMARY KEY, value TEXT NOT NULL)")
+            connection.execute("INSERT INTO future_records VALUES ('kept', 'future data')")
+            connection.execute("PRAGMA user_version = 6")
+            connection.commit()
+        original_bytes = future_path.read_bytes()
+
+        with self.assertRaisesRegex(RuntimeError, "mais novo"):
+            Store(future_path, self.root / "schema-v6-artifacts")
+
+        self.assertEqual(future_path.read_bytes(), original_bytes)
 
     def test_simulated_chain_runs_rejection_correction_and_approval_without_network(self) -> None:
         with patch("socket.socket", side_effect=AssertionError("simulated chain attempted network I/O")):
@@ -436,6 +568,22 @@ class AgentOrchestrationTests(unittest.TestCase):
 
 
 class SIWCContractTests(unittest.TestCase):
+    def test_models_catalog_request_is_timed_with_offline_fixture(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            client = SIWCClient(CredentialStore(Path(directory) / "tokens.bin"))
+            fixture = json.dumps({"models": [{
+                "slug": "gpt-6-luna", "display_name": "Luna", "visibility": "list",
+            }]}).encode("utf-8")
+            with patch.object(client, "_request", return_value=fixture) as request:
+                models = client.models()
+        request.assert_called_once_with("GET", f"{API_BASE}/models")
+        self.assertEqual(models[0]["slug"], "gpt-6-luna")
+        self.assertEqual(client.models_request_count, 1)
+        self.assertIsInstance(client.last_models_request_metrics, dict)
+        self.assertGreaterEqual(client.last_models_request_metrics["duration_ms"], 0)
+        self.assertIn("started_at", client.last_models_request_metrics)
+        self.assertIn("completed_at", client.last_models_request_metrics)
+
     def test_pkce_authorization_url_uses_openai_official_endpoints_and_no_api_key(self) -> None:
         attempt = create_authorization_attempt(
             client_id="dynamic_agent_client", host_id="urn:uuid:01234567-89ab-cdef-0123-456789abcdef",
@@ -597,7 +745,7 @@ class SIWCContractTests(unittest.TestCase):
                 queue = AgentQueue(queue_store)
                 task_id = queue.enqueue(
                     task_type=SIWC_PROBE_TASK_TYPE,
-                    payload={"model": "model-fixture"},
+                    payload={"model": "model-fixture", "reasoning_effort": "max"},
                     profile=SIWC_PROBE_PROFILE, executor_id="siwc-responses",
                     idempotency_key="siwc-contract-probe", max_attempts=1,
                 )
@@ -624,7 +772,14 @@ class SIWCContractTests(unittest.TestCase):
                         ]
                         rows.append("data: " + json.dumps({
                             "type": "response.completed",
-                            "response": {"id": "resp_fixture", "usage": {"total_tokens": 7}},
+                            "response": {
+                                "id": "resp_fixture", "model": "model-fixture-2026-10-19",
+                                "reasoning": {"effort": "max"},
+                                "usage": {
+                                    "input_tokens": 4, "output_tokens": 3, "total_tokens": 7,
+                                    "output_tokens_details": {"reasoning_tokens": 2},
+                                },
+                            },
                         }) + "\n")
                         return iter(row.encode("utf-8") for row in rows)
 
@@ -633,6 +788,7 @@ class SIWCContractTests(unittest.TestCase):
                     self.assertEqual(request.get_header("Authorization"), "Bearer oauth-fixture-token")
                     body = json.loads(request.data.decode("utf-8"))
                     self.assertEqual(body["model"], "model-fixture")
+                    self.assertEqual(body["reasoning"], {"effort": "max"})
                     self.assertFalse(body["store"])
                     self.assertTrue(body["stream"])
                     self.assertEqual(body["input"][0]["role"], "user")
@@ -640,13 +796,105 @@ class SIWCContractTests(unittest.TestCase):
                     self.assertNotIn("tools", body)
                     return FakeResponse()
 
-                with patch("motor_editorial.siwc.urllib.request.urlopen", side_effect=fake_urlopen):
+                with patch.object(client, "models", return_value=[
+                    {"slug": "model-fixture", "visibility": "list"},
+                ]), patch("motor_editorial.siwc.urllib.request.urlopen", side_effect=fake_urlopen):
                     result = SIWCExecutor(client, model=None).execute(
                         task, SIWC_PROBE_PROFILE, context
                     )
                 self.assertTrue(context.external_request_started)
                 self.assertEqual(result["status"], "ok")
                 self.assertEqual(result["response_id"], "resp_fixture")
+                self.assertEqual(result["model_requested"], "model-fixture")
+                self.assertEqual(result["model"], "model-fixture-2026-10-19")
+                self.assertEqual(result["reasoning_effort_requested"], "max")
+                self.assertEqual(result["reasoning_effort"], "max")
+                self.assertEqual(result["external_call_count"], 1)
+                self.assertEqual(result["usage"]["total_tokens"], 7)
+                self.assertGreaterEqual(result["duration_ms"], 0)
+
+    def test_responses_executor_requires_explicit_catalog_model_and_effort_without_fallback(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            client = SIWCClient(CredentialStore(Path(directory) / "tokens.bin"))
+            store = Store(Path(directory) / "motor.sqlite3", Path(directory) / "artifacts")
+            queue = AgentQueue(store)
+            for suffix, payload, catalog in (
+                ("missing-effort", {"model": "gpt-6-luna"}, [{"slug": "gpt-6-luna", "visibility": "list"}]),
+                ("missing-model", {"reasoning_effort": "max"}, [{"slug": "gpt-6-luna", "visibility": "list"}]),
+                ("catalog-miss", {"model": "gpt-6-luna", "reasoning_effort": "max"}, []),
+            ):
+                task_id = queue.enqueue(
+                    task_type=SIWC_PROBE_TASK_TYPE, payload=payload,
+                    profile=SIWC_PROBE_PROFILE, executor_id="siwc-responses",
+                    idempotency_key=f"siwc-{suffix}", max_attempts=1,
+                )
+                task = queue.claim_next(task_id=task_id)
+                context = TaskExecutionContext(queue, task, lease_seconds=120)
+                with patch.object(client, "models", return_value=catalog), patch(
+                    "motor_editorial.siwc.urllib.request.urlopen"
+                ) as urlopen:
+                    with self.assertRaises(TaskFailure):
+                        SIWCExecutor(client, model=None).execute(task, SIWC_PROBE_PROFILE, context)
+                urlopen.assert_not_called()
+                self.assertFalse(context.external_request_started)
+
+    def test_responses_executor_rejects_effective_model_or_effort_mismatch(self) -> None:
+        class FakeResponse:
+            def __init__(self, response_model, response_effort):
+                self.response_model = response_model
+                self.response_effort = response_effort
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def __iter__(self):
+                rows = ["data: " + json.dumps({
+                    "type": "response.output_text.delta",
+                    "delta": '{"status":"ok","message":"teste de integração aprovado"}',
+                }, ensure_ascii=False) + "\n"]
+                rows.append("data: " + json.dumps({
+                    "type": "response.completed",
+                    "response": {
+                        "id": "resp_mismatch",
+                        "model": self.response_model,
+                        "reasoning": {"effort": self.response_effort},
+                        "usage": {"total_tokens": 7},
+                    },
+                }) + "\n")
+                return iter(row.encode("utf-8") for row in rows)
+
+        for suffix, response_model, response_effort, expected_code in (
+            ("wrong-model", "gpt-6.1-sol", "max", "siwc_model_mismatch"),
+            ("wrong-effort", "gpt-6-luna", "high", "siwc_reasoning_effort_mismatch"),
+        ):
+            with self.subTest(suffix=suffix), tempfile.TemporaryDirectory() as directory:
+                client = SIWCClient(CredentialStore(Path(directory) / "tokens.bin"))
+                store = Store(Path(directory) / "motor.sqlite3", Path(directory) / "artifacts")
+                queue = AgentQueue(store)
+                task_id = queue.enqueue(
+                    task_type=SIWC_PROBE_TASK_TYPE,
+                    payload={"model": "gpt-6-luna", "reasoning_effort": "max"},
+                    profile=SIWC_PROBE_PROFILE, executor_id="siwc-responses",
+                    idempotency_key=f"siwc-{suffix}", max_attempts=1,
+                )
+                task = queue.claim_next(task_id=task_id)
+                context = TaskExecutionContext(queue, task, lease_seconds=120)
+                with patch.object(client, "models", return_value=[
+                    {"slug": "gpt-6-luna", "visibility": "list"},
+                ]), patch.object(client, "access_token", return_value="oauth-fixture-token"), patch(
+                    "motor_editorial.siwc.urllib.request.urlopen",
+                    return_value=FakeResponse(response_model, response_effort),
+                ):
+                    with self.assertRaises(TaskFailure) as raised:
+                        SIWCExecutor(client, model=None).execute(task, SIWC_PROBE_PROFILE, context)
+                self.assertEqual(raised.exception.code, expected_code)
+                self.assertTrue(context.external_request_started)
+
+    def test_siwe_reasoning_effort_allowlist_excludes_unverified_values(self) -> None:
+        self.assertEqual(SIWC_REASONING_EFFORTS, {"none", "low", "medium", "high", "xhigh", "max"})
 
     def test_responses_transport_failure_is_uncertain_and_never_auto_retryable(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -655,7 +903,7 @@ class SIWCContractTests(unittest.TestCase):
                 context = type("Context", (), {"mark_external_started": lambda self: setattr(self, "started", True)})()
                 with patch("motor_editorial.siwc.urllib.request.urlopen", side_effect=OSError("private transport detail")):
                     with self.assertRaises(TaskFailure) as raised:
-                        client.inference_stream("model-fixture", context)
+                        client.inference_stream("model-fixture", "max", context)
                 self.assertTrue(raised.exception.uncertain)
                 self.assertFalse(raised.exception.retryable)
                 self.assertNotIn("private transport detail", raised.exception.summary)

@@ -40,7 +40,7 @@ O painel local abre em `http://127.0.0.1:8765/`. Ele oferece execução em lote,
 
 `demo-v1` executa a fixture original de uma pauta e mantém as garantias cobertas pelos 11 testes da v0.1, inclusive a rejeição anterior à gravação quando a fixture contém mais de uma pauta selecionável. A nova fixture está em `fixtures/demo-multipauta.json`; a antiga permanece em `fixtures/demo.json`.
 
-O SQLite usa o esquema v3. A abertura de bancos v1/v2 aplica migrações aditivas e mantém os registros e associações existentes.
+O SQLite usa o esquema v5. A abertura de bancos v1–v4 aplica migrações aditivas; os testes incluem a migração v3→v5 com preservação de registros e restauração de backup, além da inclusão das colunas de lease em v4. Faça e confira um backup antes de atualizar um banco local: o projeto não instala nem agenda backups automáticos. Bancos com versão posterior à suportada são recusados antes de qualquer alteração no arquivo.
 
 ## Dados e diretório
 
@@ -59,7 +59,7 @@ Os IDs de pautas, itens e edições incluem o identificador da execução para e
 py -3.11 -m unittest discover -s motor_editorial/tests -v
 ```
 
-Os testes usam diretórios temporários. Cobrem os 11 contratos herdados da v0.1, isolamento e retomada, idempotência sob chamadas concorrentes, migração v2, ordem da edição, revisão vigente, direitos por matéria, confirmação humana, rotas locais e ausência de publicação.
+Os testes usam diretórios temporários. Cobrem os contratos do Motor v0.2, migrações SQLite, isolamento e retomada, idempotência, concorrência/leases/fencing, revisão editorial vigente, fontes/citações, direitos por matéria, confirmação humana, rotas locais e ausência de publicação. Os ensaios ENG-CODEX-006 usam executores e clientes de fixture; não fazem chamadas SIWC.
 
 ## Orquestração durável — CODEX-003
 
@@ -93,12 +93,22 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m motor_editorial siwc login
 .\.venv\Scripts\python.exe -m motor_editorial siwc status
 .\.venv\Scripts\python.exe -m motor_editorial siwc models
-.\.venv\Scripts\python.exe -m motor_editorial siwc probe
+.\.venv\Scripts\python.exe -m motor_editorial siwc probe --model gpt-6-luna --reasoning-effort max
 ```
 
 `siwc login` mostra o endereço oficial e aguarda o callback apenas em `127.0.0.1`; o usuário precisa entrar no ChatGPT e consentir. A prova chama somente o catálogo de modelos e uma inferência não editorial do Responses API, em stream com `store=false`. O acesso depende da elegibilidade da conta/app e da franquia compartilhada do plano; `429` pausa chamadas e não presume horário de reset. As credenciais ficam no Windows DPAPI, fora do repositório. A autenticação não dá acesso a conversas nem memória do ChatGPT.
 
-O executor SIWC desta etapa rejeita qualquer tarefa que não seja `siwc.integration_probe`. A agenda Plus continua desativada. Ativação recorrente depende de decisão operacional separada, frase explícita no comando e `MOTOR_EDITORIAL_ALLOW_PLUS_SCHEDULING=1` no processo worker.
+O executor de prova técnica rejeita qualquer tarefa que não seja `siwc.integration_probe`. O executor editorial da ENG-CODEX-004 é separado e aceita somente as oito etapas limitadas de `editorial.stage`, com `gpt-6-luna`, `reasoning.effort=max`, uma tentativa por tarefa e checkpoints SQLite. Ele não pesquisa a web, não cria persona pública e sempre termina em revisão humana; não existe rota de publicação. A v1.2.0 faz uma consulta ao catálogo por execução e compartilha o resultado entre as etapas. As chamadas editoriais usam Responses com `store=false` e streaming. O preview não aceita `max_output_tokens`, então as metas de palavras são instruções e validações locais, não um limite rígido de geração. A agenda Plus continua desativada. Ativação recorrente depende de decisão operacional separada, frase explícita no comando e `MOTOR_EDITORIAL_ALLOW_PLUS_SCHEDULING=1` no processo worker.
+
+### Experimento local ENG-CODEX-004
+
+Prepare e revise manualmente um pacote de evidências antes de executar. O comando usa o SIWC já autenticado, verifica que Luna está no catálogo da conta, e guarda o artefato no diretório privado selecionado:
+
+```powershell
+.\.venv\Scripts\python.exe -m motor_editorial --data-dir "$env:LOCALAPPDATA\RevistaGamer\Codex004-Editorial" editorial run --packet docs\engenharia\evidencias\ENG-CODEX-004-RTX5090-PACOTE-FONTES.json
+```
+
+Passe `--run-id <UUID>` para retomar a mesma cadeia. Etapas concluídas são reutilizadas pelo idempotency key; chamada externa ambígua não é repetida automaticamente. O artefato `artifacts/codex004/<run-id>.json` contém checkpoints, versão/hash do perfil, modelo/esforço efetivos, tempos e usage retornado. O ensaio não autoriza publicação nem elimina a revisão editorial humana.
 
 ## Debian 12 e VPS futura
 
