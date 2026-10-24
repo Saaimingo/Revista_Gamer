@@ -20,7 +20,7 @@ A direção aprovou o **painel visual completo gerado na conversa**, reconhecend
 - **Tamanho:** **2.579.649 bytes**.
 - **SHA-256:** `49a1059f25653b499cefbf1ae1f770342c146e4c185551ecfcc55ea793353558`
 - **Armazenamento atual:** arquivo gerado/anexado à conversa do Bloco 02 e disponível localmente durante a elaboração deste registro. Caminho do ambiente temporário **não é URL pública ou caminho persistente do repositório**.
-- **Armazenamento verificado:** [`assets/beto-cartucho/visual-master-aprovado-2026-10-23.png`](assets/beto-cartucho/visual-master-aprovado-2026-10-23.png), na branch `bloco-02/gamer-dna-v02` da PR #19.
+- **Armazenamento verificado:** [PNG master no commit de arquivamento `e5f684b8622d473168e8733d21d77d7b3bb3616d`](https://github.com/Saaimingo/Revista_Gamer/blob/e5f684b8622d473168e8733d21d77d7b3bb3616d/docs/personagens/assets/beto-cartucho/visual-master-aprovado-2026-10-23.png), na branch `bloco-02/gamer-dna-v02` da PR #19.
 
 **Preservação executada em 24/10/2026:** o PNG original da conversa foi arquivado no caminho verificado acima, sem conversão, edição ou recompressão. O SHA-256, as dimensões e o tamanho correspondem ao manifesto; `asset_status=archived_verified`. O JPG segue como cópia suplementar. Nenhuma recriação foi usada.
 
