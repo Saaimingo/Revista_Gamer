@@ -126,3 +126,10 @@ C2 na branch `codex/eng-codex-006-e2e-experiment`: inspecionar `run_factory_demo
 ## Retomada segura
 
 Antes de iniciar C2: git status --short --branch; confirmar branch codex/eng-codex-006-e2e-experiment, HEAD e git ls-files -u vazio. C1 foi commitada e enviada em 0bee601dd2dd6e7ae65f995f364fe005917850de; PR #26 segue draft e Issue #23 recebeu comentarios 6379590572 e 6379591562. origin/main=ce8f6a7 nao mudou. C2 ainda nao tem alteracoes de codigo: ler run_factory_demo() e motor_editorial/tests/test_factory.py, implementar revise em nova revisao e comprovar invalidacao dos artefatos e gate anteriores. Apos o commit deste checkpoint, a arvore deve ficar limpa.
+
+## Pausa a pedido do usuario — 2026-10-24 01:10 America/Sao_Paulo
+
+- C1 continua sendo a ultima unidade concluida. C2 ainda nao foi iniciada; nenhum codigo C2 foi alterado.
+- Estado conferido antes deste registro: branch `codex/eng-codex-006-e2e-experiment`, HEAD `abbd838ecce7e79b5cf5fda7368e6c5062ed5865`, arvore limpa e sincronizada com `origin/codex/eng-codex-006-e2e-experiment`.
+- Criado `retomar-eng-codex-006.cmd` na raiz. O atalho abre uma nova sessao do Codex CLI na pasta deste repositorio e passa as instrucoes para revalidar os documentos, GitHub e checkpoint antes de retomar em C2 e seguir ate D2. Ele nao restaura esta conversa do ChatGPT; usa o checkpoint persistido e o historico proprio do CLI.
+- Proximo passo: executar o atalho, confirmar o estado vivo da branch/PR/Issue conforme as instrucoes e iniciar C2. Nao repetir C1 sem necessidade; respeitar todos os limites ja registrados acima.
