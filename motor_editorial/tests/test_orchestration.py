@@ -41,6 +41,7 @@ from motor_editorial.siwc import (
     SIWCExecutor,
     SIWC_PROBE_PROFILE,
     SIWC_PROBE_TASK_TYPE,
+    SIWC_REASONING_EFFORTS,
     TaskExecutionContext,
     _CallbackListener,
     _provider_code_failure,
@@ -436,6 +437,22 @@ class AgentOrchestrationTests(unittest.TestCase):
 
 
 class SIWCContractTests(unittest.TestCase):
+    def test_models_catalog_request_is_timed_with_offline_fixture(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            client = SIWCClient(CredentialStore(Path(directory) / "tokens.bin"))
+            fixture = json.dumps({"models": [{
+                "slug": "gpt-6-luna", "display_name": "Luna", "visibility": "list",
+            }]}).encode("utf-8")
+            with patch.object(client, "_request", return_value=fixture) as request:
+                models = client.models()
+        request.assert_called_once_with("GET", f"{API_BASE}/models")
+        self.assertEqual(models[0]["slug"], "gpt-6-luna")
+        self.assertEqual(client.models_request_count, 1)
+        self.assertIsInstance(client.last_models_request_metrics, dict)
+        self.assertGreaterEqual(client.last_models_request_metrics["duration_ms"], 0)
+        self.assertIn("started_at", client.last_models_request_metrics)
+        self.assertIn("completed_at", client.last_models_request_metrics)
+
     def test_pkce_authorization_url_uses_openai_official_endpoints_and_no_api_key(self) -> None:
         attempt = create_authorization_attempt(
             client_id="dynamic_agent_client", host_id="urn:uuid:01234567-89ab-cdef-0123-456789abcdef",
@@ -597,7 +614,7 @@ class SIWCContractTests(unittest.TestCase):
                 queue = AgentQueue(queue_store)
                 task_id = queue.enqueue(
                     task_type=SIWC_PROBE_TASK_TYPE,
-                    payload={"model": "model-fixture"},
+                    payload={"model": "model-fixture", "reasoning_effort": "max"},
                     profile=SIWC_PROBE_PROFILE, executor_id="siwc-responses",
                     idempotency_key="siwc-contract-probe", max_attempts=1,
                 )
@@ -624,7 +641,14 @@ class SIWCContractTests(unittest.TestCase):
                         ]
                         rows.append("data: " + json.dumps({
                             "type": "response.completed",
-                            "response": {"id": "resp_fixture", "usage": {"total_tokens": 7}},
+                            "response": {
+                                "id": "resp_fixture", "model": "model-fixture-2026-10-19",
+                                "reasoning": {"effort": "max"},
+                                "usage": {
+                                    "input_tokens": 4, "output_tokens": 3, "total_tokens": 7,
+                                    "output_tokens_details": {"reasoning_tokens": 2},
+                                },
+                            },
                         }) + "\n")
                         return iter(row.encode("utf-8") for row in rows)
 
@@ -633,6 +657,7 @@ class SIWCContractTests(unittest.TestCase):
                     self.assertEqual(request.get_header("Authorization"), "Bearer oauth-fixture-token")
                     body = json.loads(request.data.decode("utf-8"))
                     self.assertEqual(body["model"], "model-fixture")
+                    self.assertEqual(body["reasoning"], {"effort": "max"})
                     self.assertFalse(body["store"])
                     self.assertTrue(body["stream"])
                     self.assertEqual(body["input"][0]["role"], "user")
@@ -640,13 +665,105 @@ class SIWCContractTests(unittest.TestCase):
                     self.assertNotIn("tools", body)
                     return FakeResponse()
 
-                with patch("motor_editorial.siwc.urllib.request.urlopen", side_effect=fake_urlopen):
+                with patch.object(client, "models", return_value=[
+                    {"slug": "model-fixture", "visibility": "list"},
+                ]), patch("motor_editorial.siwc.urllib.request.urlopen", side_effect=fake_urlopen):
                     result = SIWCExecutor(client, model=None).execute(
                         task, SIWC_PROBE_PROFILE, context
                     )
                 self.assertTrue(context.external_request_started)
                 self.assertEqual(result["status"], "ok")
                 self.assertEqual(result["response_id"], "resp_fixture")
+                self.assertEqual(result["model_requested"], "model-fixture")
+                self.assertEqual(result["model"], "model-fixture-2026-10-19")
+                self.assertEqual(result["reasoning_effort_requested"], "max")
+                self.assertEqual(result["reasoning_effort"], "max")
+                self.assertEqual(result["external_call_count"], 1)
+                self.assertEqual(result["usage"]["total_tokens"], 7)
+                self.assertGreaterEqual(result["duration_ms"], 0)
+
+    def test_responses_executor_requires_explicit_catalog_model_and_effort_without_fallback(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            client = SIWCClient(CredentialStore(Path(directory) / "tokens.bin"))
+            store = Store(Path(directory) / "motor.sqlite3", Path(directory) / "artifacts")
+            queue = AgentQueue(store)
+            for suffix, payload, catalog in (
+                ("missing-effort", {"model": "gpt-6-luna"}, [{"slug": "gpt-6-luna", "visibility": "list"}]),
+                ("missing-model", {"reasoning_effort": "max"}, [{"slug": "gpt-6-luna", "visibility": "list"}]),
+                ("catalog-miss", {"model": "gpt-6-luna", "reasoning_effort": "max"}, []),
+            ):
+                task_id = queue.enqueue(
+                    task_type=SIWC_PROBE_TASK_TYPE, payload=payload,
+                    profile=SIWC_PROBE_PROFILE, executor_id="siwc-responses",
+                    idempotency_key=f"siwc-{suffix}", max_attempts=1,
+                )
+                task = queue.claim_next(task_id=task_id)
+                context = TaskExecutionContext(queue, task, lease_seconds=120)
+                with patch.object(client, "models", return_value=catalog), patch(
+                    "motor_editorial.siwc.urllib.request.urlopen"
+                ) as urlopen:
+                    with self.assertRaises(TaskFailure):
+                        SIWCExecutor(client, model=None).execute(task, SIWC_PROBE_PROFILE, context)
+                urlopen.assert_not_called()
+                self.assertFalse(context.external_request_started)
+
+    def test_responses_executor_rejects_effective_model_or_effort_mismatch(self) -> None:
+        class FakeResponse:
+            def __init__(self, response_model, response_effort):
+                self.response_model = response_model
+                self.response_effort = response_effort
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def __iter__(self):
+                rows = ["data: " + json.dumps({
+                    "type": "response.output_text.delta",
+                    "delta": '{"status":"ok","message":"teste de integração aprovado"}',
+                }, ensure_ascii=False) + "\n"]
+                rows.append("data: " + json.dumps({
+                    "type": "response.completed",
+                    "response": {
+                        "id": "resp_mismatch",
+                        "model": self.response_model,
+                        "reasoning": {"effort": self.response_effort},
+                        "usage": {"total_tokens": 7},
+                    },
+                }) + "\n")
+                return iter(row.encode("utf-8") for row in rows)
+
+        for suffix, response_model, response_effort, expected_code in (
+            ("wrong-model", "gpt-6.1-sol", "max", "siwc_model_mismatch"),
+            ("wrong-effort", "gpt-6-luna", "high", "siwc_reasoning_effort_mismatch"),
+        ):
+            with self.subTest(suffix=suffix), tempfile.TemporaryDirectory() as directory:
+                client = SIWCClient(CredentialStore(Path(directory) / "tokens.bin"))
+                store = Store(Path(directory) / "motor.sqlite3", Path(directory) / "artifacts")
+                queue = AgentQueue(store)
+                task_id = queue.enqueue(
+                    task_type=SIWC_PROBE_TASK_TYPE,
+                    payload={"model": "gpt-6-luna", "reasoning_effort": "max"},
+                    profile=SIWC_PROBE_PROFILE, executor_id="siwc-responses",
+                    idempotency_key=f"siwc-{suffix}", max_attempts=1,
+                )
+                task = queue.claim_next(task_id=task_id)
+                context = TaskExecutionContext(queue, task, lease_seconds=120)
+                with patch.object(client, "models", return_value=[
+                    {"slug": "gpt-6-luna", "visibility": "list"},
+                ]), patch.object(client, "access_token", return_value="oauth-fixture-token"), patch(
+                    "motor_editorial.siwc.urllib.request.urlopen",
+                    return_value=FakeResponse(response_model, response_effort),
+                ):
+                    with self.assertRaises(TaskFailure) as raised:
+                        SIWCExecutor(client, model=None).execute(task, SIWC_PROBE_PROFILE, context)
+                self.assertEqual(raised.exception.code, expected_code)
+                self.assertTrue(context.external_request_started)
+
+    def test_siwe_reasoning_effort_allowlist_excludes_unverified_values(self) -> None:
+        self.assertEqual(SIWC_REASONING_EFFORTS, {"none", "low", "medium", "high", "xhigh", "max"})
 
     def test_responses_transport_failure_is_uncertain_and_never_auto_retryable(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -655,7 +772,7 @@ class SIWCContractTests(unittest.TestCase):
                 context = type("Context", (), {"mark_external_started": lambda self: setattr(self, "started", True)})()
                 with patch("motor_editorial.siwc.urllib.request.urlopen", side_effect=OSError("private transport detail")):
                     with self.assertRaises(TaskFailure) as raised:
-                        client.inference_stream("model-fixture", context)
+                        client.inference_stream("model-fixture", "max", context)
                 self.assertTrue(raised.exception.uncertain)
                 self.assertFalse(raised.exception.retryable)
                 self.assertNotIn("private transport detail", raised.exception.summary)

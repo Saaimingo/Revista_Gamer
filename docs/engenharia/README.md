@@ -1,6 +1,6 @@
 # Setor: engenharia e Codex
 
-Status: **Motor Editorial v0.2 integrado à `main`; PRs #8 e #10 continuam abertas e não mescladas; ENG-CODEX-006 reconcilia #8/#10 nesta branch isolada; as correções da Fase 0 offline estão na PR #18, ainda em revisão.**
+Status: **Motor Editorial v0.2 integrado à `main`; PRs #8 e #10 continuam abertas e não mescladas; ENG-CODEX-006 reconcilia #8/#10 em branches isoladas; as correções da Fase 0 offline estão na PR #18, ainda em revisão.**
 
 ## Arquitetura operacional dos futuros agentes — 20/10/2026
 
@@ -30,8 +30,8 @@ Este marco não ativa os blocos conceituais e não autoriza integrações reais 
 
 - [Especificação aprovada ENG-CODEX-003](ESPECIFICACAO-CODEX-003-ORQUESTRACAO-PLUS.md): fila SQLite, dispatcher, executores, perfis versionados, retomada, agenda desativada por padrão e prova local SIWC de uma tarefa sintética.
 - [Relatório técnico ENG-CODEX-003](RELATORIO-ORQUESTRACAO-AGENTES-PLUS.md): implementação, evidências de teste, status de autenticação real, elegibilidade remota e migração futura para Debian 12.
-- **PR #8 aberta e sem merge**, head `962dcd4`; a comparação com a `main` atual encontra conflito documental em `docs/engenharia/README.md`. Esta branch (`codex/eng-codex-006-orchestration-reconcile`) integra o head preservado da #8 à `origin/main@ce8f6a7` para revisão; a branch original não é reescrita. [CODEX-003: orquestração durável e integração SIWC](https://github.com/Saaimingo/Revista_Gamer/pull/8).
-- **PR #10 aberta e empilhada sobre #8**, head `3702789`; mantém a dependência de #8 e não está integrada à `main`. A reconciliação desta pipeline será feita em branch derivada depois de validar B1.
+- **PR #8 aberta e sem merge**, head `962dcd4`; a comparação original com a `main` via PR continua baseada no SHA `d9fbb6e`. A PR de revisão B1 [#24](https://github.com/Saaimingo/Revista_Gamer/pull/24), em rascunho, integra o head preservado da #8 à `origin/main@ce8f6a7`; seu conflito documental foi resolvido e a branch original não foi reescrita. [CODEX-003: orquestração durável e integração SIWC](https://github.com/Saaimingo/Revista_Gamer/pull/8).
+- **PR #10 aberta e empilhada sobre #8**, head `3702789`; mantém a dependência de #8 e não está integrada à `main`. A branch B2 `codex/eng-codex-006-pipeline-reconcile` reconcilia esse head sobre B1 para revisão; a branch #10 original permanece intacta.
 - [Unidade systemd de exemplo](../../deploy/systemd/revista-gamer-orchestrator.service.example): preparar operação contínua futura; não instalada nem habilitada.
 - [Anteprojeto de 2026-10-19](ANTEPROJETO-ORQUESTRACAO-AGENTES-E-PLUS-2026-10-19.md) permanece como registro da proposta e dos pontos debatidos; foi sucedido, para este escopo, pela especificação aprovada acima.
 
@@ -41,6 +41,14 @@ O código da PR #8 inclui o adaptador SIWC, mas **esta missão ENG-CODEX-006 exe
 
 - [Análise provisória do fundador — orquestração orientada a eventos e referência n8n](ANALISE-PROVISORIA-FUNDADOR-ORQUESTRACAO-N8N-2026-10-17.md). **Não autoriza ativação de agentes reais, agendamento, custos ou mudança na v0.2.**
 - [Anteprojeto da próxima etapa — orquestração de agentes e integração oficial com Plus](ANTEPROJETO-ORQUESTRACAO-AGENTES-E-PLUS-2026-10-19.md). O escopo CODEX-003 sucedeu este anteprojeto; sua inclusão preserva a trilha histórica, sem ativar operação real.
+
+## Quarta missão — ENG-CODEX-004: Luna Max e experimento editorial controlado
+
+- Ordem executada a partir da [Issue #9](https://github.com/Saaimingo/Revista_Gamer/issues/9), em branch separada baseada no head do PR #8.
+- O catálogo autenticado SIWC listou `gpt-6-luna`; uma inferência sintética com `reasoning.effort=max` concluiu e retornou modelo/esforço compatíveis. O gate foi liberado.
+- Uma amostra real de capa percorreu seis etapas SIWC; ficou aguardando revisão humana e não foi publicada. Métricas, pacote de fontes e rascunho estão no [relatório ENG-CODEX-004](RELATORIO-ENG-CODEX-004-EXECUCAO-LUNA-MAX-2026-10-19.md) e em `evidencias/`.
+- **[PR #10](https://github.com/Saaimingo/Revista_Gamer/pull/10) aberto para revisão**, separado e sem merge; sua base é a branch do PR #8. O PR #8 também continua aberto e sem merge.
+- A elegibilidade SIWC de app privado hospedado/VPS continua não confirmada. Nenhuma agenda, serviço Debian/VPS ou publicação foi ativada.
 
 ## Evolução futura
 
