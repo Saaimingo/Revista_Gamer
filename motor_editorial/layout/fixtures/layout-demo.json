@@ -1,0 +1,707 @@
+{
+    "fixture_version":  "LayoutDemoFixture.v0",
+    "run_id":  "codex-005-layout-demo-v0",
+    "label":  "Fase 0 offline — diagramador e composição sintéticos",
+    "scenarios":  [
+                      {
+                          "scenario_id":  "reportagem-duas-imagens",
+                          "story_package":  {
+                                                "story_id":  "fixture-story-reportagem",
+                                                "edition_id":  "fixture-edition-layout-v0",
+                                                "story_revision":  1,
+                                                "title":  "Como um circuito fictício ganha ritmo",
+                                                "dek":  "Exemplo sintético de reportagem com imagens pequenas e legendas ligadas ao texto.",
+                                                "source_ids":  [
+                                                                   "fixture-source-layout-01"
+                                                               ],
+                                                "identities":  {
+                                                                   "editor":  {
+                                                                                  "role":  "editor",
+                                                                                  "profile_id":  "fixture-editor",
+                                                                                  "version":  "0.1.0",
+                                                                                  "description":  "Editor sintético do ensaio offline."
+                                                                              },
+                                                                   "writer_persona":  {
+                                                                                          "role":  "writer_persona",
+                                                                                          "profile_id":  "fixture-gamer-persona",
+                                                                                          "version":  "0.1.0",
+                                                                                          "description":  "Dados de persona fictícia; não representa um worker."
+                                                                                      },
+                                                                   "reviewer":  {
+                                                                                    "role":  "reviewer",
+                                                                                    "profile_id":  "fixture-reviewer",
+                                                                                    "version":  "0.1.0",
+                                                                                    "description":  "Revisão sintética usada apenas para a fixture."
+                                                                                }
+                                                               },
+                                                "review":  {
+                                                               "verdict":  "pass",
+                                                               "synthetic_fixture":  true,
+                                                               "reviewer_profile_id":  "fixture-reviewer@0.1.0"
+                                                           },
+                                                "sections":  [
+                                                                 {
+                                                                     "block_id":  "circuito-heading",
+                                                                     "kind":  "heading",
+                                                                     "text":  "A pista como narrativa",
+                                                                     "source_ids":  [
+                                                                                        "fixture-source-layout-01"
+                                                                                    ]
+                                                                 },
+                                                                 {
+                                                                     "block_id":  "circuito-paragraph-01",
+                                                                     "kind":  "paragraph",
+                                                                     "text":  "Neste exemplo inventado, curvas largas alternam com trechos curtos para dar respiro à corrida.",
+                                                                     "source_ids":  [
+                                                                                        "fixture-source-layout-01"
+                                                                                    ]
+                                                                 },
+                                                                 {
+                                                                     "block_id":  "circuito-figures",
+                                                                     "kind":  "figure_request",
+                                                                     "text":  "Duas imagens de contexto ajudam a explicar a leitura do percurso.",
+                                                                     "source_ids":  [
+                                                                                        "fixture-source-layout-01"
+                                                                                    ],
+                                                                     "figures":  [
+                                                                                     {
+                                                                                         "asset_id":  "placeholder-circuit-overview",
+                                                                                         "caption":  "Visão geral fictícia do circuito de teste.",
+                                                                                         "alt_text":  "Placeholder sintético de vista geral."
+                                                                                     },
+                                                                                     {
+                                                                                         "asset_id":  "placeholder-circuit-corner",
+                                                                                         "caption":  "Curva ilustrativa criada para o cenário de ensaio.",
+                                                                                         "alt_text":  "Placeholder sintético de curva."
+                                                                                     }
+                                                                                 ]
+                                                                 },
+                                                                 {
+                                                                     "block_id":  "circuito-paragraph-02",
+                                                                     "kind":  "paragraph",
+                                                                     "text":  "As legendas ficam associadas às respectivas imagens também quando o leitor reorganiza a página.",
+                                                                     "source_ids":  [
+                                                                                        "fixture-source-layout-01"
+                                                                                    ]
+                                                                 }
+                                                             ]
+                                            },
+                          "media_inventory":  {
+                                                  "inventory_id":  "fixture-media-reportagem",
+                                                  "revision":  1,
+                                                  "assets":  [
+                                                                 {
+                                                                     "asset_id":  "placeholder-circuit-overview",
+                                                                     "media_kind":  "placeholder",
+                                                                     "rights_status":  "synthetic_fixture",
+                                                                     "synthetic":  true,
+                                                                     "permitted_modes":  [
+                                                                                             "internal_preview"
+                                                                                         ],
+                                                                     "description":  "Slot fictício, sem bytes de imagem.",
+                                                                     "rights_holder":  "Sintético — fixture local",
+                                                                     "origin":  "generated_in_fixture",
+                                                                     "asset_sha256":  null,
+                                                                     "dimensions":  null,
+                                                                     "license":  {
+                                                                                     "status":  "not_applicable_synthetic_placeholder",
+                                                                                     "evidence":  null
+                                                                                 },
+                                                                     "credit":  "Placeholder sintético, sem imagem de terceiros.",
+                                                                     "permitted_transformations":  [
+
+                                                                                                   ],
+                                                                     "linked_block_ids":  [
+                                                                                              "circuito-figures"
+                                                                                          ]
+                                                                 },
+                                                                 {
+                                                                     "asset_id":  "placeholder-circuit-corner",
+                                                                     "media_kind":  "placeholder",
+                                                                     "rights_status":  "synthetic_fixture",
+                                                                     "synthetic":  true,
+                                                                     "permitted_modes":  [
+                                                                                             "internal_preview"
+                                                                                         ],
+                                                                     "description":  "Slot fictício, sem bytes de imagem.",
+                                                                     "rights_holder":  "Sintético — fixture local",
+                                                                     "origin":  "generated_in_fixture",
+                                                                     "asset_sha256":  null,
+                                                                     "dimensions":  null,
+                                                                     "license":  {
+                                                                                     "status":  "not_applicable_synthetic_placeholder",
+                                                                                     "evidence":  null
+                                                                                 },
+                                                                     "credit":  "Placeholder sintético, sem imagem de terceiros.",
+                                                                     "permitted_transformations":  [
+
+                                                                                                   ],
+                                                                     "linked_block_ids":  [
+                                                                                              "circuito-figures"
+                                                                                          ]
+                                                                 }
+                                                             ]
+                                              }
+                      },
+                      {
+                          "scenario_id":  "comparativo-consoles-spread",
+                          "story_package":  {
+                                                "story_id":  "fixture-story-console-comparison",
+                                                "edition_id":  "fixture-edition-layout-v0",
+                                                "story_revision":  1,
+                                                "title":  "Dois consoles imaginários, duas escolhas",
+                                                "dek":  "Comparativo fictício para testar uma dupla intencional em desktop e alternativas móveis.",
+                                                "source_ids":  [
+                                                                   "fixture-source-layout-02"
+                                                               ],
+                                                "identities":  {
+                                                                   "editor":  {
+                                                                                  "role":  "editor",
+                                                                                  "profile_id":  "fixture-editor",
+                                                                                  "version":  "0.1.0",
+                                                                                  "description":  "Editor sintético do ensaio offline."
+                                                                              },
+                                                                   "writer_persona":  {
+                                                                                          "role":  "writer_persona",
+                                                                                          "profile_id":  "fixture-gamer-persona",
+                                                                                          "version":  "0.1.0",
+                                                                                          "description":  "Dados de persona fictícia; não representa um worker."
+                                                                                      },
+                                                                   "reviewer":  {
+                                                                                    "role":  "reviewer",
+                                                                                    "profile_id":  "fixture-reviewer",
+                                                                                    "version":  "0.1.0",
+                                                                                    "description":  "Revisão sintética usada apenas para a fixture."
+                                                                                }
+                                                               },
+                                                "review":  {
+                                                               "verdict":  "pass",
+                                                               "synthetic_fixture":  true,
+                                                               "reviewer_profile_id":  "fixture-reviewer@0.1.0"
+                                                           },
+                                                "sections":  [
+                                                                 {
+                                                                     "block_id":  "consoles-heading",
+                                                                     "kind":  "heading",
+                                                                     "text":  "Duas propostas de laboratório",
+                                                                     "source_ids":  [
+                                                                                        "fixture-source-layout-02"
+                                                                                    ]
+                                                                 },
+                                                                 {
+                                                                     "block_id":  "consoles-intro",
+                                                                     "kind":  "paragraph",
+                                                                     "text":  "Console Aurora e Console Bruma são nomes inventados para validar a composição, sem relação com produtos reais.",
+                                                                     "source_ids":  [
+                                                                                        "fixture-source-layout-02"
+                                                                                    ]
+                                                                 },
+                                                                 {
+                                                                     "block_id":  "consoles-comparison",
+                                                                     "kind":  "comparison",
+                                                                     "text":  "A dupla mantém os itens alinhados no desktop e empilha os cartões no celular.",
+                                                                     "source_ids":  [
+                                                                                        "fixture-source-layout-02"
+                                                                                    ],
+                                                                     "items":  [
+                                                                                   {
+                                                                                       "label":  "Console Aurora (fictício)",
+                                                                                       "detail":  "Ênfase de exemplo em acesso rápido ao menu.",
+                                                                                       "asset_id":  "placeholder-console-aurora",
+                                                                                       "caption":  "Silhueta abstrata fictícia do Aurora."
+                                                                                   },
+                                                                                   {
+                                                                                       "label":  "Console Bruma (fictício)",
+                                                                                       "detail":  "Ênfase de exemplo em organização da biblioteca.",
+                                                                                       "asset_id":  "placeholder-console-bruma",
+                                                                                       "caption":  "Silhueta abstrata fictícia do Bruma."
+                                                                                   }
+                                                                               ]
+                                                                 }
+                                                             ]
+                                            },
+                          "media_inventory":  {
+                                                  "inventory_id":  "fixture-media-consoles",
+                                                  "revision":  1,
+                                                  "assets":  [
+                                                                 {
+                                                                     "asset_id":  "placeholder-console-aurora",
+                                                                     "media_kind":  "placeholder",
+                                                                     "rights_status":  "synthetic_fixture",
+                                                                     "synthetic":  true,
+                                                                     "permitted_modes":  [
+                                                                                             "internal_preview"
+                                                                                         ],
+                                                                     "description":  "Slot fictício, sem bytes de imagem.",
+                                                                     "rights_holder":  "Sintético — fixture local",
+                                                                     "origin":  "generated_in_fixture",
+                                                                     "asset_sha256":  null,
+                                                                     "dimensions":  null,
+                                                                     "license":  {
+                                                                                     "status":  "not_applicable_synthetic_placeholder",
+                                                                                     "evidence":  null
+                                                                                 },
+                                                                     "credit":  "Placeholder sintético, sem imagem de terceiros.",
+                                                                     "permitted_transformations":  [
+
+                                                                                                   ],
+                                                                     "linked_block_ids":  [
+                                                                                              "consoles-comparison"
+                                                                                          ]
+                                                                 },
+                                                                 {
+                                                                     "asset_id":  "placeholder-console-bruma",
+                                                                     "media_kind":  "placeholder",
+                                                                     "rights_status":  "synthetic_fixture",
+                                                                     "synthetic":  true,
+                                                                     "permitted_modes":  [
+                                                                                             "internal_preview"
+                                                                                         ],
+                                                                     "description":  "Slot fictício, sem bytes de imagem.",
+                                                                     "rights_holder":  "Sintético — fixture local",
+                                                                     "origin":  "generated_in_fixture",
+                                                                     "asset_sha256":  null,
+                                                                     "dimensions":  null,
+                                                                     "license":  {
+                                                                                     "status":  "not_applicable_synthetic_placeholder",
+                                                                                     "evidence":  null
+                                                                                 },
+                                                                     "credit":  "Placeholder sintético, sem imagem de terceiros.",
+                                                                     "permitted_transformations":  [
+
+                                                                                                   ],
+                                                                     "linked_block_ids":  [
+                                                                                              "consoles-comparison"
+                                                                                          ]
+                                                                 }
+                                                             ]
+                                              }
+                      },
+                      {
+                          "scenario_id":  "mapa-panoramico-spread",
+                          "story_package":  {
+                                                "story_id":  "fixture-story-panorama",
+                                                "edition_id":  "fixture-edition-layout-v0",
+                                                "story_revision":  1,
+                                                "title":  "Mapa imaginário da cidade costeira",
+                                                "dek":  "Um mapa panorâmico sintético para validar dupla contínua, zoom e alternativa em celular.",
+                                                "source_ids":  [
+                                                                   "fixture-source-layout-03"
+                                                               ],
+                                                "identities":  {
+                                                                   "editor":  {
+                                                                                  "role":  "editor",
+                                                                                  "profile_id":  "fixture-editor",
+                                                                                  "version":  "0.1.0",
+                                                                                  "description":  "Editor sintético do ensaio offline."
+                                                                              },
+                                                                   "writer_persona":  {
+                                                                                          "role":  "writer_persona",
+                                                                                          "profile_id":  "fixture-gamer-persona",
+                                                                                          "version":  "0.1.0",
+                                                                                          "description":  "Dados de persona fictícia; não representa um worker."
+                                                                                      },
+                                                                   "reviewer":  {
+                                                                                    "role":  "reviewer",
+                                                                                    "profile_id":  "fixture-reviewer",
+                                                                                    "version":  "0.1.0",
+                                                                                    "description":  "Revisão sintética usada apenas para a fixture."
+                                                                                }
+                                                               },
+                                                "review":  {
+                                                               "verdict":  "pass",
+                                                               "synthetic_fixture":  true,
+                                                               "reviewer_profile_id":  "fixture-reviewer@0.1.0"
+                                                           },
+                                                "sections":  [
+                                                                 {
+                                                                     "block_id":  "map-heading",
+                                                                     "kind":  "heading",
+                                                                     "text":  "A rota das três estações",
+                                                                     "source_ids":  [
+                                                                                        "fixture-source-layout-03"
+                                                                                    ]
+                                                                 },
+                                                                 {
+                                                                     "block_id":  "map-context",
+                                                                     "kind":  "paragraph",
+                                                                     "text":  "Esta cidade não existe: o cenário serve apenas para testar um mapa que cruza duas faces.",
+                                                                     "source_ids":  [
+                                                                                        "fixture-source-layout-03"
+                                                                                    ]
+                                                                 },
+                                                                 {
+                                                                     "block_id":  "map-request",
+                                                                     "kind":  "map_request",
+                                                                     "text":  "O leitor pode ampliar o panorama e também percorrê-lo em uma coluna no modo contínuo.",
+                                                                     "source_ids":  [
+                                                                                        "fixture-source-layout-03"
+                                                                                    ],
+                                                                     "asset_id":  "placeholder-coastal-map",
+                                                                     "caption":  "Mapa esquemático inteiramente fictício, sem arte importada.",
+                                                                     "alt_text":  "Placeholder horizontal de mapa costeiro fictício."
+                                                                 }
+                                                             ]
+                                            },
+                          "media_inventory":  {
+                                                  "inventory_id":  "fixture-media-map",
+                                                  "revision":  1,
+                                                  "assets":  [
+                                                                 {
+                                                                     "asset_id":  "placeholder-coastal-map",
+                                                                     "media_kind":  "placeholder",
+                                                                     "rights_status":  "synthetic_fixture",
+                                                                     "synthetic":  true,
+                                                                     "permitted_modes":  [
+                                                                                             "internal_preview"
+                                                                                         ],
+                                                                     "description":  "Slot fictício, sem bytes de imagem.",
+                                                                     "rights_holder":  "Sintético — fixture local",
+                                                                     "origin":  "generated_in_fixture",
+                                                                     "asset_sha256":  null,
+                                                                     "dimensions":  null,
+                                                                     "license":  {
+                                                                                     "status":  "not_applicable_synthetic_placeholder",
+                                                                                     "evidence":  null
+                                                                                 },
+                                                                     "credit":  "Placeholder sintético, sem imagem de terceiros.",
+                                                                     "permitted_transformations":  [
+
+                                                                                                   ],
+                                                                     "linked_block_ids":  [
+                                                                                              "map-request"
+                                                                                          ]
+                                                                 }
+                                                             ]
+                                              }
+                      }
+                  ],
+    "references":  [
+                       {
+                           "reference_id":  "reference-reportage-small-figures",
+                           "revision":  1,
+                           "title":  "Duas figuras menores com legenda",
+                           "description":  "Exemplo sintético de fluxo de reportagem com imagens compactas e legendas ligadas.",
+                           "era":  "fixture",
+                           "composition_function":  "captioned_editorial_images",
+                           "tags":  [
+                                        "reportage",
+                                        "figure",
+                                        "caption",
+                                        "small-image"
+                                    ],
+                           "orientation":  "portrait",
+                           "digital_affordances":  [
+                                                       "caption-pairing",
+                                                       "mobile-reflow"
+                                                   ],
+                           "source_type":  "synthetic_fixture",
+                           "rights_scope":  "metadata_only",
+                           "source_publication":  null,
+                           "source_year":  null,
+                           "source_page":  null,
+                           "position":  "metadata-only",
+                           "editorial_purpose":  "Descrição de fixture para testar recuperação por função editorial.",
+                           "problem_solved":  "Exemplo sintético de fluxo de reportagem com imagens compactas e legendas ligadas.",
+                           "strengths":  "Função editorial e relação entre módulos estão descritas.",
+                           "limitations":  "Não representa página histórica nem fonte visual real.",
+                           "digital_adaptation":  "Descrição a adaptar por reflow, acessibilidade e modo contínuo.",
+                           "confidence":  "synthetic_fixture",
+                           "access_scope":  "metadata_only",
+                           "media_roles":  [
+                                               "editorial-image",
+                                               "caption"
+                                           ]
+                       },
+                       {
+                           "reference_id":  "reference-reportage-margin-image",
+                           "revision":  1,
+                           "title":  "Imagem de apoio no miolo",
+                           "description":  "Descrição funcional fictícia para posicionamento de figura de apoio ao lado do texto.",
+                           "era":  "fixture",
+                           "composition_function":  "supporting_figure_flow",
+                           "tags":  [
+                                        "reportage",
+                                        "figure",
+                                        "caption",
+                                        "small-image"
+                                    ],
+                           "orientation":  "portrait",
+                           "digital_affordances":  [
+                                                       "figure-caption-group",
+                                                       "narrow-screen-stack"
+                                                   ],
+                           "source_type":  "synthetic_fixture",
+                           "rights_scope":  "metadata_only",
+                           "source_publication":  null,
+                           "source_year":  null,
+                           "source_page":  null,
+                           "position":  "metadata-only",
+                           "editorial_purpose":  "Descrição de fixture para testar recuperação por função editorial.",
+                           "problem_solved":  "Descrição funcional fictícia para posicionamento de figura de apoio ao lado do texto.",
+                           "strengths":  "Função editorial e relação entre módulos estão descritas.",
+                           "limitations":  "Não representa página histórica nem fonte visual real.",
+                           "digital_adaptation":  "Descrição a adaptar por reflow, acessibilidade e modo contínuo.",
+                           "confidence":  "synthetic_fixture",
+                           "access_scope":  "metadata_only",
+                           "media_roles":  [
+                                               "editorial-image",
+                                               "caption"
+                                           ]
+                       },
+                       {
+                           "reference_id":  "reference-reportage-pullquote",
+                           "revision":  1,
+                           "title":  "Texto corrido e respiro visual",
+                           "description":  "Descrição funcional fictícia de reportagem com corpo legível e figura pequena.",
+                           "era":  "fixture",
+                           "composition_function":  "readable_reportage_rhythm",
+                           "tags":  [
+                                        "reportage",
+                                        "figure",
+                                        "caption",
+                                        "small-image"
+                                    ],
+                           "orientation":  "portrait",
+                           "digital_affordances":  [
+                                                       "reflow",
+                                                       "selectable-text"
+                                                   ],
+                           "source_type":  "synthetic_fixture",
+                           "rights_scope":  "metadata_only",
+                           "source_publication":  null,
+                           "source_year":  null,
+                           "source_page":  null,
+                           "position":  "metadata-only",
+                           "editorial_purpose":  "Descrição de fixture para testar recuperação por função editorial.",
+                           "problem_solved":  "Descrição funcional fictícia de reportagem com corpo legível e figura pequena.",
+                           "strengths":  "Função editorial e relação entre módulos estão descritas.",
+                           "limitations":  "Não representa página histórica nem fonte visual real.",
+                           "digital_adaptation":  "Descrição a adaptar por reflow, acessibilidade e modo contínuo.",
+                           "confidence":  "synthetic_fixture",
+                           "access_scope":  "metadata_only",
+                           "media_roles":  [
+                                               "pullquote-text"
+                                           ]
+                       },
+                       {
+                           "reference_id":  "reference-console-equal-columns",
+                           "revision":  1,
+                           "title":  "Comparativo equilibrado em dupla",
+                           "description":  "Metadados sintéticos de comparação lado a lado com pesos equivalentes.",
+                           "era":  "fixture",
+                           "composition_function":  "intentional_comparison_spread",
+                           "tags":  [
+                                        "comparison",
+                                        "spread",
+                                        "desktop",
+                                        "mobile",
+                                        "side-by-side"
+                                    ],
+                           "orientation":  "landscape",
+                           "digital_affordances":  [
+                                                       "two-page-pair",
+                                                       "stack-on-mobile"
+                                                   ],
+                           "source_type":  "synthetic_fixture",
+                           "rights_scope":  "metadata_only",
+                           "source_publication":  null,
+                           "source_year":  null,
+                           "source_page":  null,
+                           "position":  "metadata-only",
+                           "editorial_purpose":  "Descrição de fixture para testar recuperação por função editorial.",
+                           "problem_solved":  "Metadados sintéticos de comparação lado a lado com pesos equivalentes.",
+                           "strengths":  "Função editorial e relação entre módulos estão descritas.",
+                           "limitations":  "Não representa página histórica nem fonte visual real.",
+                           "digital_adaptation":  "Descrição a adaptar por reflow, acessibilidade e modo contínuo.",
+                           "confidence":  "synthetic_fixture",
+                           "access_scope":  "metadata_only",
+                           "media_roles":  [
+                                               "console-comparison"
+                                           ]
+                       },
+                       {
+                           "reference_id":  "reference-console-criteria-table",
+                           "revision":  1,
+                           "title":  "Critérios compartilhados por dois itens",
+                           "description":  "Descrição sintética para organizar comparação em cartões relacionados.",
+                           "era":  "fixture",
+                           "composition_function":  "paired-comparison-criteria",
+                           "tags":  [
+                                        "comparison",
+                                        "spread",
+                                        "desktop",
+                                        "mobile",
+                                        "side-by-side"
+                                    ],
+                           "orientation":  "landscape",
+                           "digital_affordances":  [
+                                                       "keyboard-navigation",
+                                                       "responsive-cards"
+                                                   ],
+                           "source_type":  "synthetic_fixture",
+                           "rights_scope":  "metadata_only",
+                           "source_publication":  null,
+                           "source_year":  null,
+                           "source_page":  null,
+                           "position":  "metadata-only",
+                           "editorial_purpose":  "Descrição de fixture para testar recuperação por função editorial.",
+                           "problem_solved":  "Descrição sintética para organizar comparação em cartões relacionados.",
+                           "strengths":  "Função editorial e relação entre módulos estão descritas.",
+                           "limitations":  "Não representa página histórica nem fonte visual real.",
+                           "digital_adaptation":  "Descrição a adaptar por reflow, acessibilidade e modo contínuo.",
+                           "confidence":  "synthetic_fixture",
+                           "access_scope":  "metadata_only",
+                           "media_roles":  [
+                                               "comparison-table"
+                                           ]
+                       },
+                       {
+                           "reference_id":  "reference-console-continuous",
+                           "revision":  1,
+                           "title":  "Comparativo preservado em fluxo contínuo",
+                           "description":  "Anotação funcional sintética para conservar relações no modo de uma coluna.",
+                           "era":  "fixture",
+                           "composition_function":  "comparison-continuous-fallback",
+                           "tags":  [
+                                        "comparison",
+                                        "spread",
+                                        "desktop",
+                                        "mobile",
+                                        "side-by-side"
+                                    ],
+                           "orientation":  "landscape",
+                           "digital_affordances":  [
+                                                       "continuous-mode",
+                                                       "content-order"
+                                                   ],
+                           "source_type":  "synthetic_fixture",
+                           "rights_scope":  "metadata_only",
+                           "source_publication":  null,
+                           "source_year":  null,
+                           "source_page":  null,
+                           "position":  "metadata-only",
+                           "editorial_purpose":  "Descrição de fixture para testar recuperação por função editorial.",
+                           "problem_solved":  "Anotação funcional sintética para conservar relações no modo de uma coluna.",
+                           "strengths":  "Função editorial e relação entre módulos estão descritas.",
+                           "limitations":  "Não representa página histórica nem fonte visual real.",
+                           "digital_adaptation":  "Descrição a adaptar por reflow, acessibilidade e modo contínuo.",
+                           "confidence":  "synthetic_fixture",
+                           "access_scope":  "metadata_only",
+                           "media_roles":  [
+                                               "comparison-card"
+                                           ]
+                       },
+                       {
+                           "reference_id":  "reference-map-two-page",
+                           "revision":  1,
+                           "title":  "Mapa que atravessa uma dupla",
+                           "description":  "Metadados sintéticos para mapa panorâmico com continuação entre faces.",
+                           "era":  "fixture",
+                           "composition_function":  "panoramic_map_spread",
+                           "tags":  [
+                                        "map",
+                                        "panorama",
+                                        "spread",
+                                        "mobile",
+                                        "continuous"
+                                    ],
+                           "orientation":  "landscape",
+                           "digital_affordances":  [
+                                                       "zoom",
+                                                       "horizontal-scroll",
+                                                       "spread-id"
+                                                   ],
+                           "source_type":  "synthetic_fixture",
+                           "rights_scope":  "metadata_only",
+                           "source_publication":  null,
+                           "source_year":  null,
+                           "source_page":  null,
+                           "position":  "metadata-only",
+                           "editorial_purpose":  "Descrição de fixture para testar recuperação por função editorial.",
+                           "problem_solved":  "Metadados sintéticos para mapa panorâmico com continuação entre faces.",
+                           "strengths":  "Função editorial e relação entre módulos estão descritas.",
+                           "limitations":  "Não representa página histórica nem fonte visual real.",
+                           "digital_adaptation":  "Descrição a adaptar por reflow, acessibilidade e modo contínuo.",
+                           "confidence":  "synthetic_fixture",
+                           "access_scope":  "metadata_only",
+                           "media_roles":  [
+                                               "panoramic-map"
+                                           ]
+                       },
+                       {
+                           "reference_id":  "reference-map-mobile-fallback",
+                           "revision":  1,
+                           "title":  "Panorama com alternativa móvel",
+                           "description":  "Descrição sintética de panorama navegável sem depender de rotação forçada.",
+                           "era":  "fixture",
+                           "composition_function":  "panorama-mobile-fallback",
+                           "tags":  [
+                                        "map",
+                                        "panorama",
+                                        "spread",
+                                        "mobile",
+                                        "continuous"
+                                    ],
+                           "orientation":  "landscape",
+                           "digital_affordances":  [
+                                                       "scrollable-alternative",
+                                                       "caption-association"
+                                                   ],
+                           "source_type":  "synthetic_fixture",
+                           "rights_scope":  "metadata_only",
+                           "source_publication":  null,
+                           "source_year":  null,
+                           "source_page":  null,
+                           "position":  "metadata-only",
+                           "editorial_purpose":  "Descrição de fixture para testar recuperação por função editorial.",
+                           "problem_solved":  "Descrição sintética de panorama navegável sem depender de rotação forçada.",
+                           "strengths":  "Função editorial e relação entre módulos estão descritas.",
+                           "limitations":  "Não representa página histórica nem fonte visual real.",
+                           "digital_adaptation":  "Descrição a adaptar por reflow, acessibilidade e modo contínuo.",
+                           "confidence":  "synthetic_fixture",
+                           "access_scope":  "metadata_only",
+                           "media_roles":  [
+                                               "panoramic-map",
+                                               "mobile-fallback"
+                                           ]
+                       },
+                       {
+                           "reference_id":  "reference-map-continuous",
+                           "revision":  1,
+                           "title":  "Mapa integrado ao modo contínuo",
+                           "description":  "Anotação sintética para manter contexto e legenda em leitura de uma coluna.",
+                           "era":  "fixture",
+                           "composition_function":  "panorama-continuous-component",
+                           "tags":  [
+                                        "map",
+                                        "panorama",
+                                        "spread",
+                                        "mobile",
+                                        "continuous"
+                                    ],
+                           "orientation":  "landscape",
+                           "digital_affordances":  [
+                                                       "expandable-content",
+                                                       "preserved-text"
+                                                   ],
+                           "source_type":  "synthetic_fixture",
+                           "rights_scope":  "metadata_only",
+                           "source_publication":  null,
+                           "source_year":  null,
+                           "source_page":  null,
+                           "position":  "metadata-only",
+                           "editorial_purpose":  "Descrição de fixture para testar recuperação por função editorial.",
+                           "problem_solved":  "Anotação sintética para manter contexto e legenda em leitura de uma coluna.",
+                           "strengths":  "Função editorial e relação entre módulos estão descritas.",
+                           "limitations":  "Não representa página histórica nem fonte visual real.",
+                           "digital_adaptation":  "Descrição a adaptar por reflow, acessibilidade e modo contínuo.",
+                           "confidence":  "synthetic_fixture",
+                           "access_scope":  "metadata_only",
+                           "media_roles":  [
+                                               "panoramic-map",
+                                               "continuous-layout"
+                                           ]
+                       }
+                   ]
+}
