@@ -160,3 +160,24 @@ Foi criada uma prancha posterior com aparência cartunesca: diretor **rejeitou**
 Não contém export literal de toda a conversa antiga, dados secretos, mídias binárias embutidas, promessas de manutenção automática ou execução de tarefas; os trechos antigos relevantes permanecem nos PRs e nos documentos vinculados. **O backup é suficientemente detalhado para preservar decisões e caminhos de continuidade**, mas não substitui consulta às evidências atuais do GitHub e aos anexos originais, quando necessário.
 
 **Próxima frase adequada para um novo Bloco 02:** "Li o checkpoint de 24/10/2026, os três roteiros novos aprovados do Carranca e as decisões de Beto/Nina. O Carranca está fechado quanto a essas três audições, sem agente validado. Você tinha uma questão ainda não apresentada sobre os três personagens. Podemos retomar por ela."
+
+
+---
+
+## ADENDO POSTERIOR AO PRIMEIRO CHECKPOINT — 24/10/2026: PROFUNDIDADE DE REPORTAGEM, NÃO SÓ OPINIÃO
+
+**Atualização importante do ponto de retomada:** logo depois de este checkpoint ter sido criado, o diretor **formulou a questão antes pendente**. Sua preocupação era que a calibração de oratória e personalidade pudesse reduzir Carranca, Beto e Nina a **comentaristas**, quando precisam agir como **jornalistas que apuram, explicam e destrincham em profundidade**, além de emitir opiniões e respostas.
+
+**Fonte integral do adendo como diretriz:** [DIRETRIZ-REPORTAGEM-APURACAO-E-VEREDITO-2026-10-24.md](DIRETRIZ-REPORTAGEM-APURACAO-E-VEREDITO-2026-10-24.md). **A leitura desse arquivo é obrigatória antes de continuar o trabalho de personas e contratos.**
+
+**Exemplo Carranca:** lançamento de processador AMD deve incluir especificações detalhadas, novidades da geração, comparação com antecessores, documentação oficial, benchmarking independente e de comunidade com condições explicitadas, diagramas/figuras e espaço proporcional (o diretor sugeriu duas ou três páginas quando necessário), **não apenas veredito provocador**.
+
+**Exemplo Beto:** um novo jogo de futebol ou luta pode pedir documentação sobre cada modo, mecânica, novidade, personagens antigos/novos, suas origens, capacidades, contexto histórico e mudanças em relação às versões anteriores; depois, parecer crítico autoral. Jogo/IP inédita pede estudo da proposta, não genealogia inventada.
+
+**Exemplo Nina:** a mesma profundidade aplica-se a mods, indies, comunidades, experimentação, sistemas e cultura; explicar criadores, proposta, o que muda, limites, requisitos e documentação antes do juízo editorial.
+
+**Modos narrativos distintos:** (1) corpo investigativo/expositivo, (2) interpretação e conclusão pessoal, (3) resposta/debate/correção quando necessário. Não obrigar divisão física rígida, mas cada dimensão precisa aparecer quando a pauta exige. **A personalidade marca o modo de investigar, organizar e explicar, não só a última frase de opinião**.
+
+**Status organizacional:** diretriz claramente expressa pela direção, registrada no Bloco 02, **a encaminhar para alinhamento do Bloco 04 e fundador**. Nenhum Motor Editorial foi modificado, nenhuma matéria recebeu apuração real, nenhum merge autorizado. Os modos e provas de profundidade ainda precisam ser incorporados aos contratos e testes, preservando o caráter aprovado de cada persona.
+
+**Ponto correto de retomada agora:** o diretor já explicou e documentou a questão sobre o trio. **Não perguntar novamente qual era sua preocupação.** Aguardar sua próxima proposta ou discussão; se iniciar a implementação documental, partir dessa diretriz e do alinhamento com redação/fundador, sem reinventar os personagens.
