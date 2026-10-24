@@ -297,9 +297,20 @@ def validate_plan(
             media_allowed = False
             continue
         if asset["rights_status"] == "synthetic_fixture":
-            media_allowed = media_allowed and asset["synthetic"] is True and "internal_preview" in asset["permitted_modes"]
+            media_allowed = (
+                media_allowed
+                and asset["media_kind"] == "placeholder"
+                and asset["synthetic"] is True
+                and asset["license"]["status"] == "not_applicable_synthetic_placeholder"
+                and "internal_preview" in asset["permitted_modes"]
+            )
         elif asset["rights_status"] == "authorized":
-            media_allowed = media_allowed and "internal_preview" in asset["permitted_modes"]
+            media_allowed = (
+                media_allowed
+                and asset["media_kind"] == "editorial"
+                and asset["license"]["status"] == "authorized"
+                and "internal_preview" in asset["permitted_modes"]
+            )
         else:
             media_allowed = False
     section_by_block = {section["block_id"]: section for section in story_payload["sections"]}
@@ -336,6 +347,8 @@ def validate_plan(
         asset = inventory_by_id.get(asset_id)
         ads_valid = ads_valid and asset is not None and asset["media_kind"] == "advertising"
         ads_valid = ads_valid and asset is not None and asset["rights_status"] == "authorized"
+        ads_valid = ads_valid and asset is not None and asset["license"]["status"] == "authorized"
+        ads_valid = ads_valid and asset is not None and "internal_preview" in asset["permitted_modes"]
     check(
         "advertising_separated",
         ads_valid and not ads_in_editorial and not (ad_asset_ids & editorial_asset_ids),

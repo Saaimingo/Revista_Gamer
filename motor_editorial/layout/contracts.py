@@ -15,6 +15,9 @@ SCHEMA_PLAN = "LayoutPlan.v0"
 SCHEMA_VALIDATION = "CompositionValidation.v0"
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _SECTION_KINDS = {"heading", "paragraph", "figure_request", "comparison", "map_request"}
+_LICENSE_STATUSES = {
+    "authorized", "pending", "blocked", "not_applicable_synthetic_placeholder",
+}
 
 
 class ContractError(ValueError):
@@ -208,8 +211,11 @@ def validate_media_inventory(value: Any) -> dict[str, Any]:
         if not isinstance(linked_blocks, list) or any(not isinstance(item, str) for item in linked_blocks):
             raise ContractError(f"linked_block_ids inválido para {asset_id}.")
         license_info = asset.get("license")
-        if not isinstance(license_info, Mapping) or not isinstance(license_info.get("status"), str):
-            raise ContractError(f"license precisa registrar status para {asset_id}.")
+        license_status = license_info.get("status") if isinstance(license_info, Mapping) else None
+        if not isinstance(license_status, str) or license_status not in _LICENSE_STATUSES:
+            raise ContractError(
+                f"license.status precisa usar um estado conhecido para {asset_id}."
+            )
         asset_sha256 = asset.get("asset_sha256")
         dimensions = asset.get("dimensions")
         if asset.get("media_kind") == "placeholder":

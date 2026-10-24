@@ -9,6 +9,7 @@ from pathlib import Path
 
 from motor_editorial.db import Store
 from motor_editorial.layout.contracts import (
+    ContractError,
     SCHEMA_PLAN,
     profile_sha256,
     seal_artifact,
@@ -250,6 +251,63 @@ class LayoutContractTests(unittest.TestCase):
         self.assertEqual(validation["payload"]["status"], "FAIL")
         self.assertEqual(check_status["media_rights_gate"], "FAIL")
         self.assertEqual(check_status["advertising_separated"], "FAIL")
+
+    def test_license_and_rights_status_must_match_the_preview_mode(self) -> None:
+        story, inventory, local_index, _ = self.build_case(0)
+        needs = build_visual_needs(story)
+        references = local_index.search(
+            [tag for need in needs["needs"] for tag in need["tags"]], limit=3
+        )
+        cases = (
+            ("pending", "authorized", ["internal_preview"]),
+            ("authorized", "pending", ["internal_preview"]),
+            ("authorized", "authorized", []),
+        )
+        for license_status, rights_status, permitted_modes in cases:
+            with self.subTest(
+                license_status=license_status,
+                rights_status=rights_status,
+                permitted_modes=permitted_modes,
+            ):
+                inventory_payload = copy.deepcopy(inventory["payload"])
+                asset = inventory_payload["assets"][0]
+                asset.update({
+                    "media_kind": "editorial",
+                    "rights_status": rights_status,
+                    "synthetic": False,
+                    "asset_sha256": "a" * 64,
+                    "dimensions": {"width": 640, "height": 360},
+                    "license": {"status": license_status, "evidence": "fixture synthetic"},
+                    "permitted_modes": permitted_modes,
+                })
+                changed_inventory = validate_media_inventory(seal_artifact(
+                    inventory["artifact_id"], "MediaInventory.v0",
+                    inventory["revision"], inventory_payload,
+                ))
+                plan = plan_layout(
+                    story, changed_inventory, needs, references, local_index.fingerprint()
+                )
+                validation = validate_composition_validation(validate_plan(
+                    story, changed_inventory, plan,
+                    local_index.fingerprint(), local_index.references(),
+                ))
+                check_status = {
+                    check["check_id"]: check["status"]
+                    for check in validation["payload"]["checks"]
+                }
+                self.assertEqual(validation["payload"]["status"], "FAIL")
+                self.assertEqual(check_status["media_rights_gate"], "FAIL")
+
+    def test_unknown_license_status_is_not_accepted_by_the_contract(self) -> None:
+        _, inventory, _, _ = self.build_case(0)
+        inventory_payload = copy.deepcopy(inventory["payload"])
+        inventory_payload["assets"][0]["license"]["status"] = "arbitrary text"
+        changed_inventory = seal_artifact(
+            inventory["artifact_id"], "MediaInventory.v0",
+            inventory["revision"], inventory_payload,
+        )
+        with self.assertRaises(ContractError):
+            validate_media_inventory(changed_inventory)
 
     def test_missing_references_and_spread_mobile_fallback_fail_validation(self) -> None:
         story, inventory, local_index, plan = self.build_case(1)
