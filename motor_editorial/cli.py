@@ -12,6 +12,10 @@ from .db import Store
 from .domain import MotorError
 from .workflow import APPROVAL_PHRASE, EXCLUSION_PHRASE, Motor
 from .web import serve
+from .orchestration import TaskFailure
+from .orchestration_cli import add_commands as add_orchestration_commands
+from .orchestration_cli import handle as handle_orchestration_command
+from .siwc import SIWCError
 
 
 DEFAULT_DATA_DIR = Path(__file__).resolve().parent / "runtime"
@@ -44,6 +48,7 @@ def _build_parser() -> argparse.ArgumentParser:
     commands.add_parser("web", help="Abrir o painel local em 127.0.0.1.").add_argument(
         "--port", type=int, default=8765, help="Porta local (padrão: 8765)."
     )
+    add_orchestration_commands(commands)
     return parser
 
 
@@ -138,7 +143,13 @@ def main(argv: list[str] | None = None) -> int:
                 return 2
             serve(motor, args.port)
             return 0
-    except (MotorError, OSError, sqlite3.Error, ValueError, json.JSONDecodeError) as error:
+        orchestration_status = handle_orchestration_command(args, motor.store)
+        if orchestration_status is not None:
+            return orchestration_status
+    except TaskFailure as error:
+        print(f"Erro [{error.code}]: {error.summary}", file=sys.stderr)
+        return 2
+    except (MotorError, SIWCError, OSError, sqlite3.Error, ValueError, RuntimeError, json.JSONDecodeError) as error:
         print(f"Erro: {error}", file=sys.stderr)
         return 2
     return 2
