@@ -1,7 +1,7 @@
 # ENG-CODEX-006 — checkpoint de continuidade
 
-Atualizado: 2026-10-24 00:58 America/Sao_Paulo
-Unidade: **C2 — fluxo de correção, em andamento**
+Atualizado: 2026-10-24 01:01 America/Sao_Paulo
+Unidade: **C2 - fluxo de correcao, pendente**
 Última unidade concluída: **C1 — fluxo feliz**
 
 ## Estado confirmado
@@ -112,10 +112,11 @@ Unidade: **C2 — fluxo de correção, em andamento**
 ### C1 — fluxo feliz sintético (concluída)
 
 - Arquivos da unidade: `motor_editorial/factory.py`, `motor_editorial/fixtures/factory-demo.json`, `motor_editorial/tests/test_factory.py`, `motor_editorial/cli.py`, `motor_editorial/README.md` e `docs/engenharia/ENG-CODEX-006-C1-RELATORIO.md`. O relatório registra hashes completos dos artefatos; dados e HTML ficaram em `%TEMP%`.
+- Commit C1 `0bee601dd2dd6e7ae65f995f364fe005917850de` enviado; branch da PR #26 aponta para esse SHA, base `fa6eecf`, aberta em rascunho e sem reviews/merge. O corpo e o comentario da PR foram atualizados; comentario [6379590572](https://github.com/Saaimingo/Revista_Gamer/pull/26#issuecomment-6379590572). Issue #23 recebeu progresso C1/C2 em [6379591562](https://github.com/Saaimingo/Revista_Gamer/issues/23#issuecomment-6379591562). `origin/main=ce8f6a7` nao mudou.
 - A cadeia percorreu 15 tarefas por uma `AgentQueue`/`TaskDispatcher` e ledger únicos; `execution_attempts=0`. CLI `factory-demo` terminou em `simulated_approved_internally`, validação PASS (22 checks), prévia interna presente, `published=false` e zero chamadas de rede/SIWC/API paga. Nenhuma aprovação humana real ou edição real foi gravada.
 - Teste focado: `& '.\.venv\Scripts\python.exe' -m unittest motor_editorial.tests.test_factory -q` -> 2/2 OK em 3,394 s. A primeira tentativa de limpeza do SQLite falhou com `WinError 32`; o teste foi corrigido para fechar a conexão com `contextlib.closing` e passou novamente.
 - Suíte completa: primeira rodada 88/89, com `test_dispatcher_heartbeat_keeps_long_executor_owned_past_ttl` retornando `queued` em vez de `succeeded`; execução isolada passou 1/1 em 8,251 s; repetição serial completa passou 89/89 em 52,495 s. A causa da oscilação não foi isolada e permanece como observação de timing.
-- `compileall` passou. `git diff --check` passou antes dos documentos finais; será reexecutado antes do commit C1. Python 3.11.9.
+- `& '.\.venv\Scripts\python.exe' -m compileall -q motor_editorial` passou; `git diff --check` passou apos o codigo e `git diff --cached --check` passou com os documentos finais antes do commit. Python 3.11.9.
 - Limites: fixture somente fictícia e offline; não houve acesso a identidade real, serviço externo, publicação ou deploy. O detalhe de execução, hashes e comandos está em [relatório C1](ENG-CODEX-006-C1-RELATORIO.md).
 
 ## Próxima ação exata
@@ -124,4 +125,4 @@ C2 na branch `codex/eng-codex-006-e2e-experiment`: inspecionar `run_factory_demo
 
 ## Retomada segura
 
-Antes de qualquer nova edição: `git status --short --branch`; confirmar HEAD, `git ls-files -u` vazio e `.venv/` fora do stage. HEAD/PR #26 ainda estão em `d6e07ad` enquanto C1 aguarda commit; há alterações C1 locais listadas acima. Após o commit e push, registrar o SHA real e atualizar PR #26/Issue #23. Não refazer os testes já confirmados para o mesmo conteúdo; validar o HEAD resultante quando houver mudança de código.
+Antes de iniciar C2: git status --short --branch; confirmar branch codex/eng-codex-006-e2e-experiment, HEAD e git ls-files -u vazio. C1 foi commitada e enviada em 0bee601dd2dd6e7ae65f995f364fe005917850de; PR #26 segue draft e Issue #23 recebeu comentarios 6379590572 e 6379591562. origin/main=ce8f6a7 nao mudou. C2 ainda nao tem alteracoes de codigo: ler run_factory_demo() e motor_editorial/tests/test_factory.py, implementar revise em nova revisao e comprovar invalidacao dos artefatos e gate anteriores. Apos o commit deste checkpoint, a arvore deve ficar limpa.
