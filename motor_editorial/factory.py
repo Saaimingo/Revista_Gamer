@@ -144,19 +144,31 @@ def _source_ids(packet: Mapping[str, Any]) -> set[str]:
 
 
 def _editorial_output(
-    stage: str, packet: Mapping[str, Any], previous: Mapping[str, Any]
+    stage: str,
+    packet: Mapping[str, Any],
+    previous: Mapping[str, Any],
+    *,
+    review_flow: str = "pass",
+    source_disagreement: bool = False,
 ) -> dict[str, Any]:
     ids = [str(source["id"]) for source in packet["sources"]]
     if stage == "source_analysis":
         source = packet["sources"][0]
         return {"claims": [{
             "claim_id": "fictional-claim-01",
-            "claim": "Farol de Papel é um jogo fictício de exploração solo com mapas desenhados à mão.",
+            "claim": (
+                "As fontes fictícias divergem sobre a exploração solo e os mapas desenhados à mão."
+                if source_disagreement else
+                "Farol de Papel é um jogo fictício de exploração solo com mapas desenhados à mão."
+            ),
             "source_ids": ids,
             "evidence_excerpt": source["evidence"],
-            "assessment": "supported",
-            "confidence": "high",
-            "caveat": "A fixture não descreve um jogo real.",
+            "assessment": "uncertain" if source_disagreement else "supported",
+            "confidence": "medium" if source_disagreement else "high",
+            "caveat": (
+                "A divergência precisa permanecer explícita; a fixture não descreve um jogo real."
+                if source_disagreement else "A fixture não descreve um jogo real."
+            ),
         }]}
     if stage == "outline":
         return {
@@ -188,20 +200,51 @@ def _editorial_output(
     if stage in {"fact_check", "final_fact_check"}:
         article = previous["draft"] if stage == "fact_check" else previous["correction"]
         return {"findings": [{
-            "claim": "As fontes fictícias descrevem mapas desenhados à mão e exploração solo.",
+            "claim": (
+                "As fontes fictícias divergem sobre mapas desenhados à mão e exploração solo."
+                if source_disagreement else
+                "As fontes fictícias descrevem mapas desenhados à mão e exploração solo."
+            ),
             "source_ids": ids,
-            "status": "supported",
-            "confidence": "high",
-            "correction": "",
+            "status": "uncertain" if source_disagreement else "supported",
+            "confidence": "medium" if source_disagreement else "high",
+            "correction": (
+                "Preservar a divergência e pedir decisão editorial."
+                if source_disagreement else ""
+            ),
         }]}
     if stage in {"review", "final_review"}:
+        if stage == "review" and source_disagreement:
+            return {
+                "verdict": "hold",
+                "findings": ["As fontes fictícias divergem; falta decisão editorial para resolver a afirmação."],
+                "human_review_required": True,
+            }
+        if stage == "review" and review_flow == "hold":
+            return {
+                "verdict": "hold",
+                "findings": ["A fixture mantém a pauta em espera para decisão humana."],
+                "human_review_required": True,
+            }
+        if stage == "review" and review_flow == "revise":
+            return {
+                "verdict": "revise",
+                "findings": ["Esclarecer o que a nota secundária fictícia afirma e preservar o limite sobre a data."],
+                "human_review_required": True,
+            }
         return {"verdict": "pass", "findings": [], "human_review_required": True}
     if stage == "correction":
         article = previous["draft"]
+        original_sentence = (
+            "A cobertura secundária fictícia descreve a mesma combinação e também ressalta que não há data de lançamento informada [S2]."
+        )
+        corrected_sentence = (
+            "A nota secundária fictícia também descreve mapas desenhados à mão e exploração solo, sem informar data de lançamento [S2]."
+        )
         return {
             "headline": article["headline"],
             "dek": article["dek"],
-            "body_markdown": article["body_markdown"],
+            "body_markdown": article["body_markdown"].replace(original_sentence, corrected_sentence),
             "source_ids": article["source_ids"],
             "remaining_issues": [],
             "human_review_required": True,
@@ -228,28 +271,41 @@ def _build_story_package(payload: Mapping[str, Any]) -> dict[str, Any]:
     fixture = payload["fixture"]
     packet = payload["packet"]
     content_identities = payload["content_identities"]
+    revision_stage = review.get("reviewed_revision_stage")
     if review.get("verdict") != "pass" or not review_matches_revision(review, article):
         raise TaskFailure(
             "factory_review_not_current",
             "A revisão B2 não corresponde ao artigo corrente; StoryPackage não será criado.",
             blocked=True,
         )
-    if review.get("reviewed_revision_stage") != "draft":
+    if revision_stage not in {"draft", "correction"}:
         raise TaskFailure(
-            "factory_review_stage_mismatch", "A revisão deve apontar para o rascunho corrente.", blocked=True
+            "factory_review_stage_mismatch", "A revisão deve apontar para o rascunho ou correção corrente.", blocked=True
         )
+    if revision_stage == "correction":
+        final_fact_check = payload.get("final_fact_check")
+        if not isinstance(final_fact_check, Mapping) or final_fact_check.get(
+            "checked_revision_sha256"
+        ) != article_revision_sha256(article):
+            raise TaskFailure(
+                "factory_fact_check_not_current",
+                "A checagem final não corresponde à correção vigente; StoryPackage não será criado.",
+                blocked=True,
+            )
+    story_revision = 2 if revision_stage == "correction" else 1
     story_id = f"story-{fixture['run_id']}"
     figure = fixture["synthetic_figure"]
-    figure_block_id = f"{story_id}-{figure['block_id_suffix']}"
+    revision_prefix = f"{story_id}-r{story_revision}"
+    figure_block_id = f"{revision_prefix}-{figure['block_id_suffix']}"
     sections = [
         {
-            "block_id": f"{story_id}-heading-01",
+            "block_id": f"{revision_prefix}-heading-01",
             "kind": "heading",
             "text": outline["sections"][0]["heading"],
             "source_ids": list(outline["sections"][0]["source_ids"]),
         },
         {
-            "block_id": f"{story_id}-body-01",
+            "block_id": f"{revision_prefix}-body-01",
             "kind": "paragraph",
             "text": article["body_markdown"],
             "source_ids": list(article["source_ids"]),
@@ -277,7 +333,7 @@ def _build_story_package(payload: Mapping[str, Any]) -> dict[str, Any]:
     story_payload: dict[str, Any] = {
         "story_id": story_id,
         "edition_id": f"edition-{fixture['run_id']}",
-        "story_revision": 1,
+        "story_revision": story_revision,
         "title": article["headline"],
         "dek": article["dek"],
         "sections": sections,
@@ -289,6 +345,7 @@ def _build_story_package(payload: Mapping[str, Any]) -> dict[str, Any]:
             "article_revision_sha256": article_revision_sha256(article),
             "reviewed_revision_sha256": review["reviewed_revision_sha256"],
             "reviewed_revision_stage": review["reviewed_revision_stage"],
+            "story_revision": story_revision,
             "source_ids": packet_source_ids,
             "synthetic_fixture_only": True,
         },
@@ -307,7 +364,7 @@ def _build_story_package(payload: Mapping[str, Any]) -> dict[str, Any]:
         "human_approval": False,
         "synthetic_fixture": True,
     }
-    story = seal_artifact(story_id, SCHEMA_STORY, 1, story_payload)
+    story = seal_artifact(story_id, SCHEMA_STORY, story_revision, story_payload)
     return validate_story_package(story)
 
 
@@ -315,23 +372,27 @@ def _build_media_inventory(payload: Mapping[str, Any]) -> dict[str, Any]:
     fixture = payload["fixture"]
     story_id = f"story-{fixture['run_id']}"
     figure = fixture["synthetic_figure"]
-    block_id = f"{story_id}-{figure['block_id_suffix']}"
+    story_revision = int(payload.get("story_revision", 1))
+    revision_prefix = f"{story_id}-r{story_revision}"
+    rights_status = str(figure.get("test_rights_status", "synthetic_fixture"))
+    license_status = str(figure.get("test_license_status", "not_applicable_synthetic_placeholder"))
+    permitted_modes = list(figure.get("test_permitted_modes", ["internal_preview"]))
     inventory_payload = {
         "inventory_id": f"media-inventory-{fixture['run_id']}",
         "assets": [{
             "asset_id": figure["asset_id"],
             "media_kind": "placeholder",
-            "rights_status": "synthetic_fixture",
+            "rights_status": rights_status,
             "rights_holder": "SyntheticFactoryFixture.v0",
             "origin": "Placeholder textual definido pela fixture; sem bytes de imagem.",
             "credit": "Ativo fictício de validação interna.",
             "permitted_transformations": [],
-            "linked_block_ids": [block_id],
-            "license": {"status": "not_applicable_synthetic_placeholder"},
+            "linked_block_ids": [f"{revision_prefix}-{figure['block_id_suffix']}"],
+            "license": {"status": license_status},
             "asset_sha256": None,
             "dimensions": None,
-            "permitted_modes": ["internal_preview"],
-            "synthetic": True,
+            "permitted_modes": permitted_modes,
+            "synthetic": rights_status == "synthetic_fixture",
         }],
     }
     artifact = seal_artifact(
@@ -400,7 +461,15 @@ class SyntheticFactoryExecutor:
             raise TaskFailure("factory_previous_output_invalid", "Saídas anteriores inválidas.", blocked=True)
         build_stage_input(stage=stage, packet=packet, previous_outputs=previous)
         structured = validate_stage_output(
-            stage, _editorial_output(stage, packet, previous), _source_ids(packet)
+            stage,
+            _editorial_output(
+                stage,
+                packet,
+                previous,
+                review_flow=str(payload.get("review_flow", "pass")),
+                source_disagreement=bool(payload.get("source_disagreement", False)),
+            ),
+            _source_ids(packet),
         )
         if stage in {"review", "final_review"}:
             revision_stage = "draft" if stage == "review" else "correction"
@@ -469,17 +538,23 @@ class SyntheticFactoryExecutor:
         preview_html = str(payload["preview_html"])
         digest = hashlib.sha256(preview_html.encode("utf-8")).hexdigest()
         expected = validation["payload"].get("rendered_preview_sha256")
-        if validation["payload"].get("status") != "PASS" or digest != expected:
+        story_hash = story_revision_sha256(payload["story_package"]["payload"])
+        if (
+            validation["payload"].get("status") != "PASS"
+            or digest != expected
+            or validation["payload"].get("story_revision_sha256") != story_hash
+        ):
             raise TaskFailure("factory_preview_gate_failed", "Prévia não confere com a validação atual.", blocked=True)
         run_id = str(payload["run_id"])
         if not FACTORY_ID_RE.fullmatch(run_id):
             raise TaskFailure("factory_run_id_invalid", "run_id inválido para artefatos.", blocked=True)
-        preview_path = self.artifact_dir / "factory-demo" / run_id / "internal-preview.html"
+        preview_path = self.artifact_dir / "factory-demo" / run_id / f"internal-preview-{digest[:16]}.html"
         preview_path.parent.mkdir(parents=True, exist_ok=True)
         preview_path.write_text(preview_html, encoding="utf-8")
         return {
             "preview_path": str(preview_path),
             "preview_sha256": digest,
+            "story_revision_sha256": story_hash,
             "internal_only": True,
             "published": False,
         }
@@ -488,10 +563,17 @@ class SyntheticFactoryExecutor:
     def _human_gate(payload: Mapping[str, Any]) -> Mapping[str, Any]:
         validation = validate_composition_validation(payload["composition_validation"])
         preview = payload["internal_preview"]
+        story_hash = str(payload.get("story_revision_sha256", ""))
         if validation["payload"].get("status") != "PASS" or preview.get("internal_only") is not True:
             raise TaskFailure("factory_human_gate_closed", "O gate simulado exige prévia interna validada.", blocked=True)
         if payload.get("preview_sha256") != preview.get("preview_sha256"):
             raise TaskFailure("factory_preview_hash_mismatch", "A prévia não corresponde ao hash validado.", blocked=True)
+        if (
+            not story_hash
+            or validation["payload"].get("story_revision_sha256") != story_hash
+            or preview.get("story_revision_sha256") != story_hash
+        ):
+            raise TaskFailure("factory_story_revision_mismatch", "O gate não corresponde à revisão atual da matéria.", blocked=True)
         if payload.get("decision") == "hold":
             return {
                 "status": "simulated_on_hold",
@@ -507,6 +589,7 @@ class SyntheticFactoryExecutor:
             "actor": "fixture-human-approver",
             "simulated": True,
             "preview_sha256": preview["preview_sha256"],
+            "story_revision_sha256": story_hash,
             "publication_state": "not_published",
             "published": False,
         }
@@ -561,9 +644,13 @@ def run_factory_demo(
     fixture_path: Path | None = None,
     *,
     run_id: str | None = None,
+    review_flow: str = "pass",
+    source_disagreement: bool = False,
 ) -> dict[str, Any]:
     """Run a synthetic editorial-to-layout flow through one queue and dispatcher."""
     fixture = _load_fixture(fixture_path)
+    if review_flow not in {"pass", "revise", "hold"}:
+        raise FactoryFixtureError("review_flow deve ser pass, revise ou hold.")
     if run_id is not None:
         if not FACTORY_ID_RE.fullmatch(run_id):
             raise FactoryFixtureError("run_id informado é inválido.")
@@ -598,6 +685,8 @@ def run_factory_demo(
                 "previous_outputs": dict(previous),
                 "actor_role": _STAGE_ROLES[stage],
                 "content_identity": _identity_for_stage(fixture, stage),
+                "review_flow": review_flow,
+                "source_disagreement": source_disagreement,
             },
             profile=EDITORIAL_PROFILE,
         )
@@ -610,16 +699,42 @@ def run_factory_demo(
     outline = run_editorial("outline", {"source_analysis": source_analysis})
     draft = run_editorial("draft", {"source_analysis": source_analysis, "outline": outline})
     fact_check = run_editorial("fact_check", {"draft": draft})
-    review = run_editorial("review", {"draft": draft, "fact_check": fact_check})
-    if review.get("verdict") != "pass" or not review_matches_revision(review, draft):
-        raise TaskFailure("factory_review_not_current", "Revisão inicial não aprovou a revisão corrente.", blocked=True)
+    initial_review = run_editorial("review", {"draft": draft, "fact_check": fact_check})
+    if not review_matches_revision(initial_review, draft):
+        raise TaskFailure(
+            "factory_initial_review_not_current",
+            "A revisão inicial não corresponde ao rascunho corrente; o fluxo não pode avançar.",
+            blocked=True,
+        )
+    if initial_review.get("verdict") == "revise":
+        correction = run_editorial("correction", {
+            "draft": draft, "fact_check": fact_check, "review": initial_review,
+        })
+        if article_revision_sha256(correction) == article_revision_sha256(draft):
+            raise TaskFailure("factory_correction_not_new_revision", "A correção não criou um novo hash de artigo.", blocked=True)
+        final_fact_check = run_editorial("final_fact_check", {"correction": correction})
+        final_review = run_editorial("final_review", {
+            "correction": correction, "final_fact_check": final_fact_check,
+        })
+        article = correction
+        review = final_review
+        if final_fact_check.get("checked_revision_sha256") != article_revision_sha256(article):
+            raise TaskFailure("factory_fact_check_not_current", "A checagem final não corresponde à correção.", blocked=True)
+    elif initial_review.get("verdict") == "pass":
+        article = draft
+        review = initial_review
+    else:
+        raise TaskFailure("factory_editorial_hold", "A pauta ficou em espera; o gate humano precisa resolver a divergência.", blocked=True)
+    if not review_matches_revision(review, article):
+        raise TaskFailure("factory_review_not_current", "Revisão final não aprova a revisão corrente.", blocked=True)
+    story_revision = 2 if review.get("reviewed_revision_stage") == "correction" else 1
 
     run_fixture = {**fixture, "run_id": fixture["run_id"]}
     media_result, media_task = _run_task(
         queue, dispatcher,
         task_type=MEDIA_TASK_TYPE,
         stage="rights_inventory",
-        payload={"run_id": fixture["run_id"], "fixture": run_fixture},
+        payload={"run_id": fixture["run_id"], "fixture": run_fixture, "story_revision": story_revision},
         profile=MEDIA_PROFILE,
     )
     tasks.append(media_task)
@@ -631,11 +746,12 @@ def run_factory_demo(
         stage="story_package",
         payload={
             "run_id": fixture["run_id"], "fixture": run_fixture, "packet": packet,
-            "article": draft, "outline": outline, "review": review,
+            "article": article, "outline": outline, "review": review,
+            "final_fact_check": outputs.get("final_fact_check"),
             "content_identities": {
                 "editor": stage_identities["outline"],
-                "writer_persona": stage_identities["draft"],
-                "reviewer": stage_identities["review"],
+                "writer_persona": stage_identities.get("correction", stage_identities["draft"]),
+                "reviewer": stage_identities.get("final_review", stage_identities["review"]),
             },
         },
         profile=PACKAGE_PROFILE,
@@ -733,7 +849,7 @@ def run_factory_demo(
         stage="persist_internal_preview",
         payload={
             "run_id": fixture["run_id"], "preview_html": preview_html,
-            "composition_validation": composition_validation,
+            "composition_validation": composition_validation, "story_package": story_package,
         },
         profile=LAYOUT_PROFILE,
     )
@@ -748,6 +864,7 @@ def run_factory_demo(
             "decision": fixture["simulated_human_decision"],
             "internal_preview": internal_preview,
             "preview_sha256": internal_preview["preview_sha256"],
+            "story_revision_sha256": story_revision_sha256(story_package["payload"]),
             "composition_validation": composition_validation,
         },
         profile=GATE_PROFILE,
@@ -772,8 +889,14 @@ def run_factory_demo(
             "profile_version": task.profile_version,
             "profile_hash": task.profile_hash,
         } for task in tasks],
-        "article_revision_sha256": article_revision_sha256(draft),
+        "review_flow": review_flow,
+        "source_disagreement": source_disagreement,
+        "initial_article_revision_sha256": article_revision_sha256(draft),
+        "article_revision_sha256": article_revision_sha256(article),
+        "initial_reviewed_revision_sha256": initial_review["reviewed_revision_sha256"],
         "reviewed_revision_sha256": review["reviewed_revision_sha256"],
+        "reviewed_revision_stage": review["reviewed_revision_stage"],
+        "story_revision": story_package["payload"]["story_revision"],
         "story_package": {
             "artifact_id": story_package["artifact_id"],
             "schema_version": story_package["schema_version"],

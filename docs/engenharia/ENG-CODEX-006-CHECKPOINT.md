@@ -1,8 +1,8 @@
 # ENG-CODEX-006 — checkpoint de continuidade
 
-Atualizado: 2026-10-24 01:01 America/Sao_Paulo
-Unidade: **C2 - fluxo de correcao, pendente**
-Última unidade concluída: **C1 — fluxo feliz**
+Atualizado: 2026-10-24 17:18 America/Sao_Paulo
+Unidade: **C3 — fluxos negativos, em andamento**
+Última unidade concluída: **C2 — fluxo de correção**
 
 ## Estado confirmado
 
@@ -119,13 +119,25 @@ Unidade: **C2 - fluxo de correcao, pendente**
 - `& '.\.venv\Scripts\python.exe' -m compileall -q motor_editorial` passou; `git diff --check` passou apos o codigo e `git diff --cached --check` passou com os documentos finais antes do commit. Python 3.11.9.
 - Limites: fixture somente fictícia e offline; não houve acesso a identidade real, serviço externo, publicação ou deploy. O detalhe de execução, hashes e comandos está em [relatório C1](ENG-CODEX-006-C1-RELATORIO.md).
 
+### C2 — fluxo de correção (concluída)
+
+- Alterados `motor_editorial/factory.py`, `motor_editorial/cli.py` e `motor_editorial/tests/test_factory.py`; criado [relatório C2](ENG-CODEX-006-C2-RELATORIO.md). A CLI aceita `--review-flow pass|revise|hold`.
+- `revise` agora executa correção com novo hash, `final_fact_check`, `final_review`, `StoryPackage.v0` revisão 2, novos IDs de blocos, plano, validação e preview. A revisão A4 nova é ligada ao hash da correção B2; a checagem final também confere esse hash.
+- Os arquivos de preview são identificados pelo SHA-256 do HTML. O gate valida que `CompositionValidation`, preview e revisão atual do StoryPackage apontam para o mesmo hash; um preview antigo é rejeitado como `factory_story_revision_mismatch`.
+- Teste focado: `& '.\.venv\Scripts\python.exe' -m unittest motor_editorial.tests.test_factory.SyntheticFactoryTests.test_revise_flow_creates_new_revision_and_never_reuses_old_preview_or_gate -v` → 1/1 OK em 4,961 s. O teste faz fluxo feliz e `revise` no mesmo `run_id`, verifica dispatcher único na execução C2 e prova que gate/plano/pacote/preview antigos não são reutilizados.
+- CLI executada: `& '.\.venv\Scripts\python.exe' -m motor_editorial --data-dir "$env:TEMP\rg-eng-codex-006-c2-cli-proof" factory-demo --run-id codex-006-c2-cli-proof --review-flow revise` → exit 0, 18/18 tarefas succeeded, revisão 2, validação PASS (22 checks), `simulated_approved_internally`, `published=false`, sem chamadas de rede/SIWC/API paga. Hashes e caminho `%TEMP%` em `ENG-CODEX-006-C2-RELATORIO.md`.
+- `& '.\.venv\Scripts\python.exe' -m unittest motor_editorial.tests.test_factory -v` → 8/8 OK; cobre também cenários iniciados em C3. `compileall` e `git diff --check` → exit 0.
+- Limites: dados exclusivamente sintéticos. O estado aprovado é apenas fixture; não é aceite humano, não altera edição real e não publica. C3 ainda requer fechamento documental e validação das regressões adjacentes.
+
 ## Próxima ação exata
 
-C2 na branch `codex/eng-codex-006-e2e-experiment`: inspecionar `run_factory_demo()` e seus testes; adicionar um cenário sintético `revise` que produza correção como revisão nova, hash de artigo novo, nova checagem/revisão e regeneração de `StoryPackage.v0`, plano e prévia. Assegurar que revisão/plano/prévia e gate da execução anterior não sejam reutilizados como atuais. Manter uma única fila/dispatcher/ledger; acrescentar regressão da invalidação e da ausência de aprovação reaproveitada; rodar validações focadas exigidas por C2, suíte completa se necessária, `compileall` e `git diff --check`; registrar evidências antes de C3.
+C3 na branch `codex/eng-codex-006-e2e-experiment`: fechar testes negativos de divergência de fontes, identidades incompatíveis, direitos pendentes/bloqueados, plano adulterado, hash obsoleto, interrupção/restart, falha/retry e retomada. Reexecutar o teste de adulteração de ordem de A4 e os módulos necessários; garantir que fluxos bloqueados não criem preview/gate e os retomados não repitam tarefas concluídas. Atualizar relatório/checkpoint com evidência final e commit/push antes de C4.
 
 ## Retomada segura
 
-Antes de iniciar C2: git status --short --branch; confirmar branch codex/eng-codex-006-e2e-experiment, HEAD e git ls-files -u vazio. C1 foi commitada e enviada em 0bee601dd2dd6e7ae65f995f364fe005917850de; PR #26 segue draft e Issue #23 recebeu comentarios 6379590572 e 6379591562. origin/main=ce8f6a7 nao mudou. C2 ainda nao tem alteracoes de codigo: ler run_factory_demo() e motor_editorial/tests/test_factory.py, implementar revise em nova revisao e comprovar invalidacao dos artefatos e gate anteriores. Apos o commit deste checkpoint, a arvore deve ficar limpa.
+Retomada desta sessão (2026-10-24 17:18 America/Sao_Paulo): branch `codex/eng-codex-006-e2e-experiment`, upstream `origin/codex/eng-codex-006-e2e-experiment`, HEAD-base `daecb5c31f1dd8c2fa96db7bbaae3f2ceedf8c9b8`, árvore limpa antes do C2; `git ls-files -u` vazio. Estado GitHub revalidado: Issue #23 aberta com cinco comentários; a diretriz é [6378715359](https://github.com/Saaimingo/Revista_Gamer/issues/23#issuecomment-6378715359), progresso C1 é [6379591562](https://github.com/Saaimingo/Revista_Gamer/issues/23#issuecomment-6379591562). PR #26 aberta, draft, mergeable, sem reviews ou threads, base `fa6eecf3e1e2f8662b5f5b53376f245df36c6785`, head `daecb5c31f1dd8c2fa96db7bbaae3f2ceedf8c9b8`; `origin/main=ce8f6a7b65c2050d5da851491c9c89835f82c3a2`; nenhum merge. A PR #26 ainda não recebeu evidência C2.
+
+Trabalho C2 foi implementado e validado, mas os arquivos acima ainda precisam ser commitados/enviados nesta retomada. O C3 está tecnicamente coberto no `test_factory.py` e passou nos 8 testes focados, mas seu fechamento requer executar os módulos A4/fluxo editorial/multipauta, gerar relatório próprio e registrar evidências completas. Depois do commit/push, confira `git status --short --branch` e `git rev-parse HEAD origin/codex/eng-codex-006-e2e-experiment`.
 
 ## Pausa a pedido do usuario — 2026-10-24 01:10 America/Sao_Paulo
 

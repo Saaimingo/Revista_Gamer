@@ -49,6 +49,10 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     factory_demo.add_argument("--fixture", type=Path, default=None, help="Fixture sintética local da esteira.")
     factory_demo.add_argument("--run-id", default=None, help="ID estável opcional para retomar a mesma esteira.")
+    factory_demo.add_argument(
+        "--review-flow", choices=("pass", "revise", "hold"), default="pass",
+        help="Resultado sintético da revisão inicial: pass, revise ou hold.",
+    )
     run_story = commands.add_parser("run-story", help="Retomar somente uma pauta multipauta.")
     run_story.add_argument("run_id")
     run_story.add_argument("story_id")
@@ -124,7 +128,9 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(report, ensure_ascii=False, indent=2))
             return 0 if report["status"] == "awaiting_approval" else 2
         if args.command == "factory-demo":
-            report = run_factory_demo(motor.store, args.fixture, run_id=args.run_id)
+            report = run_factory_demo(
+                motor.store, args.fixture, run_id=args.run_id, review_flow=args.review_flow
+            )
             print(json.dumps(report, ensure_ascii=False, indent=2))
             return 0 if report["status"] in {
                 "simulated_approved_internally", "simulated_on_hold",
