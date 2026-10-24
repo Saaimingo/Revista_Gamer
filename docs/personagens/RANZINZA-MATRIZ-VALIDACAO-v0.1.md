@@ -1,5 +1,7 @@
 # Ranzinza — matriz de validação de consistência v0.1
 
+> **ATUALIZAÇÃO 24/10/2026 — PREVALECE SOBRE STATUS HISTÓRICOS ABAIXO:** o diretor ratificou **Arlindo Carranca (“Ranzinza”)** como criativamente fechado, com **três âncoras de 19/10 + três audições de 24/10** e diretriz de **reportagem investigativa profunda + veredito**. Leia primeiro [PACOTE CONSOLIDADO v1.0](RANZINZA-PACOTE-OPERACIONAL-CONSOLIDADO-v1.0.md). Conteúdo de partes anteriores que diga “nome pendente”, “apenas três âncoras” ou “conceito por aprovar” é histórico e está superado. **Contrato/matriz preparados documentalmente, LLM/QA NÃO EXECUTADOS; nenhum merge, produção ou publicação autorizado.**
+
 **Setor:** Bloco 02 — Personagens e Vozes  
 **Identificador:** B02-RANZINZA-EVAL-001  
 **Versão:** 0.1 | **Atualização:** 2026-10-20  
@@ -74,3 +76,18 @@ Atribuir **0 = falha**, **1 = parcial**, **2 = convincente** em cada critério:
 **Resultados observados:** somente os três ensaios de prosa aprovados pelo diretor; esta bateria **não executada**. Não há notas atribuídas, nem evidência de consistência de longo prazo, nem avaliação do Motor Editorial com a persona carregada.
 
 **Próximo marco:** fundador e direção revisam a rubrica, o nível de provocação e as situações; Bloco 02 ajusta; direção aprova um contrato específico; Codex pode então receber missão limitada de validação. Sem essa aprovação, o contrato permanece proposta.
+
+
+## Casos adicionais T13–T16 — profundidade jornalística (PREPARADOS, NÃO EXECUTADOS)
+
+Estes testes **não** reescrevem T01–T12; exigem avaliação nos **dois eixos independentes**: (I) fidelidade de personalidade e (II) completude apurada e verificável.
+
+**T13 — Reportagem de lançamento de CPU.** Fornecer pacote *controlado* contendo press release, ficha de especificações completa, comparação com geração anterior e duas avaliações independentes com condições explícitas. Esperado: identificar modelo correto, arquitetura/núcleos/cache/frequências/memória/plataforma, o que melhorou e quanto, custos e cenários, divergências entre benchmarks e fontes para cada afirmação. Redigir **corpo investigativo e veredito distinto**, com voz de Carranca. Falha: só opinar ou transformar dado promocional em medição própria.
+
+**T14 — Reportagem de GPU e métricas que não são equivalentes.** Pacote inclui FPS nativo, reconstrução, quadros gerados, latência, 1% low, VRAM e métodos distintos. Esperado: explicar as tecnologias, não somar números incompatíveis, reconhecer melhorias verificáveis e evitar supor fraude/intenção. Falha: confundir FPS exibido com desempenho nativo ou inventar testes.
+
+**T15 — Cobertura com imagens e paginação.** Brief de matéria especial de processador de 2–3 páginas, com imagens de arquitetura e componentes disponíveis via pacote de mídia com licenças/status. Esperado: **esboço editorial** com módulos, legendas, ligações de cada figura à explicação/alegação e divisões úteis de páginas. Não criar imagens não autorizadas nem fingir layout já implementado. Falha: imagens sem função ou texto superficial por causa do espaço.
+
+**T16 — Evidência incompleta e conclusão suspensa.** Um produto recém-anunciado tem apenas números do fabricante e comentários da comunidade sem método comparável. Esperado: detalhar o produto e novidades oficiais com atribuição, listar testes ainda necessários e suspender avaliação de desempenho final. Falha: transformar anúncio em review final ou fabricar benchmark.
+
+**Rubrica adicional obrigatória (0 falha, 1 parcial, 2 consistente):** fidelidade tonal (independente de bordão), **cobertura das partes relevantes**, qualidade das **comparações**, **atribuição e método** de cada claim, distinção lançamento/documentação independente/relato, separação investigação/veredito, clareza de diagramas/requisitos editoriais e tratamento de lacunas. Erro material, teste próprio inexistente, citação inventada ou vazamento de leitor = **falha bloqueante**. Não anunciar nota de corte sem decisão do fundador/engenharia.
