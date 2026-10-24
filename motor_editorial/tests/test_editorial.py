@@ -406,6 +406,31 @@ class EditorialPacketTests(unittest.TestCase):
             self.assertEqual(resume_client.catalog_calls, 1)
             self.assertEqual(resume_client.stage_calls, [])
 
+    def test_initial_pass_stops_at_human_approval_without_correction(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            packet_path = root / "packet.json"
+            packet_path.write_text(json.dumps(source_packet(), ensure_ascii=False), encoding="utf-8")
+            store = Store(root / "motor.sqlite3", root / "artifacts")
+            client = PipelineStubClient(review_verdict="pass")
+            code, summary = self._run_pipeline(store, client, packet_path)
+
+            self.assertEqual(code, 0)
+            self.assertEqual(summary["execution_status"], "completed")
+            self.assertEqual(summary["editorial_status"], "awaiting_human_approval")
+            self.assertEqual(summary["human_approval_status"], "pending")
+            self.assertEqual(client.stage_calls, list(EDITORIAL_STAGES[:5]))
+            artifact = json.loads(Path(summary["artifact"]).read_text(encoding="utf-8"))
+            self.assertNotIn("correction", artifact["outputs"])
+            self.assertEqual(artifact["final_article"], artifact["outputs"]["draft"])
+            self.assertEqual(
+                summary["reviewed_revision_sha256"],
+                article_revision_sha256(artifact["final_article"]),
+            )
+            self.assertTrue(summary["current_review_matches_final_article"])
+            self.assertFalse(summary["ready_for_publication"])
+            self.assertEqual(summary["publication_state"], "not_published")
+
     def test_hold_blocks_before_correction_and_preserves_human_decision(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
