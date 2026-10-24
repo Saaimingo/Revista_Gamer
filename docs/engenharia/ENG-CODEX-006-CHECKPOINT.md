@@ -133,3 +133,8 @@ Antes de iniciar C2: git status --short --branch; confirmar branch codex/eng-cod
 - Estado conferido antes deste registro: branch `codex/eng-codex-006-e2e-experiment`, HEAD `abbd838ecce7e79b5cf5fda7368e6c5062ed5865`, arvore limpa e sincronizada com `origin/codex/eng-codex-006-e2e-experiment`.
 - Criado `retomar-eng-codex-006.cmd` na raiz. O atalho abre uma nova sessao do Codex CLI na pasta deste repositorio e passa as instrucoes para revalidar os documentos, GitHub e checkpoint antes de retomar em C2 e seguir ate D2. Ele nao restaura esta conversa do ChatGPT; usa o checkpoint persistido e o historico proprio do CLI.
 - Proximo passo: executar o atalho, confirmar o estado vivo da branch/PR/Issue conforme as instrucoes e iniciar C2. Nao repetir C1 sem necessidade; respeitar todos os limites ja registrados acima.
+## Evidencia final da pausa — 2026-10-24 01:11 America/Sao_Paulo
+
+- `git diff --check` passou para o checkpoint e o atalho.
+- Commit `dda9236ee06d229121c9759a923fd65554338d07` (`docs: add ENG-CODEX-006 resume launcher`) foi enviado para `origin/codex/eng-codex-006-e2e-experiment`.
+- Apos o push, `git status --short --branch` mostrou a branch sincronizada e sem alteracoes pendentes. Nenhuma validacao C2 foi executada porque C2 ainda nao foi iniciada.
