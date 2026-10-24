@@ -23,7 +23,7 @@ O novo chat deve ler os documentos abaixo, verificar os PRs ainda pendentes em s
 
 **Arlindo Carranca ("Ranzinza"):** 47 anos ficcionais aproximadamente, nome, DNA conceitual, Protótipo A e três âncoras anteriores aprovados. **Mais três audições de expressividade APROVADAS em 24/10**. Testes operacionais pendentes. Documento textual [PR #13](https://github.com/Saaimingo/Revista_Gamer/pull/13) e PNGs [PR #14](https://github.com/Saaimingo/Revista_Gamer/pull/14), separados e não integrados em `main` na última conferência.
 
-**Beto Cartucho:** ~43 anos, anfitrião apaixonado por games, nome, ritual **"Puxa a cadeira, chega mais!"**, quatro contratos e painel visual inteiramente aceitos criativamente. [PR #19](https://github.com/Saaimingo/Revista_Gamer/pull/19) aberta; testes e PNG master de arte pendentes de confirmação de arquivamento.
+**Beto Cartucho:** ~43 anos, anfitrião apaixonado por games, nome, ritual **"Puxa a cadeira, chega mais!"**, quatro contratos e painel visual inteiramente aceitos criativamente. [PR #19](https://github.com/Saaimingo/Revista_Gamer/pull/19) aberta e em rascunho; **PNG master original aprovado ARQUIVADO e conferido em 24/10/2026** ([arte de 1536 × 1024](https://github.com/Saaimingo/Revista_Gamer/blob/bloco-02/gamer-dna-v02/docs/personagens/assets/beto-cartucho/visual-master-aprovado-2026-10-23.png)); JPG auxiliar mantido; **testes de persona e merge continuam pendentes**.
 
 **Nina Prisma:** **22 anos**, concluindo Jornalismo, brasileira de ascendência chinesa como biografia ficcional, exploradora de mods, indies, comunidades criativas, anime e jogos alternativos sem exclusividade. Nome, núcleo mental, temperamento e **tom jornalístico expressivo equilibrado** definidos no diálogo. O diretor escolheu **fisionomia da primeira imagem fotográfica** entre três. A primeira prancha posterior cartunesca foi rejeitada; nova imagem fotográfica foi encaminhada ao Codex e um JPEG aparece no [PR #19](https://github.com/Saaimingo/Revista_Gamer/pull/19). Contratos e testes finais de Nina ainda não concluídos.
 
@@ -45,3 +45,8 @@ O novo chat deve ler os documentos abaixo, verificar os PRs ainda pendentes em s
 Sempre que a direção ratificar uma etapa importante, fazer **adendo datado ou novo checkpoint versionado** e ligar o novo documento aqui, após verificar o repositório e a autorização. Não apagar histórico nem anunciar merge/validação/publicação sem evidência.
 
 **O backup não substitui armazenamento permanente de mídias binárias nem um export completo de chat**. Ele preserva o estado operacional e o conteúdo de audições críticas. Consultar a imagem original e os PRs para as fontes primárias.
+
+
+### Atualização de mídia — Beto Cartucho (24/10/2026)
+
+**Pendência de PNG master resolvida na PR #19.** Original PNG em `docs/personagens/assets/beto-cartucho/visual-master-aprovado-2026-10-23.png`, resolução 1536 × 1024, 2.579.649 bytes, SHA-256 documentado `49a1059f25653b499cefbf1ae1f770342c146e4c185551ecfcc55ea793353558`. Conferi a presença e o tamanho na árvore Git e o manifesto atualizado; o hash SHA-256 é o informado no manifesto/relatório técnico do Codex (não recalculado aqui a partir dos bytes). O JPEG permanece como auxiliar. Ver [manifesto](https://github.com/Saaimingo/Revista_Gamer/blob/bloco-02/gamer-dna-v02/docs/personagens/BETO-CARTUCHO-IDENTIDADE-VISUAL-APROVADA-2026-10-23.md). Não pedir nova geração nem novo upload do PNG.
