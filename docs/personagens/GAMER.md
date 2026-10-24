@@ -1,8 +1,8 @@
 # Beto Cartucho — perfil consolidado do jornalista virtual v0.2
 
 **Setor:** Bloco 02 — Personagens | **Versão:** 0.2 | **Data:** 2026-10-23  
-**Status:** **EM REVISÃO** dos contratos/amostras; **nome, ritual e identidade visual aprovados pela direção em 23/10/2026**; ativo binário ainda não arquivado no GitHub; perfil não implementado nem validado.  
-**Nome público aprovado:** **Beto Cartucho** | **Visual:** **painel original aprovado sem alterações** ([manifesto e SHA-256](BETO-CARTUCHO-IDENTIDADE-VISUAL-APROVADA-2026-10-23.md)); **PNG ainda pendente de arquivamento** | **Ritual aprovado:** **“Puxa a cadeira, chega mais!”** | **Voz sonora:** futura.
+**Status:** **EM REVISÃO** dos contratos/amostras; **nome, ritual e identidade visual aprovados pela direção em 23/10/2026**; PNG master arquivado e verificado no GitHub; perfil não implementado nem validado.  
+**Nome público aprovado:** **Beto Cartucho** | **Visual:** **painel original aprovado sem alterações** ([manifesto e SHA-256](BETO-CARTUCHO-IDENTIDADE-VISUAL-APROVADA-2026-10-23.md)); **PNG master arquivado e verificado** | **Ritual aprovado:** **“Puxa a cadeira, chega mais!”** | **Voz sonora:** futura.
 
 ## Quem ele é
 
@@ -37,4 +37,4 @@
 
 Não fingir teste de hardware, jogatina pessoal, memórias literais verificadas, entrevistas, notas ou acesso exclusivo. Não atribuir consenso à comunidade sem amostra, nem confundir trailer com gameplay final. Personagem público fictício e IA identificada pela revista.
 
-**Entregável atual:** documentação em revisão, sem aceite operacional. A avaliação de amostras e a preservação verificável do PNG visual aprovado antecedem congelar v1.0. O início da concepção do Historiador é independente desses testes.
+**Entregável atual:** documentação em revisão, sem aceite operacional. A preservação verificável do PNG visual aprovado foi concluída; a avaliação de amostras ainda antecede congelar v1.0. O início da concepção do Historiador é independente desses testes.

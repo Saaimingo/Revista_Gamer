@@ -22,27 +22,27 @@
 - `GAMER-CONTRATO-CARREGAMENTO-E-VALIDACAO-v0.2.md` — carregamento multimo­delo, interface e gatilhos de validação.
 - `GAMER-AMOSTRAS-CANDIDATAS-v0.2.md` — quatro âncoras em emoções/gêneros diversos.
 - `GAMER-MATRIZ-DE-TESTES-v0.2.md` — T01–T12, critério e estados; **não executados**.
-- `GAMER-PENDENCIAS-NOME-VISUAL-RITUAL-v0.2.md` — nome, ritual e visual aprovados; o PNG mestre ainda precisa de arquivamento verificável.
+- `GAMER-PENDENCIAS-NOME-VISUAL-RITUAL-v0.2.md` — nome, ritual e visual aprovados; o PNG mestre está arquivado e verificado.
 - `BETO-CARTUCHO-IDENTIDADE-VISUAL-APROVADA-2026-10-23.md` — identidade exata aprovada com SHA-256 e instruções de preservação.
 
 ## O que foi decidido vs. pendente
 
 **Conceito encaminhado pela direção:** paixão por jogos, calor de anfitrião, convite e intimidade cordial, viagem narrativa, repertório da geração Atari/Master System → 16 bits → PlayStation/PC → presente, capacidade de elogiar e criticar, personalidade independente do LLM.  
 **Em revisão:** palavras exatas dos contratos e os quatro textos de exemplo; NÃO houve aceite específico dessas versões.  
-**Decisões criativas aprovadas:** (1) nome **Beto Cartucho**; (2) ritual **“Puxa a cadeira, chega mais!”**; (3) **painel original inteiro aprovado sem alterações em 23/10/2026**. **Pendência técnica de arquivamento:** o PNG original ainda não está hospedado no GitHub; preservar o hash do [manifesto visual](BETO-CARTUCHO-IDENTIDADE-VISUAL-APROVADA-2026-10-23.md), sem gerar substituto.  
+**Decisões criativas aprovadas:** (1) nome **Beto Cartucho**; (2) ritual **“Puxa a cadeira, chega mais!”**; (3) **painel original inteiro aprovado sem alterações em 23/10/2026**. **Preservação técnica concluída:** o PNG original está arquivado na PR #19 em [`assets/beto-cartucho/visual-master-aprovado-2026-10-23.png`](assets/beto-cartucho/visual-master-aprovado-2026-10-23.png); o hash do [manifesto visual](BETO-CARTUCHO-IDENTIDADE-VISUAL-APROVADA-2026-10-23.md) confere, sem conversão ou regeneração.  
 **Futuro operacional, não dúvida criativa adicional:** testes com LLMs reais, integração técnica, validação de fontes/direitos e aprovação de publicação.
 
 ## Bloqueios / riscos
 
 - Não confundir idade e repertório imaginados com testes ou lembranças humanas verificadas.
 - Não afirmar estado atual de lançamento de GTA VI a partir de ensaio hipotético.
-- Não transferir a comicidade do Ranzinza nem a investigação histórica do Historiador para substituir a motivação de Gamer X.
+- Não transferir a comicidade do Ranzinza nem a investigação histórica do Historiador para dentro da personalidade própria de Beto Cartucho.
 - Preservar **nome, bordão e o retrato exato** aprovados; não escolher automaticamente outro rosto, voz ou LLM por praticidade.
 - Não ativar operação/automação/rede social/publicação ou merge em decorrência deste documento.
 
 ## Próximos passos recomendados
 
-1. Fundador reconhece as três escolhas criativas aprovadas, solicita a preservação binária verificável do PNG original (sem modificações) e revisa o pacote como conjunto.
+1. Fundador reconhece as três escolhas criativas aprovadas e a preservação binária verificável do PNG original; revisa o pacote como conjunto.
 2. Bloco 02 finaliza variações/âncoras e captura aceites registrados.
 3. Fundador compara compatibilidade com a constituição e setores; Bloco 04 confere método, Bloco 03 integra **retrato já escolhido**, Bloco 05 avalia direitos de componentes e usos pretendidos.
 4. Codex, sob missão própria, executa testes de portabilidade e registra resultados; aprovação técnica e publicação são gates distintos.

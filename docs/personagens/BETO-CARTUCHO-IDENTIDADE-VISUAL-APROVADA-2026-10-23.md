@@ -3,7 +3,7 @@
 **Setor:** Bloco 02 — Personagens e Assinaturas  
 **Identificador:** B02-BETO-VIS-001 | **Versão do registro:** 1.0 | **Data:** 2026-10-23  
 **Status criativo:** **APROVADO PELA DIREÇÃO, INTEGRALMENTE, SEM ALTERAÇÕES**  
-**Estado do ativo binário master:** **PENDENTE DE ARQUIVAMENTO PERMANENTE** — o PNG original aprovado ainda não foi anexado ao GitHub. Há uma cópia JPG suplementar recebida da direção, mas ela não é o master nem comprova que o PNG exato esteja arquivado.
+**Estado do ativo binário master:** **ARQUIVADO E VERIFICADO** — o PNG original aprovado foi arquivado sem alteração em [`assets/beto-cartucho/visual-master-aprovado-2026-10-23.png`](assets/beto-cartucho/visual-master-aprovado-2026-10-23.png) na branch `bloco-02/gamer-dna-v02` (PR #19). A cópia JPG permanece como referência suplementar.
 **Aprovador:** diretor, aprovação verbal expressa na conversa de 23/10/2026.
 
 ## Decisão inequívoca
@@ -20,9 +20,9 @@ A direção aprovou o **painel visual completo gerado na conversa**, reconhecend
 - **Tamanho:** **2.579.649 bytes**.
 - **SHA-256:** `49a1059f25653b499cefbf1ae1f770342c146e4c185551ecfcc55ea793353558`
 - **Armazenamento atual:** arquivo gerado/anexado à conversa do Bloco 02 e disponível localmente durante a elaboração deste registro. Caminho do ambiente temporário **não é URL pública ou caminho persistente do repositório**.
-- **Armazenamento futuro sugerido:** `docs/personagens/assets/beto-cartucho/visual-master-aprovado-2026-10-23.png` (caminho candidato, **AINDA INEXISTENTE no repositório**); confirmar permissão de mídia e estratégia de binários no GitHub antes de realizar cópia.
+- **Armazenamento verificado:** [`assets/beto-cartucho/visual-master-aprovado-2026-10-23.png`](assets/beto-cartucho/visual-master-aprovado-2026-10-23.png), na branch `bloco-02/gamer-dna-v02` da PR #19.
 
-**Procedimento de preservação:** obter o mesmo PNG original da conversa, salvar cópia em armazenamento autorizado, comparar SHA-256 e dimensões, registrar URI/commit e só então mudar `asset_status` de `pending_archive` para `archived_verified`. Se hash divergente, o arquivo não é o master aprovado. Não fazer upload de uma recriação em seu lugar.
+**Preservação executada em 24/10/2026:** o PNG original da conversa foi arquivado no caminho verificado acima, sem conversão, edição ou recompressão. O SHA-256, as dimensões e o tamanho correspondem ao manifesto; `asset_status=archived_verified`. O JPG segue como cópia suplementar. Nenhuma recriação foi usada.
 
 ## Cópia JPG suplementar recebida da direção
 
@@ -55,4 +55,4 @@ Apresentador masculino fictício de aproximadamente 43 anos, cabelo curto castan
 4. Articular com Blocos 03/05 aplicação editorial e direitos; com Codex apenas em missão técnica futura e aprovada.
 5. Manter o PR como rascunho enquanto detalhes técnicos/amostras estiverem sob revisão.
 
-**Verificação:** checksum da cópia JPG conferido antes e depois da cópia. O **PNG master exato continua sem upload binário no GitHub** e sua pendência de preservação permanece aberta.
+**Verificação:** o PNG master original está arquivado em `docs/personagens/assets/beto-cartucho/visual-master-aprovado-2026-10-23.png`; 1536 × 1024 pixels, 2.579.649 bytes, SHA-256 `49a1059f25653b499cefbf1ae1f770342c146e4c185551ecfcc55ea793353558`. O JPG permanece inalterado como referência suplementar.
