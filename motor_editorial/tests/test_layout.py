@@ -10,6 +10,7 @@ from pathlib import Path
 from motor_editorial.db import Store
 from motor_editorial.layout.contracts import (
     SCHEMA_PLAN,
+    profile_sha256,
     seal_artifact,
     story_revision_sha256,
     validate_composition_validation,
@@ -162,6 +163,75 @@ class LayoutContractTests(unittest.TestCase):
                 }
                 self.assertEqual(validation["payload"]["status"], "FAIL")
                 self.assertEqual(check_status.get("editorial_order_and_sequence"), "FAIL")
+
+    def test_plan_role_identity_hashes_use_the_canonical_profile_rule(self) -> None:
+        story, inventory, local_index, _ = self.build_case(0)
+        story_payload = copy.deepcopy(story["payload"])
+        # This StoryPackage extension is included in its revision hash but is not
+        # part of the canonical identity fields hashed by profile_sha256().
+        story_payload["identities"]["writer_persona"]["fixture_note"] = "metadata-only"
+        story_payload["review"]["reviewed_story_sha256"] = story_revision_sha256(story_payload)
+        story_with_metadata = validate_story_package(seal_artifact(
+            story["artifact_id"], story["schema_version"], story["revision"], story_payload
+        ))
+        needs = build_visual_needs(story_with_metadata)
+        references = local_index.search(
+            [tag for need in needs["needs"] for tag in need["tags"]], limit=3
+        )
+        plan = plan_layout(
+            story_with_metadata, inventory, needs, references, local_index.fingerprint()
+        )
+
+        expected_sources = {}
+        for role in ("editor", "writer_persona", "reviewer"):
+            identity = story_payload["identities"][role]
+            expected_sources[role] = {
+                "profile_id": identity["profile_id"],
+                "version": identity["version"],
+                "profile_sha256": profile_sha256(identity),
+            }
+        self.assertEqual(plan["payload"]["source_role_identities"], expected_sources)
+        validation = validate_composition_validation(validate_plan(
+            story_with_metadata, inventory, plan,
+            local_index.fingerprint(), local_index.references(),
+        ))
+        self.assertEqual(validation["payload"]["status"], "PASS")
+
+    def test_rehashed_plan_rejects_missing_or_divergent_source_role_identities(self) -> None:
+        story, inventory, local_index, plan = self.build_case(0)
+        roles = ("editor", "writer_persona", "reviewer")
+        mutations = []
+        for role in roles:
+            for field, value in (
+                ("profile_id", f"different-{role}"),
+                ("version", "99.0.0"),
+                ("profile_sha256", "0" * 64),
+            ):
+                payload = copy.deepcopy(plan["payload"])
+                payload["source_role_identities"][role][field] = value
+                mutations.append((role, field, payload))
+        missing_payload = copy.deepcopy(plan["payload"])
+        missing_payload["source_role_identities"].pop("writer_persona")
+        mutations.append(("writer_persona", "missing", missing_payload))
+
+        for role, field, payload in mutations:
+            with self.subTest(role=role, field=field):
+                tampered_plan = seal_artifact(
+                    plan["artifact_id"], SCHEMA_PLAN, plan["revision"], payload
+                )
+                validate_layout_plan(tampered_plan)
+                validation = validate_composition_validation(validate_plan(
+                    story, inventory, tampered_plan,
+                    local_index.fingerprint(), local_index.references(),
+                ))
+                check_status = {
+                    check["check_id"]: check["status"]
+                    for check in validation["payload"]["checks"]
+                }
+                self.assertEqual(validation["payload"]["status"], "FAIL")
+                self.assertEqual(
+                    check_status.get("source_role_identities_match_story_package"), "FAIL"
+                )
 
     def test_unlicensed_or_advertising_asset_blocks_editorial_composition(self) -> None:
         story, inventory, local_index, plan = self.build_case(0)

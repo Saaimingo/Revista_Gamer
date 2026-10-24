@@ -11,8 +11,8 @@ from .contracts import (
     SCHEMA_PLAN,
     SCHEMA_VALIDATION,
     ContractError,
+    profile_sha256,
     seal_artifact,
-    sha256_json,
     story_revision_sha256,
     validate_composition_validation,
     validate_layout_plan,
@@ -27,6 +27,8 @@ DIAGRAMMER_IDENTITY = {
     "version": "0.1.0",
     "description": "Planejador sintético que ordena módulos a partir de necessidades e referências funcionais.",
 }
+
+_SOURCE_ROLE_IDENTITIES = ("editor", "writer_persona", "reviewer")
 
 
 def build_visual_needs(story_package: Mapping[str, Any]) -> dict[str, Any]:
@@ -156,11 +158,11 @@ def plan_layout(
         "diagrammer_identity": DIAGRAMMER_IDENTITY,
         "source_role_identities": {
             role: {
-                "profile_id": identity["profile_id"],
-                "version": identity["version"],
-                "profile_sha256": sha256_json(identity),
+                "profile_id": payload["identities"][role]["profile_id"],
+                "version": payload["identities"][role]["version"],
+                "profile_sha256": profile_sha256(payload["identities"][role]),
             }
-            for role, identity in payload["identities"].items()
+            for role in _SOURCE_ROLE_IDENTITIES
         },
         "ad_slots": [],
     }
@@ -213,6 +215,33 @@ def validate_plan(
         payload["story_revision_sha256"] == current_story_hash
         and story_payload["review"]["reviewed_story_sha256"] == current_story_hash,
         "O plano e a revisão apontam para a revisão atual da matéria.",
+    )
+    expected_role_identities = {
+        role: {
+            "profile_id": story_payload["identities"][role]["profile_id"],
+            "version": story_payload["identities"][role]["version"],
+            "profile_sha256": profile_sha256(story_payload["identities"][role]),
+        }
+        for role in _SOURCE_ROLE_IDENTITIES
+    }
+    source_role_identities = payload.get("source_role_identities")
+    role_identities_match = (
+        isinstance(source_role_identities, Mapping)
+        and set(source_role_identities) == set(expected_role_identities)
+    )
+    if role_identities_match:
+        role_identities_match = all(
+            isinstance(source_role_identities[role], Mapping)
+            and all(
+                source_role_identities[role].get(field) == expected_value
+                for field, expected_value in expected.items()
+            )
+            for role, expected in expected_role_identities.items()
+        )
+    check(
+        "source_role_identities_match_story_package",
+        role_identities_match,
+        "Editor, redator/persona e revisor no plano correspondem às identidades e hashes canônicos do StoryPackage.",
     )
     check(
         "media_inventory_current",
