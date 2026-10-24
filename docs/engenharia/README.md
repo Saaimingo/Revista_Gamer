@@ -1,6 +1,6 @@
 # Setor: engenharia e Codex
 
-Status: **Motor Editorial v0.2 integrado à `main`; PRs #8 e #10 continuam abertas e não mescladas; ENG-CODEX-006 reconcilia #8/#10 em branches isoladas; as correções da Fase 0 offline estão na PR #18, ainda em revisão.**
+Status: **Motor Editorial v0.2 integrado à `main`; PRs #8, #10 e #18 continuam abertas e não mescladas; ENG-CODEX-006 tem propostas B1 e B2/B3 em drafts #24/#25 e a composição A/B em C0 na branch experimental `codex/eng-codex-006-e2e-experiment`.**
 
 ## Arquitetura operacional dos futuros agentes — 20/10/2026
 
@@ -71,3 +71,9 @@ Priorizar mecanismos simples, logs, estados recuperáveis e conteúdo estático 
 ## Primeiro experimento proposto
 
 Uma pauta real -> investigação com fonte -> texto com persona -> revisão -> entrega para diretor, sem publicação automática e com medição da franquia. Somente depois projetar a produção de edição completa.
+
+## Entrega ENG-CODEX-005 — Fase 0 offline (2026-10-24)
+
+- [Relatório técnico da Fase 0](RELATORIO-ENG-CODEX-005-FASE0-OFFLINE.md), vinculado à [Issue #17](https://github.com/Saaimingo/Revista_Gamer/issues/17). A4 corrige ordem/sequence, linhagem de identidades e consistência de direitos antes da prévia; validação foi sintética e offline.
+- Código e testes permanecem na branch fonte `codex/eng-codex-005-offline-layout`, head `ab7d11f`, e na [PR #18](https://github.com/Saaimingo/Revista_Gamer/pull/18), aberta e sem merge. A integração com B1–B3 está somente na branch C0 `codex/eng-codex-006-e2e-experiment`; isso não altera a PR nem declara as etapas integradas à `main`.
+- A4 usa artefatos versionados e render/validação determinísticos. A composição C0 documenta a ponte para o pipeline editorial e mantém a aprovação humana pós-prévia como gate separado; o leitor v0.3/identidade do Bloco 03 continua dependência futura da Issue #15.
