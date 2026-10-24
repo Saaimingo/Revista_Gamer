@@ -1,6 +1,6 @@
 # ENG-CODEX-006 — checkpoint de continuidade
 
-Atualizado: 2026-10-24 18:12 America/Sao_Paulo
+Atualizado: 2026-10-24 18:13 America/Sao_Paulo
 Unidade: **D1 — estados e proveniência, em andamento**
 Última unidade concluída: **D0 — mapa do SQLite para memória editorial**
 
@@ -163,9 +163,15 @@ Unidade: **D1 — estados e proveniência, em andamento**
 - Revalidação do schema: banco temporário criado pelo `Store` → `SCHEMA_VERSION=5`, `PRAGMA user_version=5`, 17 tabelas, sem tabelas de memória/personas/publicação; banco local em modo somente leitura → `user_version=4`, 17 tabelas, sem `lease_owner`/`lease_generation`. Nenhuma linha do runtime foi consultada e nenhuma migração foi executada.
 - Commit D0 `444917b46bf5e7e0ddf070941fcc96288790b58a` enviado; PR #26 e Issue #23 receberam comentários de evidência [6389589957](https://github.com/Saaimingo/Revista_Gamer/pull/26#issuecomment-6389589957) e [6389590377](https://github.com/Saaimingo/Revista_Gamer/issues/23#issuecomment-6389590377). Issue #20 permanece aberta; decisão [6376215182](https://github.com/Saaimingo/Revista_Gamer/issues/20#issuecomment-6376215182) não autoriza implementação. PR #21 continua proposta draft, sem merge, reviews ou threads.
 
+### D1 — estados e proveniência (em andamento)
+
+- Relatório documental criado localmente: [ENG-CODEX-006-D1-ESTADOS-PROVENIENCIA.md](ENG-CODEX-006-D1-ESTADOS-PROVENIENCIA.md). Distingue trabalho em andamento/revisado, aprovação interna ainda inédita e publicação somente com evento externo confirmado; registra proveniência mínima, correção/substituição/retirada, acesso e fronteira de publicação.
+- Inclui o cenário de aceite fictício matéria→DLC, com a matéria original aprovada mas inédita, nova revisão com hash próprio, recibo externo apenas simulado e comportamento esperado quando a confirmação falta. Os nomes e a forma de armazenamento continuam proposta; sem schema/código, rede ou publicação.
+- Issue #20/decisão [6376215182](https://github.com/Saaimingo/Revista_Gamer/issues/20#issuecomment-6376215182) e D0 foram consultadas. Validação documental, `git diff --check` do arquivo staged, commit/push e comentário de evidência ainda pendentes.
+
 ## Próxima ação exata
 
-D1 na branch `codex/eng-codex-006-e2e-experiment`: documentar estados independentes de trabalho interno, aprovação interna ainda inédita e publicação comprovada; correção/substituição/retirada; dados obrigatórios de proveniência em uma consulta; controle de acesso e sinalização de inédito. Especificar ensaio offline matéria→DLC sem saída pública, alinhado à decisão [6376215182](https://github.com/Saaimingo/Revista_Gamer/issues/20#issuecomment-6376215182). Manter nomes e esquema como proposta; não implementar memória. Fechar relatório, checkpoint, diff check, commit/push e handoff PR/Issue; então avançar a D2 documental.
+Fechar D1: revisar o relatório, stagear somente o arquivo D1 e checkpoint, passar `git diff --cached --check`, registrar ausência de teste de produto (escopo documental), commitar/enviar e comentar evidência na PR #26 e Issue #23. Revalidar o estado remoto. Então avançar a D2: mapa de migração mínima e critérios de aceite para missão futura, riscos/custos conhecidos, checkpoint final e resumo da etapa D; não codificar memória, skills ou integração social.
 
 ## Retomada segura
 
@@ -175,7 +181,7 @@ C2–C4 commits e handoffs permanecem listados acima. C5 teste foi enviado em `e
 
 Retomada após a pergunta do diretor sobre o erro C5 (2026-10-24 18:05 America/Sao_Paulo): foi reexecutado 5 vezes o teste focado do heartbeat (5/5 OK) e a suíte completa vigente (95/95 OK em 74,313 s); compilação e diff check passaram. Nenhuma alteração de produto foi necessária. D0 está documentada localmente e aguarda commit/push e comentário de evidência; arquivos pendentes: `docs/engenharia/ENG-CODEX-006-CHECKPOINT.md` e `docs/engenharia/ENG-CODEX-006-D0-MAPA-SCHEMA-MEMORIA.md`. Próximo passo após persistir D0: D1.
 
-Retomada após o comentário D0 (2026-10-24 18:12 America/Sao_Paulo): branch/upstream estavam sincronizados em `444917b46bf5e7e0ddf070941fcc96288790b58a`; relatório D0 e checkpoint foram enviados, e a Issue #23 recebeu o comentário [6389590377](https://github.com/Saaimingo/Revista_Gamer/issues/23#issuecomment-6389590377). PR #26 é draft/open/unmerged, atualmente `mergeable=true`, sem reviews/threads, com comentário [6389589957](https://github.com/Saaimingo/Revista_Gamer/pull/26#issuecomment-6389589957). `main` continua em `ce8f6a7`; nenhum merge. C5 revalidada nesta retomada: foco 5/5, suíte 95/95, `compileall` e diff check passam. D0 está concluída e a unidade ativa é D1; próximo arquivo novo será o relatório documental D1.
+Retomada após o comentário D0 (2026-10-24 18:13 America/Sao_Paulo): branch/upstream estavam sincronizados em `444917b46bf5e7e0ddf070941fcc96288790b58a`; relatório D0 e checkpoint foram enviados, e a Issue #23 recebeu o comentário [6389590377](https://github.com/Saaimingo/Revista_Gamer/issues/23#issuecomment-6389590377). PR #26 é draft/open/unmerged, atualmente `mergeable=true`, sem reviews/threads, com comentário [6389589957](https://github.com/Saaimingo/Revista_Gamer/pull/26#issuecomment-6389589957). `main` continua em `ce8f6a7`; nenhum merge. C5 revalidada nesta retomada: foco 5/5, suíte 95/95, `compileall` e diff check passam. D0 está concluída. D1 é a unidade ativa e seu arquivo está localmente não rastreado: `docs/engenharia/ENG-CODEX-006-D1-ESTADOS-PROVENIENCIA.md`. Próximo passo: terminar a validação documental e persistir D1.
 
 ## Registro histórico de pausa — 2026-10-24 01:10 America/Sao_Paulo (superado pelas atualizações acima)
 
