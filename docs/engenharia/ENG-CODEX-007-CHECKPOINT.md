@@ -1,9 +1,9 @@
 # ENG-CODEX-007 — checkpoint de continuidade
 
-Atualizado: 2026-10-25 — retomada contínua America/Sao_Paulo
-Última unidade concluída: **E06 — coleta incremental, cache, ETag/diff e deduplicação conservadora, validada localmente**
-Unidade em andamento: **E07 — pessoas, projetos, aliases, entrevistas e idiomas**
-Próxima unidade após E07: **E08 — ledger de alegações e rumores**
+Atualizado: 2026-10-25 14:51 -03:00
+Última unidade concluída: **E07 — pessoas, projetos, aliases, entrevistas e idiomas, validada localmente**
+Unidade em andamento: **E08 — ledger de alegações e rumores (análise do schema existente; sem edição E08 ainda)**
+Próxima unidade após E08: **E09 — scheduler configurável, default OFF**
 
 ## Estado do trabalho
 
@@ -16,6 +16,7 @@ Próxima unidade após E07: **E08 — ledger de alegações e rumores**
 - E04: código/testes no commit `509a882`; relatório, índice e checkpoint inicial no commit `f5e358e0f75a8e2d1ee4c997da26716e0bf96882`; ambos enviados. PR #30 segue aberta/draft/sem merge; E04 está concluída e validada conforme o relatório abaixo.
 - E05 código/testes no commit `313baeeb1384354189c49a2a3ec206dc8a428ae1`; relatório/índice/checkpoint em `d4bbb81e2c8d0019f4d6062f42062803ab6097e4`, handoffs na Issue #28 (`6400677577`) e PR #30 (`6400677792`); checklist E01–E05 marcado com evidências.
 - E06 código/testes no commit `eddc0e904b0a220f24651209a4e4da2d27153423`; relatório/índice/checkpoint no commit `1d78eb83100b5fc3dba0c3989a0e1142c0360725`; ambos enviados e sincronizados. Handoffs publicados na Issue #28 e PR #30; checklist E01–E06 marcado com evidências. PR #30 continua draft/aberta/sem merge.
+- E07 implementação/testes e checkpoint de execução em `b63c620e39d3e4ac4fea3ebdca37a71d10cde653`, já enviado. A suíte integral final passou 147/147; relatório/índice/checkpoint final e handoffs estão sendo sincronizados nesta retomada. PR #30 segue draft/aberta/sem merge.
 
 ## Evidências E01 executadas nesta sessão
 
@@ -91,17 +92,24 @@ Próxima unidade após E07: **E08 — ledger de alegações e rumores**
 - Handoff E06: Issue #28 [6400926282](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400926282); PR #30 [6400926504](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6400926504). A direção acrescentou roteamento futuro independente de provedor em Issue #28 [6400791472](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400791472); essa diretriz não autoriza gastos/credenciais e não altera as unidades concluídas.
 - Complemento da direção sobre roteamento futuro entre provedores: Issue #28 [6400791472](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400791472). E06 não altera `fallback=none`, não chama provedores e não reabre E01–E05; E13/E17 deverão respeitar adaptadores, mocks e os gates financeiros/autorização deste comentário.
 
-## E07 — em andamento
+## Evidências E07 — concluída/validada localmente
 
-- Critério confirmado na ordem versionada do Fundador 2: registrar pessoas e projetos públicos, aliases com idioma/proveniência, histórico profissional com intervalos, entrevistas e relações original/tradução; distinguir entrevista de press release; suportar nomes japoneses/romanizados e homônimos sem mesclagem automática; não armazenar dados pessoais privados.
-- Alterações locais em `motor_editorial/radar_store.py`: Radar schema v3; migração isolada v2→v3 que preserva IDs e vínculos legados e adiciona contexto de identidade; tabelas append-only para cargos, entrevistas e variantes; validação de fonte pública, entidade, intervalo, idioma, vínculo entrevista/pessoa, press release oficial/organização emissora e rejeição de contatos em campos profissionais.
-- Testes novos em `motor_editorial/tests/test_radar_entities.py` cobrem homônimos com contexto, japonês/romanizado, cargos antigos/atuais, entrevista vs. press release, privacidade e original/tradução. `test_radar_store.py` cobre a migração v2→v3 e a preservação de vínculos.
-- CPython 3.11.9, `.venv`: `& '.\.venv\Scripts\python.exe' -m unittest discover -s motor_editorial/tests -p 'test_radar*.py' -v` → **32/32 OK**, 4,563 s. `compileall` → exit 0; `git diff --check` → exit 0 (somente avisos de conversão LF→CRLF do Git).
-- A validação integral final `& '.\.venv\Scripts\python.exe' -m unittest discover -s motor_editorial/tests -q` está em execução nesta retomada; **resultado pendente**, ainda não contabilizar como aprovado. Uma execução integral anterior passou 146/146 antes do ajuste transacional da migração e do teste de rollback. Próximo passo: coletar o resultado final e então concluir a validação/documentação E07.
-- Fixtures, SQLite temporário e hosts `.invalid` apenas; nenhum texto de entrevista persistido, contato privado, consulta pública, LLM, SIWC/Plus, API paga ou banco runtime. Sem scheduler, publicação, deploy ou merge; `published=false`.
+- Critério da ordem: pessoas/projetos e aliases com idioma/proveniência; homônimos separados por contexto; cargos públicos com intervalos; distinguir entrevista de press release; registrar original/tradução sem copiar texto; excluir contatos/dados pessoais privados.
+- `radar_store.py`: schema independente v3; migração v2→v3 transacional, preserva entidades e relações legadas, adiciona documento/contexto de identidade e novos registros append-only de cargos/entrevistas/variantes. FKs são verificadas antes do commit; uma fixture órfã demonstrou rollback para `user_version=2` sem DDL parcial.
+- Validação de pessoa/projeto/alias, cargos e idioma exige documentos e fontes `allowed`. Entrevista exige vínculo com a pessoa/documento registrado. Press release exige fonte `official` e relação explícita à organização emissora. Registro de pessoa não aceita metadata livre; contexto, aliases e títulos recusam contatos. Nenhum texto de entrevista é armazenado.
+- CPython 3.11.9, `.venv`: `& '.\.venv\Scripts\python.exe' -m unittest discover -s motor_editorial/tests -p 'test_radar*.py' -v` → **32/32 OK**, 4,563 s; suíte integral `& '.\.venv\Scripts\python.exe' -m unittest discover -s motor_editorial/tests -q` → **147/147 OK**, 73,412 s; `compileall` exit 0; `git diff --check` exit 0 (avisos não fatais de conversão LF→CRLF).
+- Relatório: `docs/engenharia/ENG-CODEX-007-E07-PESSOAS-ALIAS-ENTREVISTAS-IDIOMAS.md`; testes: `motor_editorial/tests/test_radar_entities.py` e migrações em `motor_editorial/tests/test_radar_store.py`.
+- Commit/push da implementação, testes e checkpoint inicial: `b63c620e39d3e4ac4fea3ebdca37a71d10cde653`. A documentação final e os handoffs Issue #28/PR #30 serão registrados nesta sequência.
+- Fixtures/SQLite temporário e hosts `.invalid` somente; sem rede pública, LLM, SIWC/Plus, API paga, runtime DB, scheduler, publicação, deploy ou merge; `published=false`.
+
+## E08 — início de análise
+
+- Critério da Issue #28: ledger de alegações/rumores com origem, atribuição, estado epistemológico e evolução, incluindo contradição/correção/retração; não promover alegação a fato por repetição ou fonte derivada.
+- Próximo passo: inspecionar `radar_claims`, `radar_claim_sources`, `radar_claim_events`, suas operações e testes existentes, comparar com a ordem E08 e acrescentar apenas as invariantes faltantes. Usar fixtures SQLite temporárias, sem consultar fonte pública ou acionar agentes.
+- Nenhuma alteração de código E08 ainda. Preservar status de rumor distinto do estado do conteúdo, fontes originais/derivadas e histórico append-only. O uso do banco runtime segue proibido nesta Issue.
 
 ## Bloqueios e retomada
 
-Não há bloqueio técnico atual para E07 offline. Não retomar ou reexecutar C2–D2; eles foram entregues na PR #26 e receberam parecer favorável de encerramento com ressalvas. E01–E06 foram validadas, commitadas e enviadas. Os gates futuros de E16/E17 continuam: origem pública só com perfil/termos/robots aprovados; SIWC/Plus apenas após preflight e elegibilidade/consentimento, sem chamadas faturáveis.
+Não há bloqueio técnico atual para E08 offline. Não retomar ou reexecutar C2–D2; eles foram entregues na PR #26 e receberam parecer favorável de encerramento com ressalvas. E01–E07 foram validadas, commitadas e enviadas. Os gates futuros de E16/E17 continuam: origem pública só com perfil/termos/robots aprovados; SIWC/Plus apenas após preflight e elegibilidade/consentimento, sem chamadas faturáveis.
 
-Se houver interrupção antes do encerramento E07, conferir primeiro `git status --short --branch`, upstream, HEAD remoto, PR #30, Issue #28 e resultado integral ainda pendente desta retomada. Continuar E07, documentar e commitar/pushar apenas após validar; depois avançar para E08. E06 está implementada e validada conforme o relatório vinculado acima. Não editar a branch/documentação da PR #29, não reconstruir o motor/OAuth/DNAs e não acessar o banco runtime real.
+Se houver interrupção durante E08, conferir primeiro `git status --short --branch`, upstream, HEAD remoto, PR #30, Issue #28 e este checkpoint; continuar a inspeção do ledger antes de editar. E07 está concluída conforme o relatório vinculado no índice de Engenharia. Não editar a branch/documentação da PR #29, não reconstruir o motor/OAuth/DNAs e não acessar o banco runtime real.

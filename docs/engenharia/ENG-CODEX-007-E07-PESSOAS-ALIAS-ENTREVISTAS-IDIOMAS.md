@@ -3,7 +3,7 @@
 - **Setor responsável:** Engenharia e Codex
 - **Identificador:** ENG-CODEX-007-E07
 - **Versão:** v0.1
-- **Status:** implementação concluída; validação integral em execução
+- **Status:** implementado e validado localmente; revisão da PR de implementação pendente
 - **Data:** 2026-10-25
 - **Autorização:** Issue [#28](https://github.com/Saaimingo/Revista_Gamer/issues/28), sequência contínua E01–E19
 - **Dependências:** Radar isolado E04, conectores públicos com política E05 e coleta incremental E06
@@ -36,10 +36,12 @@ Ambiente: CPython 3.11.9, `.venv`, Windows; fixtures e caminhos temporários; do
 - `& '.\.venv\Scripts\python.exe' -m unittest discover -s motor_editorial/tests -p 'test_radar*.py' -v` → **32/32 OK**, 4,563 s.
 - `& '.\.venv\Scripts\python.exe' -m compileall -q motor_editorial` → exit 0.
 - `git diff --check` → exit 0; Git emitiu apenas avisos de conversão LF→CRLF para arquivos editados.
-- `& '.\.venv\Scripts\python.exe' -m unittest discover -s motor_editorial/tests -q` → execução integral final pendente.
+- `& '.\.venv\Scripts\python.exe' -m unittest discover -s motor_editorial/tests -q` → **147/147 OK**, 73,412 s, depois das correções finais de E07.
 
 Sem consulta a fontes públicas, inferência, SIWC/Plus, API paga, credenciais, banco runtime, scheduler, publicação, deploy ou merge; `published=false`.
 
 ## Commit e próximo passo
 
-O commit e push serão registrados após a conclusão da suíte integral e sincronização do relatório/checkpoint. PR draft [#30](https://github.com/Saaimingo/Revista_Gamer/pull/30) permanece aberta e sem merge. Próxima unidade após validação: **E08 — ledger de alegações, rumores, origem e evolução/contradições**.
+- Implementação, testes, relatório inicial e checkpoint de execução: `b63c620` (`feat: implement Radar E07 entities and interviews`), enviado para `origin/codex/eng-codex-007-factory-radar`.
+- O estado final do relatório/checkpoint e os handoffs Issue #28/PR #30 serão registrados após este fechamento documental.
+- PR draft [#30](https://github.com/Saaimingo/Revista_Gamer/pull/30) permanece aberta e sem merge. Próxima unidade: **E08 — ledger de alegações, rumores, origem e evolução/contradições**.
