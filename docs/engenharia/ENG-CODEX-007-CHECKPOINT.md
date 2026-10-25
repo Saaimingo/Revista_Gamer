@@ -1,6 +1,6 @@
 # ENG-CODEX-007 — checkpoint de continuidade
 
-Atualizado: 2026-10-25 13:42 America/Sao_Paulo
+Atualizado: 2026-10-25 13:44 America/Sao_Paulo
 Última unidade: **E03 — catálogo de papéis funcionais, concluída/validada localmente**
 Próxima unidade: **E04 — schema de Radar e SQLite isolado**
 
@@ -11,7 +11,7 @@ Próxima unidade: **E04 — schema de Radar e SQLite isolado**
 - PRs #24 → #25 → #26 continuam abertas/draft/sem merge. #26 recebeu review `COMMENTED` favorável ao handoff A0–D2 com ressalvas; não é aprovação de merge. `origin/main=ce8f6a7b65c2050d5da851491c9c89835f82c3a2`; a cadeia acumulada está 53 commits à frente e `merge-tree` local não detectou conflitos.
 - PRs #8/#10/#18 e #13/#14/#19/#27 continuam independentes e sem merge. Consultar E01 para os HEADs e responsabilidades por componente.
 - Revalidação E02: PR #30 continua draft/aberta/sem merge; push confirmado em `10532233fe5a50a349c8440002ec3ca4a8dfcdcc`, mesmo HEAD local/remoto no último `ls-remote`; `origin/main=ce8f6a7b65c2050d5da851491c9c89835f82c3a2`.
-- Início E03 revalidado: Issue #28 aberta; PR #29 documental aberta/draft em `7072655d44602e83d8bc2dbdd87d08391b711ad0`; PR #30 aberta/draft/sem merge; antes das alterações E03, HEAD local/remoto era `747dfa841e1b47aee7dd0244b6f091df029abb80`.
+- E03: PR #30 aberta/draft/sem merge; commit de implementação e push confirmados em `e161e084cb5fbe99ed1f06751079b8de795182bb`, mesmo HEAD local/remoto no `ls-remote`; antes das alterações E03, HEAD era `747dfa841e1b47aee7dd0244b6f091df029abb80`.
 
 ## Evidências E01 executadas nesta sessão
 
@@ -45,11 +45,11 @@ Próxima unidade: **E04 — schema de Radar e SQLite isolado**
 - Checkpoint: `docs/engenharia/ENG-CODEX-007-CHECKPOINT.md`.
 - Commit E01: `aeb7b5cdd132aed041a9fe7301c656f810389a31` (`docs: record ENG-CODEX-007 E01 baseline`), push confirmado.
 - E02: `b590bc11a2ce3ea9bdbe5608ca6e13ab94d1d0ad` (`feat: add versioned agent contracts`), correção `8eda0e905a40afeb97da90cd5f8a858de807ec84` e checkpoint `10532233fe5a50a349c8440002ec3ca4a8dfcdcc`; os três enviados.
-- E03 commit/push pendentes neste checkpoint; HEAD de origem antes das alterações E03 `747dfa841e1b47aee7dd0244b6f091df029abb80`.
-- Handoff E01: Issue #28 [6400102493](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400102493); PR #30 [6400102870](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6400102870). Handoff E02: Issue #28 [6400254111](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400254111); PR #30 [6400254420](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6400254420).
+- E03 commit `e161e084cb5fbe99ed1f06751079b8de795182bb` (`feat: register ENG-CODEX-007 agent roles`), push confirmado. Checkpoint de confirmação pós-handoff ainda pendente.
+- Handoff E01: Issue #28 [6400102493](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400102493); PR #30 [6400102870](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6400102870). Handoff E02: Issue #28 [6400254111](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400254111); PR #30 [6400254420](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6400254420). Handoff E03: Issue #28 [6400348282](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400348282); PR #30 [6400348695](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6400348695).
 
 ## Bloqueios e retomada
 
-Não há bloqueio atual. Não retomar ou reexecutar C2–D2; eles foram entregues na PR #26 e receberam parecer favorável de encerramento com ressalvas. E01–E03 foram validadas; E03 aguarda commit/push e comentário de handoff. Próxima ação exata: finalizar commit/push, relatar Issue #28 e PR #30 e iniciar E04.
+Não há bloqueio atual. Não retomar ou reexecutar C2–D2; eles foram entregues na PR #26 e receberam parecer favorável de encerramento com ressalvas. E01–E03 foram validadas, commitadas, enviadas e relatadas. Próxima ação: iniciar E04.
 
 Se houver interrupção após o push, conferir primeiro `git status --short --branch`, upstream e HEAD remoto; depois verificar PR/Issue #28 e seguir para E04. Não editar a branch/documentação da PR #29, não reconstruir o motor/OAuth/DNAs e não acessar o banco runtime real.
