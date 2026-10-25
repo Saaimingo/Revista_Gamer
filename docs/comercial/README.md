@@ -19,3 +19,7 @@ Grade comercial identificada, mídia kit baseado em audiência real, catálogo d
 ## Estudos conceituais em discussão
 
 - [Nomes de marca e capas experimentais: RODOU, BOOT e CONTINUA (com reticências opcionais) (16/10/2026)](ESTUDO-PRELIMINAR-NOMES-E-CAPAS-2026-10-16.md) — pesquisa preliminar e conceitos **não aprovados**, sem confirmação de disponibilidade jurídica; imagens ainda preservadas na conversa, não anexadas ao repositório.
+
+## Redes sociais — contas, agendamento e integração (análise provisória)
+
+- [Proposta provisória: contas Meta, e-mail institucional, plugins/Codex, agendamento e APIs (25/10/2026)](PROPOSTA-PROVISORIA-OPERACAO-REDES-SOCIAIS-CONTAS-INTEGRACAO-2026-10-25.md) — submetida ao fundador; **sem aprovação de implementação, publicação ou criação de contas**.
