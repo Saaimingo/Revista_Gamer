@@ -23,3 +23,21 @@ Ver [modelo de ativo](FICHA-MIDIA-MODELO.md). Origem, titular, URL, tipo de mate
 ## Recursos a catalogar futuramente
 
 Press rooms de fabricantes/publishers, capturas válidas para reportagem, arte original e links de vídeo oficial. Links e leis de referência não substituem avaliação jurídica para usos concretos.
+
+## Pesquisa de fontes (25/10/2026) — PROPOSTA, pendente de aprovação
+
+- [Mapa inicial de fontes de imprensa v0.1](MAPA-FONTES-IMPRENSA-V0.1.md): diretório de 28 fontes/canais/ferramentas, com links, acesso e verificação separada de direitos.
+- [Estudo de descoberta e ingestão autorizada v0.1](AUTOMACAO-DESCOBERTA-MIDIAS-V0.1.md): RSS/APIs, catálogo, credenciais, limites de coleta e handoff ao Codex; **não implementado**.
+- [Matriz preliminar de direitos editoriais v0.1](MATRIZ-DIREITOS-EDITORIAIS-V0.1.md): reprodução, capa, transformações, vídeos e IA, com exemplos de termos oficiais.
+
+- [Estudo de casos reais de disputas sobre imagens (2021–2026)](ESTUDO-CASOS-DISPUTAS-MIDIAS-2021-2026.md): decisões judiciais, notificações e retiradas; inclui imprensa, sites de games, foto profissional, acusações revertidas e padrões de cautela. **Pesquisa preliminar, não autorização jurídica.**
+
+**Atenção:** o mapa apenas localiza fontes. Não são licenças de imagens individuais, não autoriza baixar mídias em massa, coleta agendada, contas, deploy ou publicação. Documentos criados para revisão da direção em PR, não como regras definitivas.
+
+## Direção operacional simplificada (25/10/2026)
+
+- [Fluxo de obtenção de imagens oficiais intactas v0.1](FLUXO-SIMPLES-OBTENCAO-MIDIA-OFICIAL-V0.1.md): prioridade para pacotes gratuitos de imprensa, descoberta/credenciamento/download autorizado e crédito; sem edição ou geração por IA no fluxo padrão. **Proposta, sem implementação.**
+
+## Redes sociais: posts orgânicos e divulgação de edições (25/10/2026)
+
+- [Pesquisa sobre mídias em Facebook, Instagram, Reels e impulsionamentos](USO-MIDIAS-REDES-SOCIAIS-ORGANICO-IMPULSIONADO-V0.1.md): critérios para conteúdo orgânico dos cronistas (Beto Cartucho, Nina Prisma e Arlindo Carranca), posts de matérias, vídeos/trilhas e distinção do impulsionamento pago; handoff ao Bloco 06. **PROPOSTA — nenhuma conta, post, API ou anúncio ativado.**
