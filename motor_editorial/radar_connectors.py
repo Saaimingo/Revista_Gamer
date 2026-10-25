@@ -17,6 +17,7 @@ import re
 import socket
 import ssl
 import time
+import uuid
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
@@ -27,6 +28,7 @@ from urllib.parse import parse_qsl, urljoin, urlsplit
 from urllib.robotparser import RobotFileParser
 
 from .orchestration import _assert_no_credentials
+from .radar_policy import DomainQuotaGuard
 
 
 class ConnectorPolicyError(ValueError):
@@ -441,12 +443,14 @@ class RadarConnectorService:
         transport: Transport | None = None,
         resolver: Callable[..., Any] = socket.getaddrinfo,
         limiter: PerOriginLimiter | None = None,
+        domain_quota_guard: DomainQuotaGuard | None = None,
         allow_loopback_http: bool = False,
     ):
         self.allow_loopback_http = allow_loopback_http
         self.transport = transport or PinnedHTTPTransport(allow_loopback_http=allow_loopback_http)
         self.resolver = resolver
         self.limiter = limiter or PerOriginLimiter()
+        self.domain_quota_guard = domain_quota_guard
         self._states: dict[str, SourceRuntimeState] = {}
         self._state_lock = Lock()
 
@@ -620,6 +624,25 @@ class RadarConnectorService:
                     pinned_ip = initial_address
                 else:
                     _, pinned_ip = self._resolve_public_address(current_url)
+                if self.domain_quota_guard is not None:
+                    try:
+                        quota = self.domain_quota_guard.reserve_request(
+                            host, now=current_time, request_key=str(uuid.uuid4())
+                        )
+                    except Exception:
+                        return FetchResult(
+                            profile.source_id, "blocked", target, current_url,
+                            response.status_code if response else None, fetched_at,
+                            redirect_count=redirects, error_code="domain_quota_unavailable",
+                        )
+                    if not quota.allowed:
+                        status = "rate_limited" if quota.reason == "domain_daily_quota" else "blocked"
+                        return FetchResult(
+                            profile.source_id, status, target, current_url,
+                            response.status_code if response else None, fetched_at,
+                            retry_at=quota.retry_at, redirect_count=redirects,
+                            error_code=quota.reason or "domain_quota_blocked",
+                        )
                 response = self.transport.request(
                     current_url, pinned_ip, headers=request_headers, timeout_seconds=profile.timeout_seconds,
                     max_response_bytes=profile.max_response_bytes, allow_loopback_http=self.allow_loopback_http,

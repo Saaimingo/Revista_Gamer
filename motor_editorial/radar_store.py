@@ -23,7 +23,7 @@ from .db import json_dumps, normalize_text, stable_hash
 from .orchestration import _assert_no_credentials
 
 
-RADAR_SCHEMA_VERSION = 4
+RADAR_SCHEMA_VERSION = 5
 _HASH_RE = re.compile(r"^[a-f0-9]{64}$")
 _LANGUAGE_TAG_RE = re.compile(r"^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$")
 _SENSITIVE_URL_KEYS = {
@@ -524,6 +524,23 @@ _SCHEMA_V4_STATEMENTS = (
         BEFORE DELETE ON radar_claim_sources BEGIN SELECT RAISE(ABORT, 'claim source links are append-only'); END""",
 )
 
+_SCHEMA_V5_STATEMENTS = (
+    """CREATE TABLE IF NOT EXISTS radar_domain_quota_events (
+        event_id TEXT PRIMARY KEY,
+        request_key TEXT NOT NULL UNIQUE,
+        domain TEXT NOT NULL,
+        quota_date TEXT NOT NULL,
+        timezone_name TEXT NOT NULL,
+        quota_limit INTEGER NOT NULL CHECK (quota_limit >= 1),
+        reserved_at TEXT NOT NULL
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_radar_domain_quota_period ON radar_domain_quota_events(domain, timezone_name, quota_date)",
+    """CREATE TRIGGER IF NOT EXISTS radar_domain_quota_events_no_update
+        BEFORE UPDATE ON radar_domain_quota_events BEGIN SELECT RAISE(ABORT, 'quota reservations are append-only'); END""",
+    """CREATE TRIGGER IF NOT EXISTS radar_domain_quota_events_no_delete
+        BEFORE DELETE ON radar_domain_quota_events BEGIN SELECT RAISE(ABORT, 'quota reservations are append-only'); END""",
+)
+
 
 class RadarStore:
     """Explicit-path, independently versioned SQLite store for Radar data."""
@@ -552,19 +569,22 @@ class RadarStore:
                 self._migrate_v1_to_v2(connection)
                 self._migrate_v2_to_v3(connection)
                 self._migrate_v3_to_v4(connection)
-                version = RADAR_SCHEMA_VERSION
+                version = 4
             elif version == 1:
                 self._migrate_v1_to_v2(connection)
                 self._migrate_v2_to_v3(connection)
                 self._migrate_v3_to_v4(connection)
-                version = RADAR_SCHEMA_VERSION
+                version = 4
             elif version == 2:
                 self._migrate_v2_to_v3(connection)
                 self._migrate_v3_to_v4(connection)
-                version = RADAR_SCHEMA_VERSION
+                version = 4
             elif version == 3:
                 self._migrate_v3_to_v4(connection)
-                version = RADAR_SCHEMA_VERSION
+                version = 4
+            if version == 4:
+                self._migrate_v4_to_v5(connection)
+                version = 5
             if version == RADAR_SCHEMA_VERSION:
                 check = connection.execute("PRAGMA quick_check").fetchone()[0]
                 if check != "ok":
@@ -581,9 +601,10 @@ class RadarStore:
                     "radar_research_requests", "radar_research_packets", "radar_candidates", "radar_candidate_events",
                     "radar_fetch_events", "radar_fetch_cache", "radar_republication_groups", "radar_republication_members",
                     "radar_entity_roles", "radar_interviews", "radar_interview_variants",
+                    "radar_domain_quota_events",
                 }
                 if not required.issubset(tables):
-                    raise RadarStoreError("Banco marcado como Radar v4 sem as tabelas obrigatórias.")
+                    raise RadarStoreError("Banco marcado como Radar v5 sem as tabelas obrigatórias.")
                 unrelated = {name for name in tables if not name.startswith(("radar_", "sqlite_"))}
                 if unrelated:
                     raise RadarStoreError("Banco Radar v4 contém tabelas fora do namespace reservado.")
@@ -591,7 +612,7 @@ class RadarStore:
                     row["name"] for row in connection.execute("PRAGMA table_info(radar_claim_sources)").fetchall()
                 }
                 if "based_on_source_id" not in claim_source_columns:
-                    raise RadarStoreError("Banco marcado como Radar v4 sem a coluna de linhagem de alegações.")
+                    raise RadarStoreError("Banco marcado como Radar v5 sem a coluna de linhagem de alegações.")
                 return
             raise RadarStoreError(f"Versão de schema Radar não suportada: {version}.")
 
@@ -762,6 +783,105 @@ class RadarStore:
         except Exception:
             connection.rollback()
             raise
+
+    @staticmethod
+    def _migrate_v4_to_v5(connection: sqlite3.Connection) -> None:
+        """Add the durable append-only reservation ledger for per-domain quotas."""
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            tables = {
+                row[0] for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+            unexpected = {name for name in tables if not name.startswith(("radar_", "sqlite_"))}
+            if unexpected or not {"radar_sources", "radar_claim_sources"}.issubset(tables):
+                raise RadarStoreError("Migração v4→v5 recusada: banco não corresponde ao namespace do Radar.")
+            claim_source_columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(radar_claim_sources)").fetchall()
+            }
+            if "based_on_source_id" not in claim_source_columns:
+                raise RadarStoreError("Migração v4→v5 recusada: linhagem de alegações incompleta.")
+            for statement in _SCHEMA_V5_STATEMENTS:
+                connection.execute(statement)
+            connection.execute("PRAGMA user_version = 5")
+            violations = connection.execute("PRAGMA foreign_key_check").fetchall()
+            if violations:
+                raise RadarStoreError("Migração Radar v4→v5 deixou referências sem destino.")
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+
+    def reserve_domain_request(
+        self,
+        *,
+        domain: str,
+        quota_date: str,
+        timezone_name: str,
+        quota_limit: int,
+        request_key: str,
+        reserved_at: str,
+    ) -> bool:
+        """Atomically reserve one outbound request under a local-day domain cap."""
+        from .radar_policy import normalize_domain
+
+        domain = normalize_domain(domain)
+        quota_date = _text(quota_date, "quota_date", maximum=10)  # type: ignore[assignment]
+        try:
+            date.fromisoformat(quota_date)  # type: ignore[arg-type]
+        except ValueError as error:
+            raise RadarStoreError("quota_date precisa ser uma data ISO válida.") from error
+        timezone_name = _text(timezone_name, "timezone_name", maximum=128)  # type: ignore[assignment]
+        request_key = _text(request_key, "request_key", maximum=256)  # type: ignore[assignment]
+        reserved_at = _timestamp(reserved_at, "reserved_at")  # type: ignore[assignment]
+        if isinstance(quota_limit, bool) or not isinstance(quota_limit, int) or quota_limit < 1:
+            raise RadarStoreError("quota_limit precisa ser inteiro positivo.")
+        with closing(self.connect()) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            try:
+                existing = connection.execute(
+                    "SELECT domain, quota_date, timezone_name FROM radar_domain_quota_events WHERE request_key=?",
+                    (request_key,),
+                ).fetchone()
+                if existing is not None:
+                    if (existing["domain"], existing["quota_date"], existing["timezone_name"]) != (
+                        domain, quota_date, timezone_name,
+                    ):
+                        raise RadarStoreError("request_key já foi usado por outra reserva de quota.")
+                    connection.commit()
+                    return True
+                used = connection.execute(
+                    """SELECT COUNT(*) FROM radar_domain_quota_events
+                       WHERE domain=? AND quota_date=? AND timezone_name=?""",
+                    (domain, quota_date, timezone_name),
+                ).fetchone()[0]
+                if used >= quota_limit:
+                    connection.commit()
+                    return False
+                connection.execute(
+                    """INSERT INTO radar_domain_quota_events
+                       (event_id, request_key, domain, quota_date, timezone_name, quota_limit, reserved_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                    (str(uuid.uuid4()), request_key, domain, quota_date, timezone_name, quota_limit, reserved_at),
+                )
+                connection.commit()
+                return True
+            except Exception:
+                connection.rollback()
+                raise
+
+    def domain_quota_usage(self, *, domain: str, quota_date: str, timezone_name: str) -> int:
+        from .radar_policy import normalize_domain
+
+        normalized = normalize_domain(domain)
+        with closing(self.connect()) as connection:
+            row = connection.execute(
+                """SELECT COUNT(*) FROM radar_domain_quota_events
+                   WHERE domain=? AND quota_date=? AND timezone_name=?""",
+                (normalized, quota_date, timezone_name),
+            ).fetchone()
+            return int(row[0])
 
     @staticmethod
     def backup_database(source: Path, destination: Path) -> Path:

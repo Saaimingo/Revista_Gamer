@@ -15,7 +15,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from .domain import InvalidApproval, InvalidTransition, STORY_TRANSITIONS
 
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 
 def utc_now() -> str:
@@ -345,7 +345,15 @@ class Store:
                     next_run_at TEXT NOT NULL,
                     last_enqueued_at TEXT,
                     created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
+                    updated_at TEXT NOT NULL,
+                    schedule_group_id TEXT,
+                    schedule_kind TEXT NOT NULL DEFAULT 'interval'
+                        CHECK (schedule_kind IN ('interval', 'daily_window')),
+                    local_time TEXT,
+                    misfire_grace_seconds INTEGER NOT NULL DEFAULT 300
+                        CHECK (misfire_grace_seconds >= 0),
+                    domain_quotas_json TEXT NOT NULL DEFAULT '{}',
+                    dry_run INTEGER NOT NULL DEFAULT 1 CHECK (dry_run IN (0, 1))
                 );
                 """
             )
@@ -423,6 +431,29 @@ class Store:
                         connection.execute(
                             f"ALTER TABLE edition_stories ADD COLUMN {column} TEXT"
                         )
+                schedule_columns = {
+                    row["name"]
+                    for row in connection.execute(
+                        "PRAGMA table_info(agent_schedules)"
+                    ).fetchall()
+                }
+                schedule_additions = {
+                    "schedule_group_id": "TEXT",
+                    "schedule_kind": "TEXT NOT NULL DEFAULT 'interval' CHECK (schedule_kind IN ('interval', 'daily_window'))",
+                    "local_time": "TEXT",
+                    "misfire_grace_seconds": "INTEGER NOT NULL DEFAULT 300 CHECK (misfire_grace_seconds >= 0)",
+                    "domain_quotas_json": "TEXT NOT NULL DEFAULT '{}'",
+                    "dry_run": "INTEGER NOT NULL DEFAULT 1 CHECK (dry_run IN (0, 1))",
+                }
+                for column, declaration in schedule_additions.items():
+                    if column not in schedule_columns:
+                        connection.execute(
+                            f"ALTER TABLE agent_schedules ADD COLUMN {column} {declaration}"
+                        )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS ix_agent_schedules_group "
+                "ON agent_schedules(schedule_group_id, id)"
+            )
             connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
     @staticmethod

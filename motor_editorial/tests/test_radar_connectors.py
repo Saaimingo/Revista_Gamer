@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import socket
+import tempfile
 import threading
 import unittest
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any, Mapping
 
 from motor_editorial.radar_connectors import (
@@ -18,6 +20,8 @@ from motor_editorial.radar_connectors import (
     parse_public_json,
     parse_rss_atom,
 )
+from motor_editorial.radar_policy import PersistentDomainQuotaGuard
+from motor_editorial.radar_store import RadarStore
 
 
 NOW = "2026-10-25T12:00:00+00:00"
@@ -327,6 +331,66 @@ class RadarConnectorTests(unittest.TestCase):
         self.assertEqual(limiter.reserve("https://example.invalid:443", 1), 59.0)
         limiter.cooldown("https://example.invalid:443", 120)
         self.assertEqual(limiter.reserve("https://example.invalid:443", 1), 120.0)
+
+    def test_persistent_domain_quota_blocks_transport_until_local_day_resets(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store = RadarStore(Path(directory) / "radar-quota.sqlite3")
+            guard = PersistentDomainQuotaGuard(
+                store, quotas={"NEWS.EXAMPLE.INVALID.": 1},
+                timezone_name="America/Sao_Paulo",
+            )
+            monotonic = [0.0]
+            limiter = PerOriginLimiter(monotonic=lambda: monotonic[0])
+            transport = FakeTransport(
+                HttpResponse(304, {"etag": '"one"'}, b""),
+                HttpResponse(304, {"etag": '"two"'}, b""),
+            )
+            service = RadarConnectorService(
+                transport=transport, resolver=FakeResolver(), limiter=limiter,
+                domain_quota_guard=guard,
+            )
+            profile = make_profile(min_interval=1)
+            first = service.fetch(profile, now=NOW)
+            self.assertEqual(first.status, "not_modified")
+            monotonic[0] += 60
+            blocked = service.fetch(profile, now=NOW)
+            self.assertEqual(blocked.status, "rate_limited")
+            self.assertEqual(blocked.error_code, "domain_daily_quota")
+            self.assertEqual(blocked.retry_at, "2026-10-26T03:00:00+00:00")
+            self.assertEqual(len(transport.calls), 1)
+            self.assertEqual(
+                store.domain_quota_usage(
+                    domain="news.example.invalid", quota_date="2026-10-25",
+                    timezone_name="America/Sao_Paulo",
+                ),
+                1,
+            )
+
+            # A newly constructed guard and connector reuse the same durable ledger.
+            restarted_guard = PersistentDomainQuotaGuard(
+                store, quotas={"news.example.invalid": 1},
+                timezone_name="America/Sao_Paulo",
+            )
+            next_transport = FakeTransport(HttpResponse(304, {}, b""))
+            restarted = RadarConnectorService(
+                transport=next_transport, resolver=FakeResolver(),
+                domain_quota_guard=restarted_guard,
+            )
+            next_day = restarted.fetch(profile, now="2026-10-26T03:01:00+00:00")
+            self.assertEqual(next_day.status, "not_modified")
+            self.assertEqual(len(next_transport.calls), 1)
+
+            unconfigured_transport = FakeTransport(HttpResponse(304, {}, b""))
+            unconfigured = RadarConnectorService(
+                transport=unconfigured_transport, resolver=FakeResolver(),
+                domain_quota_guard=PersistentDomainQuotaGuard(
+                    store, quotas={"other.example.invalid": 2},
+                    timezone_name="America/Sao_Paulo",
+                ),
+            ).fetch(profile, now="2026-10-26T04:00:00+00:00")
+            self.assertEqual(unconfigured.status, "blocked")
+            self.assertEqual(unconfigured.error_code, "domain_quota_not_configured")
+            self.assertEqual(unconfigured_transport.calls, [])
 
     def test_rss_atom_parser_and_markup_safety(self) -> None:
         atom = b'''<feed xmlns="http://www.w3.org/2005/Atom"><entry><title>Release</title><id>tag:example,1</id><updated>2026-10-25T12:00:00Z</updated><link rel="alternate" href="https://news.example.invalid/release"/><link rel="enclosure" href="https://news.example.invalid/video.mp4"/></entry></feed>'''

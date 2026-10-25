@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import sqlite3
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 import unittest
 from contextlib import closing
 from pathlib import Path
@@ -92,8 +93,8 @@ class RadarStoreTests(unittest.TestCase):
         self.store.register_topic(topic_id=topic_id, canonical_key=f"key-{topic_id}", title="Pauta sintética", now=NOW)
 
     def test_schema_is_separate_versioned_and_runtime_path_is_refused(self) -> None:
-        self.assertEqual(RADAR_SCHEMA_VERSION, 4)
-        self.assertEqual(db.SCHEMA_VERSION, 5)
+        self.assertEqual(RADAR_SCHEMA_VERSION, 5)
+        self.assertEqual(db.SCHEMA_VERSION, 6)
         names = self.store.table_names()
         self.assertGreaterEqual(
             len(names),
@@ -101,7 +102,7 @@ class RadarStoreTests(unittest.TestCase):
         )
         self.assertTrue(all(name.startswith("radar_") for name in names))
         with closing(self.store.connect()) as connection:
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 4)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 5)
             self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
         with self.assertRaisesRegex(RadarStoreError, "não pode abrir"):
             RadarStore(RUNTIME_DB_PATH)
@@ -213,7 +214,7 @@ class RadarStoreTests(unittest.TestCase):
             with self.assertRaises(sqlite3.IntegrityError):
                 connection.execute("DELETE FROM radar_observation_events WHERE event_id='obs-1'")
 
-    def test_v1_schema_migrates_additively_through_v4(self) -> None:
+    def test_v1_schema_migrates_additively_through_v5(self) -> None:
         from motor_editorial.radar_store import _SCHEMA_V1_STATEMENTS
 
         fixture_path = self.root / "radar-v1.sqlite3"
@@ -224,7 +225,7 @@ class RadarStoreTests(unittest.TestCase):
             connection.commit()
         migrated = RadarStore(fixture_path)
         with closing(migrated.connect()) as connection:
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 4)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 5)
             columns = {row[1] for row in connection.execute("PRAGMA table_info(radar_documents)")}
             self.assertTrue({"body_sha256", "body_segment_hashes_json", "body_char_count", "origin_url"} <= columns)
             entity_columns = {row[1] for row in connection.execute("PRAGMA table_info(radar_entities)")}
@@ -232,8 +233,81 @@ class RadarStoreTests(unittest.TestCase):
             claim_source_columns = {row[1] for row in connection.execute("PRAGMA table_info(radar_claim_sources)")}
             self.assertIn("based_on_source_id", claim_source_columns)
             tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-            self.assertTrue({"radar_fetch_events", "radar_fetch_cache", "radar_republication_groups", "radar_republication_members", "radar_entity_roles", "radar_interviews", "radar_interview_variants"} <= tables)
+            self.assertTrue({"radar_fetch_events", "radar_fetch_cache", "radar_republication_groups", "radar_republication_members", "radar_entity_roles", "radar_interviews", "radar_interview_variants", "radar_domain_quota_events"} <= tables)
             self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
+
+    def test_v4_schema_migration_adds_append_only_domain_quota_ledger(self) -> None:
+        fixture_path = self.root / "radar-v4-quota.sqlite3"
+        with closing(self.store.connect()) as source, closing(sqlite3.connect(fixture_path)) as fixture:
+            source.backup(fixture)
+            fixture.execute("DROP TABLE radar_domain_quota_events")
+            fixture.execute("PRAGMA user_version = 4")
+            fixture.commit()
+
+        migrated = RadarStore(fixture_path)
+        with closing(migrated.connect()) as connection:
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 5)
+            table = connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='radar_domain_quota_events'"
+            ).fetchone()
+            self.assertIsNotNone(table)
+            self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
+            connection.execute(
+                "INSERT INTO radar_domain_quota_events VALUES ('event', 'key', 'example.invalid', '2026-01-01', 'UTC', 1, ?)",
+                (NOW,),
+            )
+            with self.assertRaises(sqlite3.IntegrityError):
+                connection.execute(
+                    "UPDATE radar_domain_quota_events SET quota_limit=2 WHERE event_id='event'"
+                )
+            with self.assertRaises(sqlite3.IntegrityError):
+                connection.execute("DELETE FROM radar_domain_quota_events WHERE event_id='event'")
+
+    def test_domain_quota_reservations_are_atomic_idempotent_and_append_only(self) -> None:
+        def reserve(index: int) -> bool:
+            return self.store.reserve_domain_request(
+                domain="NEWS.EXAMPLE.INVALID.", quota_date="2026-10-25",
+                timezone_name="America/Sao_Paulo", quota_limit=3,
+                request_key=f"request-{index}", reserved_at=NOW,
+            )
+
+        with ThreadPoolExecutor(max_workers=8) as workers:
+            outcomes = list(workers.map(reserve, range(12)))
+        self.assertEqual(sum(outcomes), 3)
+        self.assertEqual(
+            self.store.domain_quota_usage(
+                domain="news.example.invalid", quota_date="2026-10-25",
+                timezone_name="America/Sao_Paulo",
+            ),
+            3,
+        )
+        winning_index = outcomes.index(True)
+        self.assertTrue(reserve(winning_index))  # the same reservation key is idempotent
+        self.assertEqual(
+            self.store.domain_quota_usage(
+                domain="news.example.invalid", quota_date="2026-10-25",
+                timezone_name="America/Sao_Paulo",
+            ),
+            3,
+        )
+        with self.assertRaisesRegex(RadarStoreError, "outra reserva"):
+            self.store.reserve_domain_request(
+                domain="other.example.invalid", quota_date="2026-10-25",
+                timezone_name="America/Sao_Paulo", quota_limit=3,
+                request_key=f"request-{winning_index}", reserved_at=NOW,
+            )
+        self.assertTrue(self.store.reserve_domain_request(
+            domain="other.example.invalid", quota_date="2026-10-25",
+            timezone_name="America/Sao_Paulo", quota_limit=1,
+            request_key="other-domain-request", reserved_at=NOW,
+        ))
+        self.assertEqual(
+            self.store.domain_quota_usage(
+                domain="other.example.invalid", quota_date="2026-10-25",
+                timezone_name="America/Sao_Paulo",
+            ),
+            1,
+        )
 
     def test_v2_homonym_migration_preserves_entity_links_and_adds_disambiguation(self) -> None:
         from motor_editorial.radar_store import RadarStore as Store

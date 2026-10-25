@@ -77,6 +77,18 @@ def add_commands(commands: argparse._SubParsersAction) -> None:
     schedule_add.add_argument("--interval-seconds", type=int, required=True)
     schedule_add.add_argument("--timezone", default="UTC")
     schedule_add.add_argument("--misfire", choices=["skip", "run_once"], default="skip")
+    windows_add = scheduler_commands.add_parser(
+        "windows-add", help="Criar 3–6 janelas diárias locais de Radar, desligadas e dry-run."
+    )
+    windows_add.add_argument("schedule_group_id")
+    windows_add.add_argument("task_type", help="Tipo da tarefa, por exemplo radar.general.scan.")
+    windows_add.add_argument("--payload", required=True, help="Objeto JSON base da tarefa Radar.")
+    windows_add.add_argument("--times", nargs="+", required=True, metavar="HH:MM")
+    windows_add.add_argument("--domain-quota", action="append", required=True, metavar="DOMINIO=MAX/DIA")
+    windows_add.add_argument("--timezone", default="America/Sao_Paulo")
+    windows_add.add_argument("--misfire", choices=["skip", "run_once"], default="skip")
+    windows_add.add_argument("--misfire-grace-seconds", type=int, default=300)
+    windows_add.add_argument("--executor", default="simulated", choices=["simulated"])
     schedule_commands = scheduler_commands
     schedule_commands.add_parser("list", help="Listar agendas e estados.")
     toggle = schedule_commands.add_parser("enable", help="Ativar agenda com confirmação explícita.")
@@ -84,6 +96,10 @@ def add_commands(commands: argparse._SubParsersAction) -> None:
     toggle.add_argument("--confirm", default="")
     disable = schedule_commands.add_parser("disable", help="Desativar uma agenda.")
     disable.add_argument("schedule_id")
+    pause_group = schedule_commands.add_parser("pause-group", help="Pausar todas as janelas de um grupo Radar.")
+    pause_group.add_argument("schedule_group_id")
+    resume_group = schedule_commands.add_parser("resume-group", help="Retomar grupo Radar em sua próxima janela futura.")
+    resume_group.add_argument("schedule_group_id")
     scheduler_run = scheduler_commands.add_parser("run", help="Executar o worker contínuo de agendas.")
     scheduler_run.add_argument("--poll-seconds", type=float, default=2.0)
     scheduler_run.add_argument("--max-cycles", type=int)
@@ -445,8 +461,47 @@ def _handle_scheduler(args: argparse.Namespace, queue: AgentQueue) -> int:
         )
         print(json.dumps({"schedule_id": args.schedule_id, "enabled": False}, indent=2))
         return 0
+    if args.scheduler_command == "windows-add":
+        quotas: dict[str, int] = {}
+        for item in args.domain_quota:
+            if "=" not in item:
+                raise ValueError("Quota precisa usar o formato DOMINIO=MAX/DIA.")
+            domain, raw_limit = item.rsplit("=", 1)
+            if not raw_limit.isdecimal():
+                raise ValueError("Quota diária por domínio deve ser inteiro positivo.")
+            if domain in quotas:
+                raise ValueError("Domínio repetido em --domain-quota.")
+            quotas[domain] = int(raw_limit)
+        schedule_ids = queue.create_daily_window_set(
+            schedule_group_id=args.schedule_group_id, task_type=args.task_type,
+            payload=_json_payload(args.payload), profile=VALIDATION_PROFILE,
+            executor_id=args.executor, local_times=args.times,
+            domain_quotas=quotas, timezone_name=args.timezone,
+            misfire_policy=args.misfire,
+            misfire_grace_seconds=args.misfire_grace_seconds,
+        )
+        print(json.dumps({
+            "schedule_group_id": args.schedule_group_id,
+            "schedule_ids": schedule_ids, "enabled": False,
+            "dry_run": True, "timezone": args.timezone,
+        }, ensure_ascii=False, indent=2))
+        return 0
     if args.scheduler_command == "list":
         print(json.dumps(queue.list_schedules(), ensure_ascii=False, indent=2))
+        return 0
+    if args.scheduler_command == "pause-group":
+        schedule_ids = queue.set_schedule_group_enabled(args.schedule_group_id, False)
+        print(json.dumps({
+            "schedule_group_id": args.schedule_group_id,
+            "schedule_ids": schedule_ids, "enabled": False,
+        }, ensure_ascii=False, indent=2))
+        return 0
+    if args.scheduler_command == "resume-group":
+        schedule_ids = queue.set_schedule_group_enabled(args.schedule_group_id, True)
+        print(json.dumps({
+            "schedule_group_id": args.schedule_group_id,
+            "schedule_ids": schedule_ids, "enabled": True,
+        }, ensure_ascii=False, indent=2))
         return 0
     if args.scheduler_command == "disable":
         queue.set_schedule_enabled(args.schedule_id, False)

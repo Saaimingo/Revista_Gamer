@@ -1,8 +1,8 @@
 # ENG-CODEX-007 — checkpoint de continuidade
 
-Atualizado: 2026-10-25 15:02 -03:00
+Atualizado: 2026-10-25 15:22 -03:00
 Última unidade concluída: **E08 — ledger de alegações, rumores e histórico, validada localmente**
-Unidade em andamento: **E09 — scheduler configurável (análise dos agendadores existentes; sem edição E09 ainda)**
+Unidade em andamento: **E09 — scheduler configurável (implementação e testes focados passaram; suíte integral final pendente)**
 Próxima unidade após E09: **E10 — Radar geral → DiscoveryBatch → triagem**
 
 ## Estado do trabalho
@@ -114,11 +114,13 @@ Próxima unidade após E09: **E10 — Radar geral → DiscoveryBatch → triagem
 - Handoff Issue #28 [6401183533](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6401183533); handoff PR #30 [6401184099](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6401184099). Checkbox E08 da Issue marcada como concluída.
 - Somente fixtures SQLite temporárias, domínios `.invalid` e nenhuma rede/LLM/SIWC/API paga/runtime DB; sem scheduler/publicação/deploy/merge. Sem dados privados; `published=false`.
 
-## E09 — início de análise
+## E09 — implementação em andamento
 
-- Critério da ordem: configurar três janelas locais por dia, 4–6 opcionais, usar UTC internamente, política `skip/run_once` para atraso, deduplicação por execução, limites por domínio, pausa e dry-run; scheduler **default OFF**. O relógio simulado precisa provar execução, janela perdida e retomada sem duplicar, e polling vazio não chama IA.
-- Próximo passo: localizar agendadores/fila atuais e seus limites, determinar se E09 pode reutilizar o scheduler existente sem iniciar daemon nem tocar em produção; implementar relógio injetável e persistência apenas no Radar isolado/fixtures quando compatível.
-- Nenhuma alteração de código E09 ainda. Sem cron, serviço de sistema, scheduler ativo ou coleta real; manter configuração desligada e usar testes determinísticos.
+- Critério da ordem: configurar três janelas locais por dia, 4–6 opcionais, usar UTC internamente, política `skip/run_once`, deduplicação, quota por domínio, pausa e `dry_run`; default OFF. Horários operacionais seguem configuráveis e sem valores escolhidos pela engenharia.
+- Alterações locais: schema do Motor v5→v6 aditivo para janelas/grupos; extensão da `AgentQueue` existente com criação 3–6, controle atômico de grupo, UTC, grace de atraso de 300s configurável, payload `dry_run=true` e quota por hostname; schema Radar v4→v5 com reservas de quota append-only e atômicas; `RadarConnectorService` recusa hostname sem quota configurada e bloqueia antes do transporte ao atingir o limite. CLI `scheduler windows-add|pause-group|resume-group`. Fuso: `America/Sao_Paulo` por padrão, `tzdata` isolado no `.venv` (3.11.9 / 2026.5).
+- Validação focada sequencial: `test_orchestration.py` **41/41 OK (23,108 s)**; `test_radar*.py` **40/40 OK (20,899 s)**. Os testes usam relógio injetado, DST de fixture, SQLite temporário, resolver/transporte falsos; nada de executor externo.
+- Corrigidas tentativas de teste: a primeira asserção de idempotência reutilizou uma reserva concorrente que podia ter sido negada; agora reutiliza uma chave de reserva confirmada. Uma rodada paralela atrasou o teste preexistente do heartbeat; ele passou isolado e as duas suítes focadas passaram sequencialmente.
+- Código e testes estão no working tree; a suíte integral final ainda precisa ser repetida após essas últimas alterações. Não iniciar worker/daemon, não abrir ou migrar o banco runtime, não consultar fontes reais. Próximo passo imediato: commit/push de implementação e checkpoint parcial; executar suíte integral serial; fechar relatório/README/checkpoint E09 e registrar handoff antes de seguir E10.
 
 ## Bloqueios e retomada
 

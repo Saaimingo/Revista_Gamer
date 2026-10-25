@@ -9,9 +9,15 @@ import uuid
 from contextlib import closing
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, Mapping, Protocol
+from typing import Any, Callable, Mapping, Protocol, Sequence
 
 from .db import Store, json_dumps, stable_hash, utc_now
+from .radar_policy import (
+    load_timezone,
+    next_daily_window_utc,
+    normalize_domain_quotas,
+    parse_local_time,
+)
 
 
 @dataclass(frozen=True)
@@ -595,6 +601,108 @@ class AgentQueue:
                 })),
             )
 
+    def create_daily_window_set(
+        self,
+        *,
+        schedule_group_id: str,
+        task_type: str,
+        payload: Mapping[str, Any],
+        profile: AgentProfile,
+        executor_id: str,
+        local_times: Sequence[str],
+        domain_quotas: Mapping[str, int],
+        timezone_name: str = "America/Sao_Paulo",
+        misfire_policy: str = "skip",
+        misfire_grace_seconds: int = 300,
+        start_at: datetime | str | None = None,
+    ) -> list[str]:
+        """Create 3–6 disabled local daily Radar windows on the existing queue."""
+        if not isinstance(schedule_group_id, str) or not schedule_group_id.strip() or len(schedule_group_id) > 128:
+            raise ValueError("Identificador do grupo de agendas é obrigatório e deve ter até 128 caracteres.")
+        if not isinstance(task_type, str) or not task_type.startswith("radar."):
+            raise ValueError("Janelas diárias são reservadas a tarefas radar.*.")
+        if not isinstance(executor_id, str) or not executor_id.strip():
+            raise ValueError("Executor da agenda é obrigatório.")
+        if len(local_times) < 3 or len(local_times) > 6:
+            raise ValueError("Configure de 3 a 6 janelas locais por dia.")
+        normalized_times = [value.strip() if isinstance(value, str) else value for value in local_times]
+        for local_time in normalized_times:
+            parse_local_time(local_time)
+        if len(set(normalized_times)) != len(normalized_times):
+            raise ValueError("Horários locais duplicados no grupo de agendas.")
+        load_timezone(timezone_name)
+        if misfire_policy not in {"skip", "run_once"}:
+            raise ValueError("Política de atraso deve ser skip ou run_once.")
+        if (
+            isinstance(misfire_grace_seconds, bool)
+            or not isinstance(misfire_grace_seconds, int)
+            or not 0 <= misfire_grace_seconds <= 86_400
+        ):
+            raise ValueError("Tolerância de atraso deve ficar entre 0 e 86400 segundos.")
+        quotas = normalize_domain_quotas(domain_quotas)
+        if "radar_collection_policy" in payload:
+            raise ValueError("radar_collection_policy é reservado à configuração da agenda.")
+        base_payload = dict(payload)
+        _assert_no_credentials(base_payload)
+        group_id = schedule_group_id.strip()
+        _assert_no_credentials(group_id, "schedule_group_id")
+        now_instant = _as_utc(start_at)
+        now_value = _iso(now_instant)
+        schedule_ids: list[str] = []
+        with self.store.transaction() as connection:
+            if connection.execute(
+                "SELECT 1 FROM agent_schedules WHERE schedule_group_id=? LIMIT 1",
+                (group_id,),
+            ).fetchone() is not None:
+                raise ValueError("Identificador de grupo de agendas já está em uso.")
+            for local_time in sorted(normalized_times):
+                schedule_id = f"{group_id}:{local_time.replace(':', '')}"
+                next_run = _iso(next_daily_window_utc(
+                    local_time, timezone_name, now_instant, include_equal=True
+                ))
+                task_payload = {
+                    **base_payload,
+                    "radar_collection_policy": {
+                        "schedule_group_id": group_id,
+                        "window_local_time": local_time,
+                        "timezone": timezone_name,
+                        "domain_quotas": quotas,
+                        "quota_period": "local_day",
+                        "dry_run": True,
+                    },
+                }
+                connection.execute(
+                    """INSERT INTO agent_schedules
+                       (id, task_type, payload_json, profile_id, profile_version,
+                        profile_hash, executor_id, interval_seconds, timezone,
+                        misfire_policy, enabled, next_run_at, created_at, updated_at,
+                        schedule_group_id, schedule_kind, local_time,
+                        misfire_grace_seconds, domain_quotas_json, dry_run)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, 86400, ?, ?, 0, ?, ?, ?, ?,
+                               'daily_window', ?, ?, ?, 1)""",
+                    (schedule_id, task_type, json_dumps(task_payload), profile.profile_id,
+                     profile.version, profile.content_hash, executor_id, timezone_name,
+                     misfire_policy, next_run, now_value, now_value, group_id, local_time,
+                     misfire_grace_seconds, json_dumps(quotas)),
+                )
+                connection.execute(
+                    """INSERT INTO audit_events
+                       (occurred_at, entity_type, entity_id, action, actor, source,
+                        before_json, after_json)
+                       VALUES (?, 'agent_schedule', ?, 'created', 'operator', 'scheduler',
+                               NULL, ?)""",
+                    (now_value, schedule_id, json_dumps({
+                        "enabled": False, "schedule_group_id": group_id,
+                        "schedule_kind": "daily_window", "local_time": local_time,
+                        "timezone": timezone_name, "misfire_policy": misfire_policy,
+                        "misfire_grace_seconds": misfire_grace_seconds,
+                        "domain_quotas": quotas, "dry_run": True,
+                        "executor_id": executor_id,
+                    })),
+                )
+                schedule_ids.append(schedule_id)
+        return schedule_ids
+
     def set_schedule_enabled(
         self, schedule_id: str, enabled: bool, *, now: datetime | str | None = None
     ) -> None:
@@ -604,11 +712,15 @@ class AgentQueue:
             ).fetchone()
             if row is None:
                 raise ValueError("Agenda inexistente.")
-            now_value = _iso(now)
+            if row["schedule_kind"] == "daily_window":
+                raise ValueError("Janelas diárias devem ser pausadas ou retomadas pelo grupo completo.")
+            now_instant = _as_utc(now)
+            now_value = _iso(now_instant)
+            next_run = now_value
             connection.execute(
                 """UPDATE agent_schedules SET enabled = ?, next_run_at = ?, updated_at = ?
                    WHERE id = ?""",
-                (int(enabled), now_value, now_value, schedule_id),
+                (int(enabled), next_run, now_value, schedule_id),
             )
             connection.execute(
                 """INSERT INTO audit_events
@@ -619,6 +731,43 @@ class AgentQueue:
                  json_dumps({"enabled": bool(row["enabled"])}),
                  json_dumps({"enabled": bool(enabled)})),
             )
+
+    def set_schedule_group_enabled(
+        self, schedule_group_id: str, enabled: bool, *, now: datetime | str | None = None
+    ) -> list[str]:
+        with self.store.transaction() as connection:
+            rows = connection.execute(
+                "SELECT * FROM agent_schedules WHERE schedule_group_id=? ORDER BY local_time, id",
+                (schedule_group_id,),
+            ).fetchall()
+            if not rows:
+                raise ValueError("Grupo de agendas inexistente.")
+            now_instant = _as_utc(now)
+            now_value = _iso(now_instant)
+            updated_ids: list[str] = []
+            for row in rows:
+                next_run = now_value
+                if enabled and row["schedule_kind"] == "daily_window":
+                    next_run = _iso(next_daily_window_utc(
+                        row["local_time"], row["timezone"], now_instant, include_equal=True
+                    ))
+                connection.execute(
+                    """UPDATE agent_schedules SET enabled=?, next_run_at=?, updated_at=?
+                       WHERE id=?""",
+                    (int(enabled), next_run, now_value, row["id"]),
+                )
+                connection.execute(
+                    """INSERT INTO audit_events
+                       (occurred_at, entity_type, entity_id, action, actor, source,
+                        before_json, after_json)
+                       VALUES (?, 'agent_schedule', ?, ?, 'operator', 'scheduler', ?, ?)""",
+                    (now_value, row["id"], "enabled" if enabled else "disabled",
+                     json_dumps({"enabled": bool(row["enabled"]), "schedule_group_id": schedule_group_id}),
+                     json_dumps({"enabled": bool(enabled), "schedule_group_id": schedule_group_id,
+                                 "next_run_at": next_run})),
+                )
+                updated_ids.append(row["id"])
+            return updated_ids
 
     def list_schedules(self) -> list[dict[str, Any]]:
         with closing(self.store.connect()) as connection:
@@ -631,6 +780,11 @@ class AgentQueue:
                 "timezone": row["timezone"], "misfire_policy": row["misfire_policy"],
                 "enabled": bool(row["enabled"]), "next_run_at": row["next_run_at"],
                 "last_enqueued_at": row["last_enqueued_at"],
+                "schedule_group_id": row["schedule_group_id"],
+                "schedule_kind": row["schedule_kind"], "local_time": row["local_time"],
+                "misfire_grace_seconds": row["misfire_grace_seconds"],
+                "domain_quotas": json.loads(row["domain_quotas_json"]),
+                "dry_run": bool(row["dry_run"]),
             } for row in rows]
 
     def scheduler_tick(self, now: datetime | str | None = None) -> list[str]:
@@ -645,6 +799,50 @@ class AgentQueue:
             ).fetchall()
             for schedule in due_schedules:
                 due = _as_utc(schedule["next_run_at"])
+                if schedule["schedule_kind"] == "daily_window":
+                    lateness = max(0.0, (instant - due).total_seconds())
+                    missed = lateness > int(schedule["misfire_grace_seconds"])
+                    next_run = next_daily_window_utc(
+                        schedule["local_time"], schedule["timezone"], instant,
+                        include_equal=False,
+                    )
+                    if missed and schedule["misfire_policy"] == "skip":
+                        connection.execute(
+                            """UPDATE agent_schedules SET next_run_at=?, updated_at=?
+                               WHERE id=?""",
+                            (_iso(next_run), now_iso, schedule["id"]),
+                        )
+                        connection.execute(
+                            """INSERT INTO audit_events
+                               (occurred_at, entity_type, entity_id, action, actor, source, after_json)
+                               VALUES (?, 'agent_schedule', ?, 'missed_run_skipped',
+                                       'scheduler', 'scheduler', ?)""",
+                            (now_iso, schedule["id"], json_dumps({
+                                "missed_policy": "skip", "due_at": _iso(due),
+                                "next_run_at": _iso(next_run),
+                            })),
+                        )
+                        continue
+                    slot_key = _iso(due)
+                    task_id, was_created = self._enqueue_in_connection(
+                        connection, task_type=schedule["task_type"],
+                        payload=json.loads(schedule["payload_json"]),
+                        profile_id=schedule["profile_id"],
+                        profile_version=schedule["profile_version"],
+                        profile_hash=schedule["profile_hash"],
+                        executor_id=schedule["executor_id"],
+                        idempotency_key=f"schedule:{schedule['id']}:{slot_key}",
+                        max_attempts=3, available_at=now_iso,
+                        schedule_id=schedule["id"],
+                    )
+                    if was_created:
+                        created_task_ids.append(task_id)
+                    connection.execute(
+                        """UPDATE agent_schedules SET next_run_at=?, last_enqueued_at=?,
+                           updated_at=? WHERE id=?""",
+                        (_iso(next_run), now_iso, now_iso, schedule["id"]),
+                    )
+                    continue
                 interval = schedule["interval_seconds"]
                 lateness = (instant - due).total_seconds()
                 missed = lateness > interval
