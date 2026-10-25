@@ -1,8 +1,9 @@
 # ENG-CODEX-007 — checkpoint de continuidade
 
-Atualizado: 2026-10-25 14:38 America/Sao_Paulo
+Atualizado: 2026-10-25 14:40 America/Sao_Paulo
 Última unidade: **E06 — coleta incremental, cache, ETag/diff e deduplicação conservadora, concluída/validada localmente**
-Próxima unidade: **E07 — pessoas, projetos, aliases, entrevistas e idiomas**
+Unidade em andamento: **E07 — pessoas, projetos, aliases, entrevistas e idiomas**
+Próxima unidade após E07: **E08 — ledger de alegações e rumores**
 
 ## Estado do trabalho
 
@@ -89,6 +90,13 @@ Próxima unidade: **E07 — pessoas, projetos, aliases, entrevistas e idiomas**
 - Handoff E05: Issue #28 [6400677577](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400677577); PR #30 [6400677792](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6400677792). Comentário da direção sobre eficiência de contexto: Issue #28 [6400571458](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400571458).
 - Handoff E06: Issue #28 [6400926282](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400926282); PR #30 [6400926504](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6400926504). A direção acrescentou roteamento futuro independente de provedor em Issue #28 [6400791472](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400791472); essa diretriz não autoriza gastos/credenciais e não altera as unidades concluídas.
 - Complemento da direção sobre roteamento futuro entre provedores: Issue #28 [6400791472](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400791472). E06 não altera `fallback=none`, não chama provedores e não reabre E01–E05; E13/E17 deverão respeitar adaptadores, mocks e os gates financeiros/autorização deste comentário.
+
+## E07 — em andamento
+
+- Critério confirmado na ordem versionada do Fundador 2: pessoas públicas de produção/direção/desenvolvimento; cargos com intervalos; entidades/aliases com idioma; origem e links de entrevistas; separar citação de entrevista de menção em press release; suportar nome japonês/romanizado, homônimos, cargos anteriores/novos e original/tradução; sem dados pessoais privados.
+- Mapeamento sem edição de código: `radar_entities` já cataloga pessoa/organização/projeto e `radar_entity_aliases` guarda idioma e documento de origem. A tabela de entidades ainda tem unicidade global por nome normalizado/idioma, que impede homônimos; não há histórico de cargo nem relação de versão original/tradução de entrevista.
+- Ainda sem alterações E07 e sem testes E07. Próximo passo: criar migração aditiva Radar v2→v3 com identidade disambiguada por contexto profissional e documento-fonte; acrescentar registros de cargo/proveniência e links de entrevistas/traduções; cobrir os critérios com SQLite e fontes sintéticas temporários.
+- Limite de conteúdo: guardar somente identidade/nome profissional, função, idioma, fonte, intervalos e relações; não armazenar contatos privados nem texto de entrevista.
 
 ## E06 — em andamento
 
