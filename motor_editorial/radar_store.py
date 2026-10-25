@@ -18,12 +18,16 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, urlsplit
 
-from .agent_contracts import ResearchPacket, ResearchRequest
+from .agent_contracts import (
+    SUPPORTED_RESEARCH_REQUEST_SCHEMA_VERSIONS,
+    ResearchPacket,
+    ResearchRequest,
+)
 from .db import json_dumps, normalize_text, stable_hash
 from .orchestration import _assert_no_credentials
 
 
-RADAR_SCHEMA_VERSION = 5
+RADAR_SCHEMA_VERSION = 6
 _HASH_RE = re.compile(r"^[a-f0-9]{64}$")
 _LANGUAGE_TAG_RE = re.compile(r"^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$")
 _SENSITIVE_URL_KEYS = {
@@ -585,6 +589,9 @@ class RadarStore:
             if version == 4:
                 self._migrate_v4_to_v5(connection)
                 version = 5
+            if version == 5:
+                self._migrate_v5_to_v6(connection)
+                version = 6
             if version == RADAR_SCHEMA_VERSION:
                 check = connection.execute("PRAGMA quick_check").fetchone()[0]
                 if check != "ok":
@@ -604,7 +611,7 @@ class RadarStore:
                     "radar_domain_quota_events",
                 }
                 if not required.issubset(tables):
-                    raise RadarStoreError("Banco marcado como Radar v5 sem as tabelas obrigatórias.")
+                    raise RadarStoreError("Banco marcado como Radar v6 sem as tabelas obrigatórias.")
                 unrelated = {name for name in tables if not name.startswith(("radar_", "sqlite_"))}
                 if unrelated:
                     raise RadarStoreError("Banco Radar v4 contém tabelas fora do namespace reservado.")
@@ -612,7 +619,12 @@ class RadarStore:
                     row["name"] for row in connection.execute("PRAGMA table_info(radar_claim_sources)").fetchall()
                 }
                 if "based_on_source_id" not in claim_source_columns:
-                    raise RadarStoreError("Banco marcado como Radar v5 sem a coluna de linhagem de alegações.")
+                    raise RadarStoreError("Banco marcado como Radar v6 sem a coluna de linhagem de alegações.")
+                request_columns = {
+                    row["name"] for row in connection.execute("PRAGMA table_info(radar_research_requests)").fetchall()
+                }
+                if "story_revision_id" not in request_columns:
+                    raise RadarStoreError("Banco marcado como Radar v6 sem vínculo de revisão da pauta.")
                 return
             raise RadarStoreError(f"Versão de schema Radar não suportada: {version}.")
 
@@ -808,6 +820,37 @@ class RadarStore:
             violations = connection.execute("PRAGMA foreign_key_check").fetchall()
             if violations:
                 raise RadarStoreError("Migração Radar v4→v5 deixou referências sem destino.")
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+
+    @staticmethod
+    def _migrate_v5_to_v6(connection: sqlite3.Connection) -> None:
+        """Add an indexed story-revision link to durable research requests."""
+        connection.execute("BEGIN IMMEDIATE")
+        try:
+            tables = {
+                row[0] for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+            unexpected = {name for name in tables if not name.startswith(("radar_", "sqlite_"))}
+            if unexpected or "radar_research_requests" not in tables:
+                raise RadarStoreError("Migração v5→v6 recusada: banco não corresponde ao namespace do Radar.")
+            columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(radar_research_requests)").fetchall()
+            }
+            if "story_revision_id" not in columns:
+                connection.execute("ALTER TABLE radar_research_requests ADD COLUMN story_revision_id TEXT")
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_radar_research_story_revision "
+                "ON radar_research_requests(story_id, story_revision_id, created_at)"
+            )
+            connection.execute("PRAGMA user_version = 6")
+            violations = connection.execute("PRAGMA foreign_key_check").fetchall()
+            if violations:
+                raise RadarStoreError("Migração Radar v5→v6 deixou referências sem destino.")
             connection.commit()
         except Exception:
             connection.rollback()
@@ -1858,6 +1901,12 @@ class RadarStore:
     def save_research_request(self, request: ResearchRequest, *, now: str) -> str:
         if not isinstance(request, ResearchRequest):
             raise RadarStoreError("ResearchRequest precisa usar o contrato versionado E02.")
+        if not isinstance(request.schema_version, str) or request.schema_version not in SUPPORTED_RESEARCH_REQUEST_SCHEMA_VERSIONS:
+            raise RadarStoreError("Versao de ResearchRequest nao suportada pelo RadarStore.")
+        if request.schema_version == "1.1" and not request.story_revision_id:
+            raise RadarStoreError("ResearchRequest v1.1 exige vínculo com revisão da pauta.")
+        if request.schema_version == "1.0" and request.story_revision_id is not None:
+            raise RadarStoreError("story_revision_id exige ResearchRequest v1.1.")
         now = _timestamp(now, "now")  # type: ignore[assignment]
         data = request.to_dict()
         request_json = _json(data, "research_request")
@@ -1874,11 +1923,12 @@ class RadarStore:
             try:
                 connection.execute(
                     """INSERT INTO radar_research_requests
-                       (request_id, idempotency_key, parent_task_id, story_id, requester_role_id,
+                       (request_id, idempotency_key, parent_task_id, story_id, story_revision_id, requester_role_id,
                         requester_persona_id, profile_id, profile_version, request_json, content_hash,
                         state, created_at, updated_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?)""",
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?)""",
                     (request.request_id, request.idempotency_key, request.parent_task_id, request.story_id,
+                     request.story_revision_id,
                      request.requester_role_id, request.requester_persona_id, request.research_profile_id,
                      request.research_profile_version, request_json, content_hash, now, now),
                 )

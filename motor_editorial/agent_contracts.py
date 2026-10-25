@@ -24,7 +24,8 @@ from .orchestration import AgentProfile, AgentQueue, _assert_no_credentials
 AGENT_ROLE_PROFILE_SCHEMA_VERSION = "1.0"
 AGENT_TASK_ENVELOPE_SCHEMA_VERSION = "1.0"
 AGENT_RESULT_ENVELOPE_SCHEMA_VERSION = "1.0"
-RESEARCH_REQUEST_SCHEMA_VERSION = "1.0"
+RESEARCH_REQUEST_SCHEMA_VERSION = "1.1"
+SUPPORTED_RESEARCH_REQUEST_SCHEMA_VERSIONS = frozenset({"1.0", "1.1"})
 RESEARCH_PACKET_SCHEMA_VERSION = "1.0"
 CATALOG_SCHEMA_VERSION = "1.0"
 
@@ -527,23 +528,30 @@ class ResearchRequest:
     versions_configurations: Mapping[str, Any]
     requester_persona_id: str | None = None
     schema_version: str = RESEARCH_REQUEST_SCHEMA_VERSION
+    story_revision_id: str | None = None
 
     @classmethod
     def from_mapping(cls, value: Any) -> "ResearchRequest":
-        keys = {"schema_version", "request_id", "parent_task_id", "story_id", "requester_role_id", "requester_persona_id",
+        keys = {"schema_version", "request_id", "parent_task_id", "story_id", "story_revision_id", "requester_role_id", "requester_persona_id",
                 "research_profile_id", "research_profile_version", "question", "queries", "entity_ids", "required_evidence_kinds",
                 "preferred_source_ids", "preferred_domains", "languages", "time_window", "versions_configurations",
                 "known_evidence_ids", "exclusions", "max_sources", "max_requests", "max_bytes", "max_duration_seconds",
                 "reason", "allowed_scope", "idempotency_key", "human_gate_if_sensitive"}
-        raw = _object(value, name="ResearchRequest", required=keys - {"requester_persona_id"}, optional={"requester_persona_id"})
-        if raw["schema_version"] != RESEARCH_REQUEST_SCHEMA_VERSION:
+        optional = {"requester_persona_id", "story_revision_id"}
+        raw = _object(value, name="ResearchRequest", required=keys - optional, optional=optional)
+        if not isinstance(raw["schema_version"], str) or raw["schema_version"] not in SUPPORTED_RESEARCH_REQUEST_SCHEMA_VERSIONS:
             raise ContractValidationError("Versão de ResearchRequest não suportada.")
+        if raw["schema_version"] == "1.1" and raw.get("story_revision_id") is None:
+            raise ContractValidationError("ResearchRequest v1.1 exige story_revision_id.")
+        if raw["schema_version"] == "1.0" and "story_revision_id" in raw:
+            raise ContractValidationError("story_revision_id exige ResearchRequest v1.1.")
         if not isinstance(raw["human_gate_if_sensitive"], bool):
             raise ContractValidationError("human_gate_if_sensitive precisa ser booleano.")
         return cls(
             request_id=_identifier(raw["request_id"], "request_id"), parent_task_id=_identifier(raw["parent_task_id"], "parent_task_id"),
             story_id=_identifier(raw["story_id"], "story_id"), requester_role_id=_role_id(raw["requester_role_id"], "requester_role_id"),
             requester_persona_id=_identifier(raw.get("requester_persona_id"), "requester_persona_id", optional=True),
+            story_revision_id=_identifier(raw.get("story_revision_id"), "story_revision_id", optional=True),
             research_profile_id=_identifier(raw["research_profile_id"], "research_profile_id"),
             research_profile_version=_text(raw["research_profile_version"], "research_profile_version", maximum=64),
             question=_text(raw["question"], "question", maximum=2_000),
@@ -568,7 +576,7 @@ class ResearchRequest:
         )  # type: ignore[arg-type]
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result = {
             "schema_version": self.schema_version, "request_id": self.request_id, "parent_task_id": self.parent_task_id,
             "story_id": self.story_id, "requester_role_id": self.requester_role_id,
             "requester_persona_id": self.requester_persona_id, "research_profile_id": self.research_profile_id,
@@ -583,6 +591,9 @@ class ResearchRequest:
             "allowed_scope": list(self.allowed_scope), "idempotency_key": self.idempotency_key,
             "human_gate_if_sensitive": self.human_gate_if_sensitive,
         }
+        if self.schema_version == "1.1":
+            result["story_revision_id"] = self.story_revision_id
+        return result
 
 
 @dataclass(frozen=True)

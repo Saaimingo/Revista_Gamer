@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import sqlite3
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
@@ -20,10 +21,12 @@ def sha256(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def make_request(*, request_id: str = "research-1", idempotency_key: str = "idem-1") -> ResearchRequest:
-    return ResearchRequest.from_mapping(
-        {
-            "schema_version": RESEARCH_REQUEST_SCHEMA_VERSION,
+def make_request(
+    *, request_id: str = "research-1", idempotency_key: str = "idem-1",
+    schema_version: str = RESEARCH_REQUEST_SCHEMA_VERSION, story_revision_id: str | None = "story-rev-1",
+) -> ResearchRequest:
+    value = {
+            "schema_version": schema_version,
             "request_id": request_id,
             "parent_task_id": "task-1",
             "story_id": "story-1",
@@ -50,7 +53,9 @@ def make_request(*, request_id: str = "research-1", idempotency_key: str = "idem
             "idempotency_key": idempotency_key,
             "human_gate_if_sensitive": True,
         }
-    )
+    if schema_version == "1.1":
+        value["story_revision_id"] = story_revision_id
+    return ResearchRequest.from_mapping(value)
 
 
 class RadarStoreTests(unittest.TestCase):
@@ -93,7 +98,7 @@ class RadarStoreTests(unittest.TestCase):
         self.store.register_topic(topic_id=topic_id, canonical_key=f"key-{topic_id}", title="Pauta sintética", now=NOW)
 
     def test_schema_is_separate_versioned_and_runtime_path_is_refused(self) -> None:
-        self.assertEqual(RADAR_SCHEMA_VERSION, 5)
+        self.assertEqual(RADAR_SCHEMA_VERSION, 6)
         self.assertEqual(db.SCHEMA_VERSION, 6)
         names = self.store.table_names()
         self.assertGreaterEqual(
@@ -102,7 +107,7 @@ class RadarStoreTests(unittest.TestCase):
         )
         self.assertTrue(all(name.startswith("radar_") for name in names))
         with closing(self.store.connect()) as connection:
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 5)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 6)
             self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
         with self.assertRaisesRegex(RadarStoreError, "não pode abrir"):
             RadarStore(RUNTIME_DB_PATH)
@@ -214,7 +219,7 @@ class RadarStoreTests(unittest.TestCase):
             with self.assertRaises(sqlite3.IntegrityError):
                 connection.execute("DELETE FROM radar_observation_events WHERE event_id='obs-1'")
 
-    def test_v1_schema_migrates_additively_through_v5(self) -> None:
+    def test_v1_schema_migrates_additively_through_v6(self) -> None:
         from motor_editorial.radar_store import _SCHEMA_V1_STATEMENTS
 
         fixture_path = self.root / "radar-v1.sqlite3"
@@ -225,13 +230,15 @@ class RadarStoreTests(unittest.TestCase):
             connection.commit()
         migrated = RadarStore(fixture_path)
         with closing(migrated.connect()) as connection:
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 5)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 6)
             columns = {row[1] for row in connection.execute("PRAGMA table_info(radar_documents)")}
             self.assertTrue({"body_sha256", "body_segment_hashes_json", "body_char_count", "origin_url"} <= columns)
             entity_columns = {row[1] for row in connection.execute("PRAGMA table_info(radar_entities)")}
             self.assertTrue({"identity_source_document_id", "identity_context"} <= entity_columns)
             claim_source_columns = {row[1] for row in connection.execute("PRAGMA table_info(radar_claim_sources)")}
             self.assertIn("based_on_source_id", claim_source_columns)
+            request_columns = {row[1] for row in connection.execute("PRAGMA table_info(radar_research_requests)")}
+            self.assertIn("story_revision_id", request_columns)
             tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             self.assertTrue({"radar_fetch_events", "radar_fetch_cache", "radar_republication_groups", "radar_republication_members", "radar_entity_roles", "radar_interviews", "radar_interview_variants", "radar_domain_quota_events"} <= tables)
             self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
@@ -246,7 +253,7 @@ class RadarStoreTests(unittest.TestCase):
 
         migrated = RadarStore(fixture_path)
         with closing(migrated.connect()) as connection:
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 5)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 6)
             table = connection.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name='radar_domain_quota_events'"
             ).fetchone()
@@ -549,6 +556,7 @@ class RadarStoreTests(unittest.TestCase):
         self.assertEqual(self.store.save_research_request(request, now=NOW), request.request_id)
         self.assertEqual(self.store.save_research_request(request, now="2026-10-25T18:00:00+00:00"), request.request_id)
         stored = self.store.get_row("radar_research_requests", "request_id", request.request_id)
+        self.assertEqual(stored["story_revision_id"], request.story_revision_id)  # type: ignore[index]
         self.assertEqual(stored["content_hash"], db.stable_hash(db.json_dumps(request.to_dict())))  # type: ignore[index]
         changed_request = make_request(request_id="research-2")
         with self.assertRaisesRegex(RadarStoreError, "Idempotency key"):
@@ -575,6 +583,30 @@ class RadarStoreTests(unittest.TestCase):
                     "INSERT INTO radar_research_packets (packet_id,request_id,version,status,packet_json,content_hash,fetched_at) VALUES ('bad','missing',1,'partial','{}',?,'2026-10-25T16:00:00+00:00')",
                     (packet.content_hash,),
                 )
+
+    def test_v5_research_request_fixture_migrates_story_revision_column_additively(self) -> None:
+        fixture_path = self.root / "radar-v5-research.sqlite3"
+        legacy = RadarStore(fixture_path)
+        request = make_request(
+            request_id="research-legacy-v1", idempotency_key="legacy-v1",
+            schema_version="1.0", story_revision_id=None,
+        )
+        legacy.save_research_request(request, now=NOW)
+        with closing(sqlite3.connect(fixture_path)) as connection:
+            connection.execute("DROP INDEX idx_radar_research_story_revision")
+            connection.execute("ALTER TABLE radar_research_requests DROP COLUMN story_revision_id")
+            connection.execute("PRAGMA user_version = 5")
+            connection.commit()
+
+        migrated = RadarStore(fixture_path)
+        stored = migrated.get_row("radar_research_requests", "request_id", request.request_id)
+        self.assertIsNone(stored["story_revision_id"])  # type: ignore[index]
+        saved_request = json.loads(stored["request_json"])  # type: ignore[index]
+        self.assertEqual(saved_request["schema_version"], "1.0")
+        self.assertNotIn("story_revision_id", saved_request)
+        with closing(migrated.connect()) as connection:
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 6)
+            self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
 
     def test_portfolio_candidate_lane_history_is_append_only(self) -> None:
         self.add_topic()
