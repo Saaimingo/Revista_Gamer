@@ -18,6 +18,13 @@ from .editorial import (
     review_matches_revision,
     validate_stage_output,
 )
+from .editorial_handoffs import (
+    ARTIFACT_KEYS,
+    HandoffError,
+    build_handoff_artifact,
+    validate_handoff_chain,
+)
+from .agent_contracts import load_builtin_role_catalog
 from .layout.contracts import (
     SCHEMA_MEDIA,
     SCHEMA_REFERENCE,
@@ -50,6 +57,7 @@ from .orchestration import (
 
 
 FACTORY_FIXTURE = Path(__file__).parent / "fixtures" / "factory-demo.json"
+FACTORY_E14_CASES_FIXTURE = Path(__file__).parent / "fixtures" / "factory-e14-cases.json"
 FACTORY_EXECUTOR_ID = "synthetic-factory"
 FACTORY_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{2,79}$")
 LAYOUT_TASK_TYPE = "factory.layout_stage"
@@ -90,6 +98,17 @@ _STAGE_ROLES = {
     "final_review": "reviewer",
 }
 
+_FUNCTIONAL_STAGE_ROLES = {
+    "source_analysis": "evidence_investigator",
+    "outline": "assignment_editor",
+    "draft": "persona_writer",
+    "fact_check": "fact_checker",
+    "review": "editorial_reviewer",
+    "correction": "persona_writer",
+    "final_fact_check": "fact_checker",
+    "final_review": "editorial_reviewer",
+}
+
 
 class FactoryFixtureError(ValueError):
     """A synthetic fixture is malformed or contains a non-synthetic decision."""
@@ -109,6 +128,34 @@ def _load_fixture(path: Path | None = None) -> dict[str, Any]:
         key: value[key]
         for key in ("article_type", "topic", "research_note", "sources")
     })
+    case = value.get("e14_case")
+    if case is not None:
+        if not isinstance(case, Mapping) or case.get("case_type") not in {
+            "attributed_rumor", "hardware", "game_mod",
+        }:
+            raise FactoryFixtureError("e14_case precisa declarar um tipo de caso conhecido.")
+        required_case_fields = (
+            "genre", "angle", "claim", "assessment", "headline", "dek",
+            "section_heading", "section_focus", "body_markdown", "fact_claim", "source_ids",
+        )
+        if any(not isinstance(case.get(field), str) or not case[field].strip() for field in required_case_fields[:-1]):
+            raise FactoryFixtureError("e14_case contém texto obrigatório vazio ou inválido.")
+        if case.get("genre") not in {"news", "rumor", "investigation", "analysis", "review", "guide"}:
+            raise FactoryFixtureError("e14_case.genre fora do contrato funcional.")
+        if case.get("assessment") not in {"supported", "uncertain", "rumor", "contradicted"}:
+            raise FactoryFixtureError("e14_case.assessment fora do contrato editorial.")
+        if not isinstance(case.get("source_ids"), list) or not case["source_ids"] or any(
+            not isinstance(item, str) for item in case["source_ids"]
+        ):
+            raise FactoryFixtureError("e14_case.source_ids precisa listar fontes da fixture.")
+        if not set(case["source_ids"]).issubset(_source_ids(_packet(value))):
+            raise FactoryFixtureError("e14_case cita ID ausente do pacote de evidências.")
+        if case.get("fact_status", "supported") not in {"supported", "uncertain", "contradicted", "unsupported"}:
+            raise FactoryFixtureError("e14_case.fact_status fora do contrato de checagem.")
+        if case.get("case_type") == "attributed_rumor" and case.get("assessment") != "rumor":
+            raise FactoryFixtureError("Caso de rumor precisa manter epistemic status rumor.")
+        if case.get("case_type") == "attributed_rumor" and case.get("genre") != "rumor":
+            raise FactoryFixtureError("Caso de rumor precisa usar gênero rumor.")
     identities = value.get("identities")
     if not isinstance(identities, Mapping) or set(identities) != {
         "editor", "writer_persona", "reviewer",
@@ -150,37 +197,47 @@ def _editorial_output(
     *,
     review_flow: str = "pass",
     source_disagreement: bool = False,
+    case: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
+    case = case or {}
     ids = [str(source["id"]) for source in packet["sources"]]
     if stage == "source_analysis":
         source = packet["sources"][0]
+        assessment = "uncertain" if source_disagreement else str(case.get("assessment", "supported"))
         return {"claims": [{
             "claim_id": "fictional-claim-01",
             "claim": (
                 "As fontes fictícias divergem sobre a exploração solo e os mapas desenhados à mão."
                 if source_disagreement else
-                "Farol de Papel é um jogo fictício de exploração solo com mapas desenhados à mão."
+                str(case.get("claim") or "Farol de Papel é um jogo fictício de exploração solo com mapas desenhados à mão.")
             ),
-            "source_ids": ids,
+            "source_ids": list(case.get("source_ids") or ids),
             "evidence_excerpt": source["evidence"],
-            "assessment": "uncertain" if source_disagreement else "supported",
-            "confidence": "medium" if source_disagreement else "high",
+            "assessment": assessment,
+            "confidence": "low" if assessment == "rumor" else "medium" if assessment == "uncertain" else "high",
             "caveat": (
                 "A divergência precisa permanecer explícita; a fixture não descreve um jogo real."
-                if source_disagreement else "A fixture não descreve um jogo real."
+                if source_disagreement else str(case.get("caveat") or "A fixture não descreve um produto real.")
             ),
         }]}
     if stage == "outline":
         return {
-            "headline": "Farol de Papel: exploração em mapas feitos à mão",
-            "dek": "Uma pauta fictícia demonstra como organizar evidência sem inventar uma data de lançamento.",
+            "headline": str(case.get("headline") or "Farol de Papel: exploração em mapas feitos à mão"),
+            "dek": str(case.get("dek") or "Uma pauta fictícia demonstra como organizar evidência sem inventar uma data de lançamento."),
             "sections": [{
-                "heading": "Descoberta sem pressa",
-                "focus": "Apresentar a proposta imaginária e registrar o limite do que as fontes dizem.",
-                "source_ids": ids,
+                "heading": str(case.get("section_heading") or "Descoberta sem pressa"),
+                "focus": str(case.get("section_focus") or "Apresentar a proposta imaginária e registrar o limite do que as fontes dizem."),
+                "source_ids": list(case.get("source_ids") or ids),
             }],
         }
     if stage == "draft":
+        if case:
+            return {
+                "headline": case["headline"],
+                "dek": case["dek"],
+                "body_markdown": case["body_markdown"],
+                "source_ids": list(case["source_ids"]),
+            }
         return {
             "headline": "Farol de Papel: exploração em mapas feitos à mão",
             "dek": "Uma pauta fictícia demonstra como organizar evidência sem inventar uma data de lançamento.",
@@ -199,18 +256,19 @@ def _editorial_output(
         }
     if stage in {"fact_check", "final_fact_check"}:
         article = previous["draft"] if stage == "fact_check" else previous["correction"]
+        fact_status = "uncertain" if source_disagreement else str(case.get("fact_status", "supported"))
         return {"findings": [{
             "claim": (
                 "As fontes fictícias divergem sobre mapas desenhados à mão e exploração solo."
                 if source_disagreement else
-                "As fontes fictícias descrevem mapas desenhados à mão e exploração solo."
+                str(case.get("fact_claim") or "As fontes fictícias descrevem mapas desenhados à mão e exploração solo.")
             ),
-            "source_ids": ids,
-            "status": "uncertain" if source_disagreement else "supported",
-            "confidence": "medium" if source_disagreement else "high",
+            "source_ids": list(case.get("source_ids") or ids),
+            "status": fact_status,
+            "confidence": "low" if fact_status == "uncertain" else "high",
             "correction": (
                 "Preservar a divergência e pedir decisão editorial."
-                if source_disagreement else ""
+                if source_disagreement else str(case.get("fact_correction", ""))
             ),
         }]}
     if stage in {"review", "final_review"}:
@@ -271,6 +329,20 @@ def _build_story_package(payload: Mapping[str, Any]) -> dict[str, Any]:
     fixture = payload["fixture"]
     packet = payload["packet"]
     content_identities = payload["content_identities"]
+    story_id = f"story-{fixture['run_id']}"
+    try:
+        handoff_chain = validate_handoff_chain(
+            payload.get("editorial_handoffs", {}),
+            expected_story_id=story_id,
+            expected_article=article,
+            require_pass=True,
+        )
+    except HandoffError as error:
+        raise TaskFailure(
+            "factory_typed_handoff_not_current",
+            f"Cadeia EvidenceDossier→Review bloqueada: {error}",
+            blocked=True,
+        ) from error
     revision_stage = review.get("reviewed_revision_stage")
     if review.get("verdict") != "pass" or not review_matches_revision(review, article):
         raise TaskFailure(
@@ -293,7 +365,6 @@ def _build_story_package(payload: Mapping[str, Any]) -> dict[str, Any]:
                 blocked=True,
             )
     story_revision = 2 if revision_stage == "correction" else 1
-    story_id = f"story-{fixture['run_id']}"
     figure = fixture["synthetic_figure"]
     revision_prefix = f"{story_id}-r{story_revision}"
     figure_block_id = f"{revision_prefix}-{figure['block_id_suffix']}"
@@ -348,6 +419,11 @@ def _build_story_package(payload: Mapping[str, Any]) -> dict[str, Any]:
             "story_revision": story_revision,
             "source_ids": packet_source_ids,
             "synthetic_fixture_only": True,
+            "typed_handoffs": {
+                key: handoff_chain[key]["content_sha256"]
+                for key in ARTIFACT_KEYS
+            },
+            "epistemic_claims": [dict(claim) for claim in handoff_chain["evidence_dossier"]["payload"]["claims"]],
         },
         "review": {},
     }
@@ -361,6 +437,7 @@ def _build_story_package(payload: Mapping[str, Any]) -> dict[str, Any]:
         "reviewer_profile_id": story_payload["identities"]["reviewer"]["profile_id"],
         "reviewer_profile_version": story_payload["identities"]["reviewer"]["version"],
         "review_kind": "synthetic_contract_bridge",
+        "editorial_review_sha256": handoff_chain["editorial_review"]["content_sha256"],
         "human_approval": False,
         "synthetic_fixture": True,
     }
@@ -455,10 +532,28 @@ class SyntheticFactoryExecutor:
         if profile.content_hash != EDITORIAL_PROFILE.content_hash:
             raise TaskFailure("factory_profile_mismatch", "Perfil B2 de execução divergiu.", blocked=True)
         stage = str(payload.get("stage", ""))
+        expected_role_id = _FUNCTIONAL_STAGE_ROLES.get(stage)
+        functional_role_id = str(payload.get("functional_role_id", ""))
+        if expected_role_id is None or functional_role_id != expected_role_id:
+            raise TaskFailure("factory_functional_role_mismatch", "Papel funcional não corresponde à etapa.", blocked=True)
+        role_catalog = load_builtin_role_catalog()
+        role_rows = role_catalog.to_mapping()["profiles"]
+        role_row = next((row for row in role_rows if row["role_id"] == functional_role_id), None)
+        if role_row is None:
+            raise TaskFailure("factory_functional_role_missing", "Papel funcional ausente no catálogo versionado.", blocked=True)
+        try:
+            role_profile = role_catalog.resolve(
+                functional_role_id, role_row["role_version"], role_row["profile_sha256"]
+            )
+        except (ValueError, KeyError) as error:
+            raise TaskFailure("factory_functional_role_blocked", "Papel funcional não habilitado ou hash inválido.", blocked=True) from error
         packet = normalize_source_packet(payload.get("packet", {}))
         previous = payload.get("previous_outputs", {})
         if not isinstance(previous, Mapping):
             raise TaskFailure("factory_previous_output_invalid", "Saídas anteriores inválidas.", blocked=True)
+        handoffs = payload.get("handoffs", {})
+        if not isinstance(handoffs, Mapping):
+            raise TaskFailure("factory_handoffs_invalid", "Handoffs anteriores inválidos.", blocked=True)
         build_stage_input(stage=stage, packet=packet, previous_outputs=previous)
         structured = validate_stage_output(
             stage,
@@ -468,6 +563,7 @@ class SyntheticFactoryExecutor:
                 previous,
                 review_flow=str(payload.get("review_flow", "pass")),
                 source_disagreement=bool(payload.get("source_disagreement", False)),
+                case=payload.get("e14_case"),
             ),
             _source_ids(packet),
         )
@@ -477,8 +573,41 @@ class SyntheticFactoryExecutor:
             structured["reviewed_revision_stage"] = revision_stage
         elif stage == "final_fact_check":
             structured["checked_revision_sha256"] = article_revision_sha256(previous["correction"])
+        artifact_output = dict(structured)
+        if stage == "fact_check":
+            artifact_output["article_for_check"] = previous["draft"]
+        elif stage == "final_fact_check":
+            artifact_output["article_for_check"] = previous["correction"]
+        elif stage == "review":
+            artifact_output["article_for_review"] = previous["draft"]
+        elif stage == "final_review":
+            artifact_output["article_for_review"] = previous["correction"]
+        try:
+            handoff_artifact = build_handoff_artifact(
+                stage,
+                run_id=str(payload.get("run_id", "")),
+                packet=packet,
+                output=artifact_output,
+                inputs=handoffs,
+                content_identity=payload.get("content_identity", {}),
+                case=payload.get("e14_case"),
+            )
+        except (HandoffError, KeyError, TypeError, ValueError) as error:
+            raise TaskFailure("factory_editorial_handoff_invalid", str(error), blocked=True) from error
+        upstream_handoff_hashes = {
+            key: value.get("content_sha256")
+            for key, value in handoffs.items()
+            if isinstance(value, Mapping)
+        }
         return {
             "structured_output": structured,
+            "handoff_artifact": handoff_artifact,
+            "functional_role": {
+                "role_id": role_profile.role_id,
+                "role_version": role_profile.role_version,
+                "role_hash": role_profile.content_hash,
+            },
+            "upstream_handoff_hashes": upstream_handoff_hashes,
             "stage": stage,
             "actor_role": payload.get("actor_role"),
             "content_identity": dict(payload.get("content_identity", {})),
@@ -673,6 +802,7 @@ def run_factory_demo(
     tasks: list[AgentTask] = []
     outputs: dict[str, Mapping[str, Any]] = {}
     stage_identities: dict[str, Mapping[str, Any]] = {}
+    handoffs: dict[str, Mapping[str, Any]] = {}
 
     def run_editorial(stage: str, previous: Mapping[str, Any]) -> Mapping[str, Any]:
         result, task = _run_task(
@@ -684,7 +814,10 @@ def run_factory_demo(
                 "packet": packet,
                 "previous_outputs": dict(previous),
                 "actor_role": _STAGE_ROLES[stage],
+                "functional_role_id": _FUNCTIONAL_STAGE_ROLES[stage],
                 "content_identity": _identity_for_stage(fixture, stage),
+                "handoffs": dict(handoffs),
+                "e14_case": fixture.get("e14_case"),
                 "review_flow": review_flow,
                 "source_disagreement": source_disagreement,
             },
@@ -693,6 +826,12 @@ def run_factory_demo(
         tasks.append(task)
         outputs[stage] = result["structured_output"]
         stage_identities[stage] = result["content_identity"]
+        artifact = result.get("handoff_artifact")
+        artifact_key = next((key for key, kind in ARTIFACT_KEYS.items()
+                             if isinstance(artifact, Mapping) and artifact.get("artifact_type") == kind), None)
+        if artifact_key is None:
+            raise TaskFailure("factory_handoff_missing", f"A etapa {stage} não persistiu um handoff tipado.", blocked=True)
+        handoffs[artifact_key] = artifact
         return outputs[stage]
 
     source_analysis = run_editorial("source_analysis", {})
@@ -748,6 +887,7 @@ def run_factory_demo(
             "run_id": fixture["run_id"], "fixture": run_fixture, "packet": packet,
             "article": article, "outline": outline, "review": review,
             "final_fact_check": outputs.get("final_fact_check"),
+            "editorial_handoffs": dict(handoffs),
             "content_identities": {
                 "editor": stage_identities["outline"],
                 "writer_persona": stage_identities.get("correction", stage_identities["draft"]),
@@ -883,6 +1023,11 @@ def run_factory_demo(
             "task_type": task.task_type,
             "stage": task.payload.get("stage"),
             "actor_role": task.payload.get("actor_role"),
+            "functional_role_id": task.result.get("functional_role", {}).get("role_id") if isinstance(task.result, Mapping) else None,
+            "functional_role_version": task.result.get("functional_role", {}).get("role_version") if isinstance(task.result, Mapping) else None,
+            "handoff_artifact_type": task.result.get("handoff_artifact", {}).get("artifact_type") if isinstance(task.result, Mapping) else None,
+            "handoff_artifact_sha256": task.result.get("handoff_artifact", {}).get("content_sha256") if isinstance(task.result, Mapping) else None,
+            "upstream_handoff_hashes": task.result.get("upstream_handoff_hashes", {}) if isinstance(task.result, Mapping) else {},
             "content_identity": task.payload.get("content_identity"),
             "state": task.state,
             "profile_id": task.profile_id,
@@ -891,6 +1036,20 @@ def run_factory_demo(
         } for task in tasks],
         "review_flow": review_flow,
         "source_disagreement": source_disagreement,
+        "e14_case_id": fixture.get("e14_case", {}).get("case_id") if isinstance(fixture.get("e14_case"), Mapping) else None,
+        "editorial_handoffs": {
+            key: {
+                "artifact_type": value["artifact_type"],
+                "artifact_id": value["artifact_id"],
+                "story_id": value["story_id"],
+                "revision_id": value["revision_id"],
+                "content_sha256": value["content_sha256"],
+            }
+            for key, value in handoffs.items()
+        },
+        "editorial_handoff_chain_sha256": stable_hash(json_dumps({
+            key: handoffs[key]["content_sha256"] for key in ARTIFACT_KEYS
+        })),
         "initial_article_revision_sha256": article_revision_sha256(draft),
         "article_revision_sha256": article_revision_sha256(article),
         "initial_reviewed_revision_sha256": initial_review["reviewed_revision_sha256"],
