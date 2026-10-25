@@ -27,7 +27,9 @@ E01 concluiu o inventário da linha de engenharia, identificou a base candidata 
 
 A PR #26 tem um parecer formal com estado GitHub `COMMENTED`, não `APPROVED`. Seu conteúdo aceita o handoff técnico de ENG-CODEX-006 em revisão documental, reconhece limitações da fábrica multipauta integrada e mantém gates separados de merge, produção e publicação. A ordem E01–E19 também aparece no comentário mais recente da PR #26 e no handoff da PR #27. Nenhuma das PRs acima foi mesclada.
 
-A nova branch `codex/eng-codex-007-factory-radar` parte de `4de16640e67bd16c61468955e96e4ffa850d4cab`, ponta da PR #26. `git rev-list --left-right --count origin/main...origin/codex/eng-codex-006-e2e-experiment` retornou `0 53`; `git merge-tree --write-tree origin/main origin/codex/eng-codex-006-e2e-experiment` terminou sem conflito, árvore candidata `68a1223f97e4d1e499346ba52c1054698eb60cbf`. Isso identifica uma base acumulada verificável; não declara que #24–#26 estão integradas à `main`.
+A branch `codex/eng-codex-007-factory-radar` parte de `4de16640e67bd16c61468955e96e4ffa850d4cab`, ponta da PR #26. O primeiro commit da missão é `aeb7b5cdd132aed041a9fe7301c656f810389a31`, enviado e sincronizado com `origin/codex/eng-codex-007-factory-radar`. A PR draft [#30](https://github.com/Saaimingo/Revista_Gamer/pull/30) usa a branch da #26 como base e segue aberta/sem merge. O handoff E01 está na [Issue #28, comentário 6400102493](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400102493) e na [PR #30, comentário 6400102870](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6400102870).
+
+`git rev-list --left-right --count origin/main...origin/codex/eng-codex-006-e2e-experiment` retornou `0 53`; `git merge-tree --write-tree origin/main origin/codex/eng-codex-006-e2e-experiment` terminou sem conflito, árvore candidata `68a1223f97e4d1e499346ba52c1054698eb60cbf`. Isso identifica uma base acumulada verificável; não declara que #24–#26 estão integradas à `main`.
 
 ## Componentes existentes a reutilizar
 

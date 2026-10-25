@@ -7,7 +7,7 @@ Próxima unidade: **E02 — schemas versionados de agentes e pesquisa**
 ## Estado do trabalho
 
 - Issue [#28](https://github.com/Saaimingo/Revista_Gamer/issues/28) autoriza a sequência E01–E19 em branch de implementação e PR draft. A [PR #29](https://github.com/Saaimingo/Revista_Gamer/pull/29) é somente o pacote documental do Fundador 2; foi lida pelo ref `7072655d44602e83d8bc2dbdd87d08391b711ad0` e não foi alterada.
-- Branch de produto: `codex/eng-codex-007-factory-radar`, criada a partir do HEAD acumulado da PR #26, `4de16640e67bd16c61468955e96e4ffa850d4cab`. O upstream e a PR de implementação ainda serão registrados após o primeiro push.
+- Branch de produto: `codex/eng-codex-007-factory-radar`, upstream `origin/codex/eng-codex-007-factory-radar`; base HEAD #26 `4de16640e67bd16c61468955e96e4ffa850d4cab`. PR de implementação [#30](https://github.com/Saaimingo/Revista_Gamer/pull/30), aberta/draft/sem merge, baseada na branch da #26.
 - PRs #24 → #25 → #26 continuam abertas/draft/sem merge. #26 recebeu review `COMMENTED` favorável ao handoff A0–D2 com ressalvas; não é aprovação de merge. `origin/main=ce8f6a7b65c2050d5da851491c9c89835f82c3a2`; a cadeia acumulada está 53 commits à frente e `merge-tree` local não detectou conflitos.
 - PRs #8/#10/#18 e #13/#14/#19/#27 continuam independentes e sem merge. Consultar E01 para os HEADs e responsabilidades por componente.
 
@@ -23,11 +23,11 @@ Próxima unidade: **E02 — schemas versionados de agentes e pesquisa**
 
 - Relatório E01: `docs/engenharia/ENG-CODEX-007-E01-BASELINE-PLANO-INTEGRACAO.md`.
 - Checkpoint: `docs/engenharia/ENG-CODEX-007-CHECKPOINT.md`.
-- HEAD de base: `4de16640e67bd16c61468955e96e4ffa850d4cab` (PR #26). Commit de E01 e push pendentes.
-- PR de implementação draft será aberta com base na branch `codex/eng-codex-006-e2e-experiment`, mantendo PR #29 documental separada.
+- Commit E01: `aeb7b5cdd132aed041a9fe7301c656f810389a31` (`docs: record ENG-CODEX-007 E01 baseline`), push confirmado; working tree limpa após atualizar este checkpoint.
+- Handoff: Issue #28 [6400102493](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400102493); PR #30 [6400102870](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6400102870).
 
 ## Bloqueios e retomada
 
-Não há bloqueio atual. Não retomar ou reexecutar C2–D2; eles foram entregues na PR #26 e receberam parecer favorável de encerramento com ressalvas. O próximo passo é concluir o commit/push e a PR draft desta unidade E01, registrar evidências na Issue #28 e PR de implementação, depois iniciar E02.
+Não há bloqueio atual. Não retomar ou reexecutar C2–D2; eles foram entregues na PR #26 e receberam parecer favorável de encerramento com ressalvas. E01 foi commitada, enviada e relatada. Próxima ação: iniciar E02, implementando os schemas versionados e testes contratuais definidos no pacote da PR #29.
 
 Se houver interrupção após o push, conferir primeiro `git status --short --branch`, upstream e HEAD remoto; depois verificar PR/Issue #28 e seguir para E02. Não editar a branch/documentação da PR #29, não reconstruir o motor/OAuth/DNAs e não acessar o banco runtime real.
