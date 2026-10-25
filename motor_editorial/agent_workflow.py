@@ -233,4 +233,3 @@ class ResearchResultRouter:
             dependencies=(task.task_id,),
             research_packet=packet,
         )
-
