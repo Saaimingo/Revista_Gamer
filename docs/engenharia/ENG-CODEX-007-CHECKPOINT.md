@@ -1,8 +1,9 @@
 # ENG-CODEX-007 — checkpoint de continuidade
 
-Atualizado: 2026-10-25 14:13 America/Sao_Paulo
+Atualizado: 2026-10-25 14:15 America/Sao_Paulo
 Última unidade: **E05 — conectores de leitura pública, concluída/validada localmente**
-Próxima unidade: **E06 — coleta incremental, cache, ETag/diff e deduplicação conservadora**
+Unidade em andamento: **E06 — coleta incremental, cache, ETag/diff e deduplicação conservadora**
+Próxima unidade após E06: **E07 — pessoas, projetos, aliases, entrevistas e idiomas**
 
 ## Estado do trabalho
 
@@ -13,7 +14,7 @@ Próxima unidade: **E06 — coleta incremental, cache, ETag/diff e deduplicaçã
 - Revalidação E02: PR #30 continua draft/aberta/sem merge; push confirmado em `10532233fe5a50a349c8440002ec3ca4a8dfcdcc`, mesmo HEAD local/remoto no último `ls-remote`; `origin/main=ce8f6a7b65c2050d5da851491c9c89835f82c3a2`.
 - E03: PR #30 aberta/draft/sem merge; commit de implementação e push confirmados em `e161e084cb5fbe99ed1f06751079b8de795182bb`, mesmo HEAD local/remoto no `ls-remote`; antes das alterações E03, HEAD era `747dfa841e1b47aee7dd0244b6f091df029abb80`.
 - E04: código/testes no commit `509a882`; relatório, índice e checkpoint inicial no commit `f5e358e0f75a8e2d1ee4c997da26716e0bf96882`; ambos enviados. Antes deste registro final dos handoffs, local e remoto estavam sincronizados em `f5e358e`. PR #30 está aberta/draft/sem merge. E05 é a próxima unidade.
-- E05 código/testes no commit `313baeeb1384354189c49a2a3ec206dc8a428ae1`, enviado e sincronizado; PR #30 continua draft/aberta/sem merge. Próxima unidade: E06.
+- E05 código/testes no commit `313baeeb1384354189c49a2a3ec206dc8a428ae1`; relatório/índice/checkpoint em `d4bbb81e2c8d0019f4d6062f42062803ab6097e4`, enviados e sincronizados. Handoffs publicados na Issue #28 (`6400677577`) e PR #30 (`6400677792`); checklist E01–E05 marcado com evidências, E06–E19 permanecem abertos. PR #30 continua draft/aberta/sem merge.
 
 ## Evidências E01 executadas nesta sessão
 
@@ -59,7 +60,7 @@ Próxima unidade: **E06 — coleta incremental, cache, ETag/diff e deduplicaçã
 - Perfis exigem política de acesso, termos revisados, snapshot robots por host e operação allowlisted. HTTPS/TLS padrão, allowlist exata, IP público pinado, DNS/redirect revalidados, limite de tamanho/tempo, cabeçalhos condicionais, `Retry-After`, backoff e suspensão foram cobertos por testes. O transporte não devolve o corpo bruto; parsers RSS/Atom/HTML/JSON expõem somente metadados.
 - Cenários de rede usam transportes/resolutores simulados; um teste usa servidor loopback. Nenhuma origem pública, API, login, credencial, SIWC/Plus ou rede privada foi consultada. Estado de suspensão/cooldown é volátil; sem scheduler.
 - Relatório: `docs/engenharia/ENG-CODEX-007-E05-CONETORES-LEITURA-PUBLICA.md`; testes: `motor_editorial/tests/test_radar_connectors.py`.
-- Sem bloqueio técnico atual. Termos e robots precisam continuar configurados por origem autorizada; isso não impede E06 offline. Próxima: E06.
+- Sem bloqueio técnico atual para E06 offline. Termos e robots continuam exigidos por origem antes de qualquer coleta real. O parecer de eficiência de contexto da direção (Issue #28, comentário `6400571458`) orienta E11/E13–E19 sem reabrir E01–E05.
 
 ## Arquivos e commits
 
@@ -69,12 +70,21 @@ Próxima unidade: **E06 — coleta incremental, cache, ETag/diff e deduplicaçã
 - E02: `b590bc11a2ce3ea9bdbe5608ca6e13ab94d1d0ad` (`feat: add versioned agent contracts`), correção `8eda0e905a40afeb97da90cd5f8a858de807ec84` e checkpoint `10532233fe5a50a349c8440002ec3ca4a8dfcdcc`; os três enviados.
 - E03 commit `e161e084cb5fbe99ed1f06751079b8de795182bb` (`feat: register ENG-CODEX-007 agent roles`), push confirmado; este checkpoint registra a confirmação e os handoffs.
 - E04 commit `509a882` (`feat: add isolated ENG-CODEX-007 Radar store`), push confirmado; relatório/índice e checkpoint inicial em `f5e358e0f75a8e2d1ee4c997da26716e0bf96882` (`docs: record ENG-CODEX-007 E04 evidence`), push confirmado.
-- E05 commit `313baeeb1384354189c49a2a3ec206dc8a428ae1` (`feat: add policy-gated Radar connectors`), push confirmado; relatório/índice/checkpoint de conclusão serão commitados após os handoffs.
+- E05 commit `313baeeb1384354189c49a2a3ec206dc8a428ae1` (`feat: add policy-gated Radar connectors`), push confirmado; relatório/índice/checkpoint final em `d4bbb81e2c8d0019f4d6062f42062803ab6097e4` (`docs: record ENG-CODEX-007 E05 evidence`), push confirmado.
 - Handoff E01: Issue #28 [6400102493](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400102493); PR #30 [6400102870](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6400102870). Handoff E02: Issue #28 [6400254111](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400254111); PR #30 [6400254420](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6400254420). Handoff E03: Issue #28 [6400348282](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400348282); PR #30 [6400348695](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6400348695).
-- Handoff E04: Issue #28 [6400474759](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400474759); PR #30 [6400475907](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6400475907). Este commit atual acrescenta os IDs do handoff ao checkpoint antes do avanço para E05.
+- Handoff E04: Issue #28 [6400474759](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400474759); PR #30 [6400475907](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6400475907).
+- Handoff E05: Issue #28 [6400677577](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400677577); PR #30 [6400677792](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6400677792). Comentário da direção sobre eficiência de contexto: Issue #28 [6400571458](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400571458).
+
+## E06 — em andamento
+
+- Plano: reutilizar `RadarConnectorService.fetch()` e `FetchResult` para ETag/Last-Modified; gravar observação, hashes, diffs e cache compartilhado no `RadarStore` isolado. A chave canônica preservará query params significativos; associações de republicação serão conservadoras e nunca inferidas apenas por semelhança textual ou autoria independente.
+- Critérios em execução: título/trecho alterado produz novo evento na mesma pauta; hash idêntico não gera solicitação de IA; cache é compartilhado entre perfis e invalidado por mudança material; autores distintos permanecem separados sem evidência de republicação.
+- Mapeamento inicial (sem edição de código): `rg -n` em `radar_store.py`, `radar_connectors.py` e testes existentes confirmou suporte a ETag/Last-Modified no conector e campos/eventos no store. Ainda não há alterações E06 nem testes E06 executados nesta retomada.
+- Próximo passo: inspecionar as assinaturas e validações de `register_document`, `record_observation`, `RadarConnectorService.fetch` e parsers; desenhar extensão retrocompatível e implementar testes com fixtures/transportes falsos, sem coleta pública ou LLM.
+- Gate futuro: E17 não repetirá probe nem inferência por rotina. Conferir preflight/consentimento/cota quando chegar a unidade; se o uso Plus real não estiver explicitamente autorizado/elegível, registrar E17 parcial/bloqueada e prosseguir nas tarefas offline.
 
 ## Bloqueios e retomada
 
-Não há bloqueio atual. Não retomar ou reexecutar C2–D2; eles foram entregues na PR #26 e receberam parecer favorável de encerramento com ressalvas. E01–E05 foram validadas, commitadas e enviadas. Próxima ação: iniciar E06.
+Não há bloqueio técnico atual. Não retomar ou reexecutar C2–D2; eles foram entregues na PR #26 e receberam parecer favorável de encerramento com ressalvas. E01–E05 foram validadas, commitadas e enviadas. E06 está em andamento nesta retomada.
 
-Se houver interrupção, conferir primeiro `git status --short --branch`, upstream e HEAD remoto; depois verificar PR/Issue #28 e iniciar E06. Não editar a branch/documentação da PR #29, não reconstruir o motor/OAuth/DNAs e não acessar o banco runtime real.
+Se houver interrupção, conferir primeiro `git status --short --branch`, upstream e HEAD remoto; depois verificar PR/Issue #28 e continuar E06 a partir das alterações e testes no branch. Não editar a branch/documentação da PR #29, não reconstruir o motor/OAuth/DNAs e não acessar o banco runtime real.
