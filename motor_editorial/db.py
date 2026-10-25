@@ -15,7 +15,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from .domain import InvalidApproval, InvalidTransition, STORY_TRANSITIONS
 
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 
 def utc_now() -> str:
@@ -327,6 +327,16 @@ class Store:
                 );
                 CREATE INDEX IF NOT EXISTS ix_agent_task_events_task
                     ON agent_task_events(task_id, sequence);
+
+                CREATE TABLE IF NOT EXISTS agent_task_dependencies (
+                    task_id TEXT NOT NULL REFERENCES agent_tasks(id),
+                    depends_on_task_id TEXT NOT NULL REFERENCES agent_tasks(id),
+                    created_at TEXT NOT NULL,
+                    PRIMARY KEY (task_id, depends_on_task_id),
+                    CHECK (task_id <> depends_on_task_id)
+                );
+                CREATE INDEX IF NOT EXISTS ix_agent_task_dependencies_parent
+                    ON agent_task_dependencies(depends_on_task_id, task_id);
 
                 CREATE TABLE IF NOT EXISTS agent_schedules (
                     id TEXT PRIMARY KEY,

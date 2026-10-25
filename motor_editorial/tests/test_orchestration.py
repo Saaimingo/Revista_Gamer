@@ -90,8 +90,82 @@ class AgentOrchestrationTests(unittest.TestCase):
             available_at=available_at, **options,
         )
 
-    def test_schema_v6_adds_local_window_policy_to_existing_scheduler(self) -> None:
-        self.assertEqual(SCHEMA_VERSION, 6)
+    def test_task_dependencies_wait_for_success_and_do_not_block_independent_work(self) -> None:
+        parent_id = self.enqueue(key="dependency-parent")
+        child_id = self.queue.enqueue(
+            task_type="validation.child", payload={"role": "writer"},
+            profile=VALIDATION_PROFILE, executor_id="simulated",
+            idempotency_key="dependency-child", dependencies=(parent_id,),
+        )
+        independent_id = self.enqueue(key="dependency-independent")
+
+        self.assertEqual(self.queue.dependencies(child_id), (parent_id,))
+        self.assertIsNone(self.queue.claim_next(task_id=child_id))
+        independent = self.queue.claim_next(task_id=independent_id)
+        self.assertIsNotNone(independent)
+        self.assertTrue(self.queue.complete(
+            independent.task_id, independent.lease_owner, independent.lease_generation,
+            {"ok": True},
+        ))
+        parent = self.queue.claim_next(task_id=parent_id)
+        self.assertIsNotNone(parent)
+        self.assertTrue(self.queue.complete(
+            parent.task_id, parent.lease_owner, parent.lease_generation, {"ok": True},
+        ))
+        child = self.queue.claim_next(task_id=child_id)
+        self.assertIsNotNone(child)
+        self.assertEqual(child.state, "running")
+
+    def test_failed_dependency_blocks_child_but_preserves_independent_task(self) -> None:
+        parent_id = self.enqueue(key="failed-dependency-parent")
+        child_id = self.queue.enqueue(
+            task_type="validation.child", payload={"role": "writer"},
+            profile=VALIDATION_PROFILE, executor_id="simulated",
+            idempotency_key="failed-dependency-child", dependencies=(parent_id,),
+        )
+        independent_id = self.enqueue(key="failed-dependency-independent")
+        parent = self.queue.claim_next(task_id=parent_id)
+        self.assertEqual(self.queue.fail(
+            parent_id, parent.lease_owner, parent.lease_generation,
+            TaskFailure("fixture_blocked", "fixture blocked", blocked=True),
+        ), "blocked")
+
+        self.assertIsNone(self.queue.claim_next(task_id=child_id))
+        self.assertEqual(self.queue.get(child_id).state, "blocked")
+        self.assertEqual(self.queue.events(child_id)[-1]["action"], "dependency_blocked")
+        independent = self.queue.claim_next(task_id=independent_id)
+        self.assertIsNotNone(independent)
+
+    def test_dependency_idempotency_missing_edges_and_cycle_guard(self) -> None:
+        first_id = self.enqueue(key="dependency-cycle-first")
+        second_id = self.queue.enqueue(
+            task_type="validation.child", payload={"role": "writer"},
+            profile=VALIDATION_PROFILE, executor_id="simulated",
+            idempotency_key="dependency-cycle-second",
+        )
+        self.assertTrue(self.queue.add_dependency(second_id, first_id))
+        self.assertFalse(self.queue.add_dependency(second_id, first_id))
+        self.assertEqual(self.queue.dependencies(second_id), (first_id,))
+        with self.assertRaisesRegex(ValueError, "ciclo"):
+            self.queue.add_dependency(first_id, second_id)
+        with self.assertRaisesRegex(ValueError, "si mesma"):
+            self.queue.add_dependency(first_id, first_id)
+        with self.assertRaisesRegex(ValueError, "ausente"):
+            self.queue.add_dependency(first_id, "missing-task")
+        self.assertEqual(self.queue.enqueue(
+            task_type="validation.child", payload={"role": "writer"},
+            profile=VALIDATION_PROFILE, executor_id="simulated",
+            idempotency_key="dependency-cycle-second", dependencies=(first_id,),
+        ), second_id)
+        with self.assertRaisesRegex(ValueError, "dependências diferentes"):
+            self.queue.enqueue(
+                task_type="validation.child", payload={"role": "writer"},
+                profile=VALIDATION_PROFILE, executor_id="simulated",
+                idempotency_key="dependency-cycle-second",
+            )
+
+    def test_schema_v7_adds_durable_task_dependencies_to_existing_queue(self) -> None:
+        self.assertEqual(SCHEMA_VERSION, 7)
         with closing(self.store.connect()) as connection:
             version = connection.execute("PRAGMA user_version").fetchone()[0]
             tables = {
@@ -99,14 +173,14 @@ class AgentOrchestrationTests(unittest.TestCase):
                     "SELECT name FROM sqlite_master WHERE type = 'table'"
                 ).fetchall()
             }
-        self.assertEqual(version, 6)
+        self.assertEqual(version, 7)
         with closing(self.store.connect()) as connection:
             task_columns = {
                 row["name"] for row in connection.execute(
                     "PRAGMA table_info(agent_tasks)"
                 ).fetchall()
             }
-        self.assertTrue({"agent_tasks", "agent_task_events", "agent_schedules"}.issubset(tables))
+        self.assertTrue({"agent_tasks", "agent_task_events", "agent_task_dependencies", "agent_schedules"}.issubset(tables))
         self.assertTrue({"lease_owner", "lease_generation"}.issubset(task_columns))
         with closing(self.store.connect()) as connection:
             schedule_columns = {
@@ -140,7 +214,7 @@ class AgentOrchestrationTests(unittest.TestCase):
                     "PRAGMA table_info(agent_tasks)"
                 ).fetchall()
             }
-        self.assertEqual(version, 6)
+        self.assertEqual(version, 7)
         self.assertTrue({"lease_owner", "lease_generation"}.issubset(columns))
 
     def test_v5_database_migrates_existing_interval_schedule_rows_additively(self) -> None:
@@ -164,7 +238,7 @@ class AgentOrchestrationTests(unittest.TestCase):
             connection.commit()
         migrated = Store(legacy_path, self.root / "schema-v5-artifacts")
         with closing(migrated.connect()) as connection:
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 6)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 7)
             row = connection.execute(
                 "SELECT * FROM agent_schedules WHERE id='legacy-interval'"
             ).fetchone()
@@ -173,6 +247,22 @@ class AgentOrchestrationTests(unittest.TestCase):
         self.assertEqual(row["dry_run"], 1)
         self.assertIsNone(row["schedule_group_id"])
         self.assertTrue({"schedule_group_id", "schedule_kind", "local_time", "domain_quotas_json", "dry_run"} <= columns)
+
+    def test_v6_database_migrates_task_dependency_ledger_additively(self) -> None:
+        with closing(self.store.connect()) as connection:
+            connection.execute("DROP TABLE agent_task_dependencies")
+            connection.execute("PRAGMA user_version = 6")
+            connection.commit()
+        migrated = Store(self.root / "motor.sqlite3", self.root / "artifacts")
+        with closing(migrated.connect()) as connection:
+            version = connection.execute("PRAGMA user_version").fetchone()[0]
+            columns = {
+                row["name"] for row in connection.execute(
+                    "PRAGMA table_info(agent_task_dependencies)"
+                ).fetchall()
+            }
+        self.assertEqual(version, 7)
+        self.assertEqual(columns, {"task_id", "depends_on_task_id", "created_at"})
 
     def test_v3_migration_preserves_records_and_backup_restores_the_legacy_database(self) -> None:
         legacy_path = self.root / "schema-v3.sqlite3"
@@ -269,7 +359,7 @@ class AgentOrchestrationTests(unittest.TestCase):
 
         migrated = Store(legacy_path, self.root / "schema-v3-artifacts")
         with closing(migrated.connect()) as connection:
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 6)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 7)
             tables = {
                 row["name"] for row in connection.execute(
                     "SELECT name FROM sqlite_master WHERE type = 'table'"
@@ -292,16 +382,16 @@ class AgentOrchestrationTests(unittest.TestCase):
         self.assertEqual(hashlib.sha256(backup_path.read_bytes()).hexdigest(), backup_hash)
 
     def test_newer_schema_is_rejected_without_mutating_the_database(self) -> None:
-        future_path = self.root / "schema-v7.sqlite3"
+        future_path = self.root / "schema-v8.sqlite3"
         with closing(sqlite3.connect(future_path)) as connection:
             connection.execute("CREATE TABLE future_records (id TEXT PRIMARY KEY, value TEXT NOT NULL)")
             connection.execute("INSERT INTO future_records VALUES ('kept', 'future data')")
-            connection.execute("PRAGMA user_version = 7")
+            connection.execute("PRAGMA user_version = 8")
             connection.commit()
         original_bytes = future_path.read_bytes()
 
         with self.assertRaisesRegex(RuntimeError, "mais novo"):
-            Store(future_path, self.root / "schema-v7-artifacts")
+            Store(future_path, self.root / "schema-v8-artifacts")
 
         self.assertEqual(future_path.read_bytes(), original_bytes)
 

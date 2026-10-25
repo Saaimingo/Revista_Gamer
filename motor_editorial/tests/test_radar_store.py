@@ -99,7 +99,7 @@ class RadarStoreTests(unittest.TestCase):
 
     def test_schema_is_separate_versioned_and_runtime_path_is_refused(self) -> None:
         self.assertEqual(RADAR_SCHEMA_VERSION, 7)
-        self.assertEqual(db.SCHEMA_VERSION, 6)
+        self.assertEqual(db.SCHEMA_VERSION, 7)
         names = self.store.table_names()
         self.assertGreaterEqual(
             len(names),

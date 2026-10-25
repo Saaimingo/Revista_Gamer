@@ -184,6 +184,73 @@ class AgentQueue:
         )
 
     @staticmethod
+    def _normalized_dependencies(dependencies: Sequence[str]) -> tuple[str, ...]:
+        if isinstance(dependencies, (str, bytes)):
+            raise ValueError("dependencies precisa ser uma sequência de task_id.")
+        values = tuple(dependencies)
+        if any(not isinstance(value, str) or not value.strip() for value in values):
+            raise ValueError("dependencies contém task_id inválido.")
+        if len(set(values)) != len(values):
+            raise ValueError("dependencies contém task_id repetido.")
+        return tuple(sorted(values))
+
+    @staticmethod
+    def _link_dependency_in_connection(
+        connection: Any,
+        *,
+        task_id: str,
+        depends_on_task_id: str,
+    ) -> bool:
+        if task_id == depends_on_task_id:
+            raise ValueError("Uma tarefa não pode depender de si mesma.")
+        child = connection.execute(
+            "SELECT state, attempts FROM agent_tasks WHERE id = ?", (task_id,)
+        ).fetchone()
+        parent = connection.execute(
+            "SELECT state FROM agent_tasks WHERE id = ?", (depends_on_task_id,)
+        ).fetchone()
+        if child is None or parent is None:
+            raise ValueError("Dependência referencia tarefa ausente.")
+        if child["state"] not in {"queued", "retry_wait"}:
+            raise ValueError("Dependências só podem ser adicionadas antes do despacho da tarefa.")
+        exists = connection.execute(
+            "SELECT 1 FROM agent_task_dependencies WHERE task_id = ? AND depends_on_task_id = ?",
+            (task_id, depends_on_task_id),
+        ).fetchone()
+        if exists is not None:
+            return False
+        cycle = connection.execute(
+            """WITH RECURSIVE dependency_chain(task_id) AS (
+                   SELECT depends_on_task_id FROM agent_task_dependencies WHERE task_id = ?
+                   UNION
+                   SELECT edge.depends_on_task_id
+                   FROM agent_task_dependencies AS edge
+                   JOIN dependency_chain AS chain ON edge.task_id = chain.task_id
+               )
+               SELECT 1 FROM dependency_chain WHERE task_id = ? LIMIT 1""",
+            (depends_on_task_id, task_id),
+        ).fetchone()
+        if cycle is not None:
+            raise ValueError("Dependência criaria ciclo no grafo de tarefas.")
+        connection.execute(
+            """INSERT INTO agent_task_dependencies (task_id, depends_on_task_id, created_at)
+               VALUES (?, ?, ?)""",
+            (task_id, depends_on_task_id, utc_now()),
+        )
+        AgentQueue._event(connection, task_id, "dependency_added", child["attempts"], {
+            "depends_on_task_id": depends_on_task_id,
+        })
+        return True
+
+    @staticmethod
+    def _dependency_ids_in_connection(connection: Any, task_id: str) -> tuple[str, ...]:
+        rows = connection.execute(
+            "SELECT depends_on_task_id FROM agent_task_dependencies WHERE task_id = ? ORDER BY depends_on_task_id",
+            (task_id,),
+        ).fetchall()
+        return tuple(row["depends_on_task_id"] for row in rows)
+
+    @staticmethod
     def _enqueue_in_connection(
         connection: Any,
         *,
@@ -198,8 +265,10 @@ class AgentQueue:
         task_id: str | None = None,
         available_at: datetime | str | None = None,
         schedule_id: str | None = None,
+        dependencies: Sequence[str] = (),
     ) -> tuple[str, bool]:
         _assert_no_credentials(payload)
+        dependency_ids = AgentQueue._normalized_dependencies(dependencies)
         payload_json = json_dumps(dict(payload))
         if len(payload_json.encode("utf-8")) > 1_000_000:
             raise ValueError("Payload excede o limite local de 1 MB.")
@@ -222,6 +291,8 @@ class AgentQueue:
                 raise ValueError("Chave idempotente já usada com conteúdo diferente.")
             if task_id is not None and existing["id"] != task_id:
                 raise ValueError("Chave idempotente já vinculada a outro task_id.")
+            if AgentQueue._dependency_ids_in_connection(connection, existing["id"]) != dependency_ids:
+                raise ValueError("Chave idempotente já usada com dependências diferentes.")
             return existing["id"], False
 
         task_id = task_id or str(uuid.uuid4())
@@ -240,6 +311,10 @@ class AgentQueue:
             "task_type": task_type, "executor_id": executor_id,
             "profile_id": profile_id, "profile_version": profile_version,
         })
+        for dependency_id in dependency_ids:
+            AgentQueue._link_dependency_in_connection(
+                connection, task_id=task_id, depends_on_task_id=dependency_id,
+            )
         return task_id, True
 
     def enqueue(
@@ -253,6 +328,7 @@ class AgentQueue:
         max_attempts: int = 3,
         task_id: str | None = None,
         available_at: datetime | str | None = None,
+        dependencies: Sequence[str] = (),
     ) -> str:
         if not task_type.strip() or not executor_id.strip() or not idempotency_key.strip() or (task_id is not None and not task_id.strip()):
             raise ValueError("Tipo, executor e chave idempotente são obrigatórios.")
@@ -266,8 +342,57 @@ class AgentQueue:
                 idempotency_key=idempotency_key, max_attempts=max_attempts,
                 task_id=task_id,
                 available_at=available_at,
+                dependencies=dependencies,
             )
             return task_id
+
+    def add_dependency(self, task_id: str, depends_on_task_id: str) -> bool:
+        """Add a prerequisite to a queued task, with existence and cycle checks."""
+        if not isinstance(task_id, str) or not task_id.strip() or not isinstance(depends_on_task_id, str) or not depends_on_task_id.strip():
+            raise ValueError("task_id e depends_on_task_id são obrigatórios.")
+        with self.store.transaction() as connection:
+            return self._link_dependency_in_connection(
+                connection, task_id=task_id, depends_on_task_id=depends_on_task_id,
+            )
+
+    def dependencies(self, task_id: str) -> tuple[str, ...]:
+        with closing(self.store.connect()) as connection:
+            exists = connection.execute("SELECT 1 FROM agent_tasks WHERE id = ?", (task_id,)).fetchone()
+            if exists is None:
+                return ()
+            return self._dependency_ids_in_connection(connection, task_id)
+
+    @staticmethod
+    def _block_failed_dependencies(connection: Any, now: str) -> None:
+        while True:
+            rows = connection.execute(
+                """SELECT child.id, child.attempts, edge.depends_on_task_id, parent.state AS parent_state
+                   FROM agent_tasks AS child
+                   JOIN agent_task_dependencies AS edge ON edge.task_id = child.id
+                   JOIN agent_tasks AS parent ON parent.id = edge.depends_on_task_id
+                   WHERE child.state IN ('queued', 'retry_wait')
+                     AND parent.state IN ('failed', 'blocked', 'uncertain', 'cancelled')
+                   ORDER BY child.id, edge.depends_on_task_id"""
+            ).fetchall()
+            if not rows:
+                return
+            seen: set[str] = set()
+            for row in rows:
+                if row["id"] in seen:
+                    continue
+                seen.add(row["id"])
+                changed = connection.execute(
+                    """UPDATE agent_tasks SET state = 'blocked', completed_at = ?,
+                           error_code = 'dependency_not_satisfied',
+                           error_summary = 'Tarefa prerequisito terminou sem sucesso.'
+                       WHERE id = ? AND state IN ('queued', 'retry_wait')""",
+                    (now, row["id"]),
+                ).rowcount
+                if changed:
+                    AgentQueue._event(connection, row["id"], "dependency_blocked", row["attempts"], {
+                        "depends_on_task_id": row["depends_on_task_id"],
+                        "dependency_state": row["parent_state"],
+                    })
 
     def _recover_expired(self, connection: Any, now: str) -> None:
         expired = connection.execute(
@@ -325,18 +450,29 @@ class AgentQueue:
         lease_until = _lease_iso(instant + timedelta(seconds=lease_seconds))
         with self.store.transaction() as connection:
             self._recover_expired(connection, now_iso)
+            self._block_failed_dependencies(connection, now_iso)
             if task_id:
                 row = connection.execute(
-                    """SELECT * FROM agent_tasks
-                       WHERE id = ? AND state IN ('queued', 'retry_wait')
-                         AND available_at <= ?""",
+                    """SELECT task.* FROM agent_tasks AS task
+                       WHERE task.id = ? AND task.state IN ('queued', 'retry_wait')
+                         AND task.available_at <= ?
+                         AND NOT EXISTS (
+                             SELECT 1 FROM agent_task_dependencies AS edge
+                             JOIN agent_tasks AS prerequisite ON prerequisite.id = edge.depends_on_task_id
+                             WHERE edge.task_id = task.id AND prerequisite.state <> 'succeeded'
+                         )""",
                     (task_id, now_iso),
                 ).fetchone()
             else:
                 row = connection.execute(
-                    """SELECT * FROM agent_tasks
-                       WHERE state IN ('queued', 'retry_wait') AND available_at <= ?
-                       ORDER BY available_at, created_at, id LIMIT 1""",
+                    """SELECT task.* FROM agent_tasks AS task
+                       WHERE task.state IN ('queued', 'retry_wait') AND task.available_at <= ?
+                         AND NOT EXISTS (
+                             SELECT 1 FROM agent_task_dependencies AS edge
+                             JOIN agent_tasks AS prerequisite ON prerequisite.id = edge.depends_on_task_id
+                             WHERE edge.task_id = task.id AND prerequisite.state <> 'succeeded'
+                         )
+                       ORDER BY task.available_at, task.created_at, task.id LIMIT 1""",
                     (now_iso,),
                 ).fetchone()
             if row is None:
@@ -911,6 +1047,11 @@ class TaskExecutionContext:
         self._ownership_lost = threading.Event()
         self._heartbeat_thread: threading.Thread | None = None
 
+    @property
+    def queue(self) -> AgentQueue:
+        """Shared durable queue for executor adapters that validate task lineage."""
+        return self._queue
+
     def start_heartbeat(self) -> None:
         interval = max(0.05, min(self._lease_seconds / 3, 30.0))
 
@@ -975,12 +1116,16 @@ class TaskDispatcher:
         profiles: Mapping[tuple[str, str], AgentProfile],
         lease_seconds: int = 120,
         role_catalog: Any | None = None,
+        deterministic_task_routes: Mapping[str, str] | None = None,
+        result_router: Callable[[AgentTask], None] | None = None,
     ):
         self.queue = queue
         self.executors = dict(executors)
         self.profiles = dict(profiles)
         self.lease_seconds = lease_seconds
         self.role_catalog = role_catalog
+        self.deterministic_task_routes = dict(deterministic_task_routes or {})
+        self.result_router = result_router
 
     def dispatch_one(
         self,
@@ -1004,6 +1149,15 @@ class TaskDispatcher:
                 )
             return DispatchOutcome(task.task_id, state, failure.code)
 
+        if self.role_catalog is not None and not task.task_type.startswith("agent.role."):
+            expected_executor = self.deterministic_task_routes.get(task.task_type)
+            if expected_executor is None or expected_executor != task.executor_id:
+                return report_failure(TaskFailure(
+                    "task_route_unregistered",
+                    "Tipo determinístico sem rota local explícita no registro do dispatcher.",
+                    blocked=True,
+                ))
+
         executor = self.executors.get(task.executor_id)
         profile = self.profiles.get((task.profile_id, task.profile_version))
         if executor is None:
@@ -1019,7 +1173,7 @@ class TaskDispatcher:
             return report_failure(failure)
         invocation_context = None
         task_envelope = None
-        if self.role_catalog is not None:
+        if self.role_catalog is not None and task.task_type.startswith("agent.role."):
             try:
                 from .agent_contracts import envelope_from_payload
 
@@ -1071,6 +1225,13 @@ class TaskDispatcher:
                 return DispatchOutcome(
                     task.task_id, self.queue.reconcile_expired(task.task_id), "lease_lost"
                 )
+            if self.result_router is not None:
+                completed_task = self.queue.get(task.task_id)
+                if completed_task is not None:
+                    try:
+                        self.result_router(completed_task)
+                    except Exception:
+                        return DispatchOutcome(task.task_id, "succeeded", "workflow_route_pending")
             return DispatchOutcome(task.task_id, "succeeded")
         except LeaseOwnershipLost:
             return DispatchOutcome(

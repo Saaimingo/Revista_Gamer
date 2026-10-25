@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import math
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -967,14 +967,24 @@ def enqueue_contract_task(
     executor_profile: AgentProfile,
     executor_id: str,
     max_attempts: int = 3,
+    dependencies: Sequence[str] = (),
+    research_packet: ResearchPacket | Mapping[str, Any] | None = None,
 ) -> str:
     """Persist a versioned role task in the existing AgentQueue/SQLite ledger."""
     catalog.validate_task(envelope, input_payload=input_payload)
+    payload: dict[str, Any] = {
+        "agent_task_envelope": envelope.to_dict(),
+        "input": dict(input_payload),
+    }
+    if research_packet is not None:
+        packet = research_packet if isinstance(research_packet, ResearchPacket) else ResearchPacket.from_mapping(research_packet)
+        payload["research_packet"] = packet.to_dict()
     return queue.enqueue(
         task_type=f"agent.role.{envelope.role_id}",
-        payload={"agent_task_envelope": envelope.to_dict(), "input": dict(input_payload)},
+        payload=payload,
         profile=executor_profile, executor_id=executor_id,
         idempotency_key=envelope.idempotency_key, max_attempts=max_attempts, task_id=envelope.task_id,
+        dependencies=dependencies,
     )
 
 
