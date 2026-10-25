@@ -1,0 +1,60 @@
+{
+  "fixture_version": "1.0",
+  "execution_mode": "offline_contract_binding_only",
+  "shared_reporting_directive": {
+    "source_pr": 27,
+    "source_commit": "d38c5da92ba76739d9234942f7bf0bd087949e5f",
+    "path": "docs/personagens/continuidade/DIRETRIZ-REPORTAGEM-APURACAO-E-VEREDITO-2026-10-24.md",
+    "sha256": "535b1691bd2a5672daaabd2040d8c0e4729054d0e4c69ac7720c7a0dd20eff52"
+  },
+  "personas": [
+    {
+      "persona_id": "ranzinza",
+      "display_name": "Arlindo Carranca / Ranzinza",
+      "documented_package_version": "consolidated v1.0; component DNA versions remain distinct",
+      "source_pr": 13,
+      "source_ref": "bloco-02/ranzinza-dna-editorial-v01",
+      "source_commit": "3d651fe1951818767b4a6b935732857f08cb7849",
+      "documentation_bundle_sha256": "6a4fe5e292d4e50c43e4fd90d942a449e8cc5f521bfb1f19a3f3f0d9b9914462",
+      "matrix_path": "docs/personagens/RANZINZA-MATRIZ-VALIDACAO-v0.1.md",
+      "case_ids": ["T01", "T02", "T03", "T04", "T05", "T06", "T07", "T08", "T09", "T10", "T11", "T12", "T13", "T14", "T15", "T16"],
+      "execution_status": "not_executed",
+      "persona_axis_status": "not_evaluated",
+      "journalism_axis_status": "not_evaluated",
+      "human_review_status": "pending_direction",
+      "blocker": "SIWC/Plus real is prohibited by current user scope"
+    },
+    {
+      "persona_id": "beto-cartucho",
+      "display_name": "Beto Cartucho",
+      "documented_package_version": "contracts v0.2; creative identity approved, operational tests pending",
+      "source_pr": 19,
+      "source_ref": "bloco-02/gamer-dna-v02",
+      "source_commit": "21381c0975bef1da048d7887cbdfbd0dd97bed96",
+      "documentation_bundle_sha256": "61e482309c68ee5ea61c59bb54331aa33daf6daed9653b1aca499affb85c4db2",
+      "matrix_path": "docs/personagens/GAMER-MATRIZ-DE-TESTES-v0.2.md",
+      "case_ids": ["T01", "T02", "T03", "T04", "T05", "T06", "T07", "T08", "T09", "T10", "T11", "T12", "T13", "T14", "T15", "T16"],
+      "execution_status": "not_executed",
+      "persona_axis_status": "not_evaluated",
+      "journalism_axis_status": "not_evaluated",
+      "human_review_status": "pending_direction",
+      "blocker": "SIWC/Plus real is prohibited by current user scope"
+    },
+    {
+      "persona_id": "nina-prisma",
+      "display_name": "Nina Prisma",
+      "documented_package_version": "consolidated v1.0; operational tests pending",
+      "source_pr": 19,
+      "source_ref": "bloco-02/gamer-dna-v02",
+      "source_commit": "21381c0975bef1da048d7887cbdfbd0dd97bed96",
+      "documentation_bundle_sha256": "1434c799ce4fe278f1512985214e4043ff186d29c68a975f52f1147b549a19c1",
+      "matrix_path": "docs/personagens/NINA-PRISMA-MATRIZ-DE-TESTES-v1.0.md",
+      "case_ids": ["T01", "T02", "T03", "T04", "T05", "T06", "T07", "T08", "T09", "T10", "T11", "T12", "T13", "T14", "T15", "T16"],
+      "execution_status": "not_executed",
+      "persona_axis_status": "not_evaluated",
+      "journalism_axis_status": "not_evaluated",
+      "human_review_status": "pending_direction",
+      "blocker": "SIWC/Plus real is prohibited by current user scope"
+    }
+  ]
+}

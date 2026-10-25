@@ -933,10 +933,17 @@ class AgentRoleCatalog:
         ]
         if editorial_instructions:
             sections.append(InstructionSection("editorial", "configured", _text(editorial_instructions, "editorial_instructions", maximum=20_000)))  # type: ignore[arg-type]
-        if persona_instructions is not None:
-            if profile.role_id != "persona_writer" or envelope.persona_id is None:
-                raise ContractValidationError("Instrução de DNA só pode ser anexada a persona_writer com referência.")
-            sections.append(InstructionSection(f"persona:{envelope.persona_id}", envelope.persona_version or "", _text(persona_instructions, "persona_instructions", maximum=20_000)))  # type: ignore[arg-type]
+        if profile.role_id == "persona_writer":
+            if envelope.persona_id is None:
+                raise ContractValidationError("persona_writer exige referência imutável de persona.")
+            if persona_instructions is None:
+                raise ContractValidationError("persona_writer exige instruções do DNA versionado para preparar a invocação.")
+            persona_text = _text(persona_instructions, "persona_instructions", maximum=20_000)
+            if stable_hash(persona_text) != envelope.persona_hash:
+                raise ContractValidationError("Hash do DNA fornecido não corresponde à referência imutável da persona.")
+            sections.append(InstructionSection(f"persona:{envelope.persona_id}", envelope.persona_version or "", persona_text))  # type: ignore[arg-type]
+        elif persona_instructions is not None:
+            raise ContractValidationError("Instrução de DNA só pode ser anexada a persona_writer com referência.")
         packet: ResearchPacket | None
         if research_packet is None:
             packet = None
