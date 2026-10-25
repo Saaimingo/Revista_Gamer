@@ -946,4 +946,3 @@ def enqueue_contract_task(
 
 def envelope_from_payload(payload: Mapping[str, Any]) -> AgentTaskEnvelope:
     return AgentTaskEnvelope.from_mapping(payload.get("agent_task_envelope"))
-
