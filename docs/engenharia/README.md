@@ -80,10 +80,11 @@ Uma pauta real -> investigação com fonte -> texto com persona -> revisão -> e
 
 ## ENG-CODEX-007 — fábrica editorial e Radar (2026-10-25)
 
-**Estado atual:** E01–E04 validadas localmente em branch/PR draft de implementação, sem merge. PR #29 continua sendo somente pacote documental; os papéis registrados não são sessões LLM permanentes nem agentes avaliados por inferência real.
+**Estado atual:** E01–E05 validadas localmente em branch/PR draft de implementação, sem merge. PR #29 continua sendo somente pacote documental; os papéis registrados não são sessões LLM permanentes nem agentes avaliados por inferência real.
 
 - [E01 — baseline e plano de integração](ENG-CODEX-007-E01-BASELINE-PLANO-INTEGRACAO.md).
 - [E02 — contratos versionados e carregamento do regimento](ENG-CODEX-007-E02-CONTRATOS-VERSIONADOS.md).
 - [E03 — catálogo de papéis funcionais](ENG-CODEX-007-E03-CATALOGO-PAPEIS-FUNCIONAIS.md): seis perfis habilitados, dois opcionais desligados e fixtures sintéticas.
 - [E04 — armazenamento isolado do Radar](ENG-CODEX-007-E04-RADAR-STORE.md): schema separado `radar_*`, alegações versionadas, evidências imutáveis e migração coberta por fixture/backup/rollback.
+- [E05 — conectores de leitura pública](ENG-CODEX-007-E05-CONETORES-LEITURA-PUBLICA.md): RSS/Atom, API JSON pública, HTML metadata-only, robots explícito e proteções TLS/SSRF/redirect/limite.
 - [Checkpoint ENG-CODEX-007](ENG-CODEX-007-CHECKPOINT.md), [Issue #28](https://github.com/Saaimingo/Revista_Gamer/issues/28) e [PR draft #30](https://github.com/Saaimingo/Revista_Gamer/pull/30).
