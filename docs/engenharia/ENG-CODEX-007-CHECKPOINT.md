@@ -1,6 +1,6 @@
 # ENG-CODEX-007 — checkpoint de continuidade
 
-Atualizado: 2026-10-25 16:18 -03:00
+Atualizado: 2026-10-25 18:53 -03:00
 Ultima unidade concluida: **E11 - ResearchService sob demanda com perfis compartilhados, validada localmente e enviada a branch**
 Unidade em andamento: **E12 - carteira dinamica de 10 pautas principais + 10 reservas**
 Proxima unidade apos E12: **E13 - integracao dos papeis ao dispatcher existente**
@@ -145,6 +145,13 @@ Proxima unidade apos E12: **E13 - integracao dos papeis ao dispatcher existente*
 - Suite integral serial final: `& '.\.venv\Scripts\python.exe' -m unittest discover -s motor_editorial/tests -q` -> **176/176 OK em 128,493 s**. CPython 3.11.9 (`.venv`); `compileall` e `git diff --check` passaram. Fixtures SQLite e provider falso; sem fonte publica, LLM, SIWC/Plus, API paga, banco runtime, worker, publicacao, deploy ou merge.
 - Codigo/testes: `3ed30ca442b031cf26f0cb8b6b0eb69a8116ba18`; relatorio/indice/README setorial: `11dec4a81bc81b6a62f36b11260233fb4a0505b1`; remocao de dados pessoais da franquia: `62981f7`. Checklist E11 marcado; handoffs: Issue #28 [6402026654](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6402026654) e PR #30 [6402026876](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6402026876).
 - Limite para E17: a instrucao vigente exclui SIWC/Plus real neste escopo. Nenhuma chamada real foi feita; o piloto real E17 fica `BLOCKED`, enquanto validacoes offline independentes continuam.
+
+## E12 - implementacao em validacao
+
+- Commit de codigo/testes: `6b8a2cb8f2e12f662932ca2701cd52474d17c890`, ja enviado a branch. `radar_portfolio.py` mantem 10 principais + 10 reservas por edicao (limites versionados e ajustaveis para fixtures), sem criar `story_id` nem reportagens; desempate deterministico por prioridade informada, criacao e ID.
+- Radar schema v6 -> v7 aditivo: estado de avaliacao (`eligible`, `blocked`, `needs_evaluation`), trava de membro/override e eventos tipados. Eventos materiais de documento/alegacao reabrem avaliacao com referencia ao evento; lanes e CandidateEvents preservam historico. Troca principal/reserva exige evidencia auditavel de decisao `approved` no escopo `edition_membership_change`; o validador registra essa evidencia, sem ser autenticador.
+- Foco final apos correcoes: `& '.\.venv\Scripts\python.exe' -m unittest motor_editorial.tests.test_radar_store motor_editorial.tests.test_radar_portfolio -q` -> **26/26 OK em 15,775 s**. A primeira rodada encontrou fixture com topico repetido, campo de aprovacao vetado pelo filtro de credenciais e leitura de `sqlite3.Row`; as correcoes foram aplicadas e a rodada final passou.
+- Suite integral serial, `compileall` final e `git diff --check` ainda pendentes. Testes usam apenas SQLite temporario e fixtures; sem fontes publicas, LLM, SIWC/Plus, API paga, banco runtime, publicacao, deploy ou merge.
 
 ## Bloqueios e retomada
 
