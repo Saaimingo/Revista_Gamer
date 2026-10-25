@@ -45,7 +45,7 @@ Próxima unidade: **E04 — schema de Radar e SQLite isolado**
 - Checkpoint: `docs/engenharia/ENG-CODEX-007-CHECKPOINT.md`.
 - Commit E01: `aeb7b5cdd132aed041a9fe7301c656f810389a31` (`docs: record ENG-CODEX-007 E01 baseline`), push confirmado.
 - E02: `b590bc11a2ce3ea9bdbe5608ca6e13ab94d1d0ad` (`feat: add versioned agent contracts`), correção `8eda0e905a40afeb97da90cd5f8a858de807ec84` e checkpoint `10532233fe5a50a349c8440002ec3ca4a8dfcdcc`; os três enviados.
-- E03 commit `e161e084cb5fbe99ed1f06751079b8de795182bb` (`feat: register ENG-CODEX-007 agent roles`), push confirmado. Checkpoint de confirmação pós-handoff ainda pendente.
+- E03 commit `e161e084cb5fbe99ed1f06751079b8de795182bb` (`feat: register ENG-CODEX-007 agent roles`), push confirmado; este checkpoint registra a confirmação e os handoffs.
 - Handoff E01: Issue #28 [6400102493](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400102493); PR #30 [6400102870](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6400102870). Handoff E02: Issue #28 [6400254111](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400254111); PR #30 [6400254420](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6400254420). Handoff E03: Issue #28 [6400348282](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400348282); PR #30 [6400348695](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6400348695).
 
 ## Bloqueios e retomada
