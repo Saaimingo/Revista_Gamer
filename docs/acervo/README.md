@@ -30,4 +30,6 @@ Press rooms de fabricantes/publishers, capturas válidas para reportagem, arte o
 - [Estudo de descoberta e ingestão autorizada v0.1](AUTOMACAO-DESCOBERTA-MIDIAS-V0.1.md): RSS/APIs, catálogo, credenciais, limites de coleta e handoff ao Codex; **não implementado**.
 - [Matriz preliminar de direitos editoriais v0.1](MATRIZ-DIREITOS-EDITORIAIS-V0.1.md): reprodução, capa, transformações, vídeos e IA, com exemplos de termos oficiais.
 
+- [Estudo de casos reais de disputas sobre imagens (2021–2026)](ESTUDO-CASOS-DISPUTAS-MIDIAS-2021-2026.md): decisões judiciais, notificações e retiradas; inclui imprensa, sites de games, foto profissional, acusações revertidas e padrões de cautela. **Pesquisa preliminar, não autorização jurídica.**
+
 **Atenção:** o mapa apenas localiza fontes. Não são licenças de imagens individuais, não autoriza baixar mídias em massa, coleta agendada, contas, deploy ou publicação. Documentos criados para revisão da direção em PR, não como regras definitivas.
