@@ -1,8 +1,8 @@
 # ENG-CODEX-007 — checkpoint de continuidade
 
-Atualizado: 2026-10-25 13:57 America/Sao_Paulo
+Atualizado: 2026-10-25 14:03 America/Sao_Paulo
 Última unidade: **E04 — armazenamento isolado do Radar, concluída/validada localmente**
-Próxima unidade: **E05 — conectores públicos permitidos e guardas de segurança**
+Próxima unidade: **E05 — em andamento; fechar conectores públicos permitidos e guardas de segurança**
 
 ## Estado do trabalho
 
@@ -13,6 +13,7 @@ Próxima unidade: **E05 — conectores públicos permitidos e guardas de seguran
 - Revalidação E02: PR #30 continua draft/aberta/sem merge; push confirmado em `10532233fe5a50a349c8440002ec3ca4a8dfcdcc`, mesmo HEAD local/remoto no último `ls-remote`; `origin/main=ce8f6a7b65c2050d5da851491c9c89835f82c3a2`.
 - E03: PR #30 aberta/draft/sem merge; commit de implementação e push confirmados em `e161e084cb5fbe99ed1f06751079b8de795182bb`, mesmo HEAD local/remoto no `ls-remote`; antes das alterações E03, HEAD era `747dfa841e1b47aee7dd0244b6f091df029abb80`.
 - E04: código/testes no commit `509a882`; relatório, índice e checkpoint inicial no commit `f5e358e0f75a8e2d1ee4c997da26716e0bf96882`; ambos enviados. Antes deste registro final dos handoffs, local e remoto estavam sincronizados em `f5e358e`. PR #30 está aberta/draft/sem merge. E05 é a próxima unidade.
+- E05 começou no HEAD `4f6114fc3dea234e7f9758a489911b316abc3987`; `radar_connectors.py` e `test_radar_connectors.py` estão novos e ainda não commitados. PR #30 continua draft/aberta/sem merge.
 
 ## Evidências E01 executadas nesta sessão
 
@@ -50,6 +51,15 @@ Próxima unidade: **E05 — conectores públicos permitidos e guardas de seguran
 - Relatório: `docs/engenharia/ENG-CODEX-007-E04-RADAR-STORE.md`; testes: `motor_editorial/tests/test_radar_store.py`. `motor_editorial.db.SCHEMA_VERSION=5` não foi alterado; `RADAR_SCHEMA_VERSION=1` é local ao arquivo de teste isolado.
 - Nenhuma abertura ou migração do SQLite runtime, coleta/rede, inferência, SIWC/Plus, API paga, publicação, deploy ou merge. Bancos de teste foram temporários; `published=false`.
 
+## ENG-CODEX-007 E05 — andamento (não concluída)
+
+- Iniciada em `4f6114fc3dea234e7f9758a489911b316abc3987`; arquivos locais ainda não commitados: `motor_editorial/radar_connectors.py` e `motor_editorial/tests/test_radar_connectors.py`.
+- Implementação em progresso: perfis explícitos por fonte; coleta bloqueada por padrão e exige política de acesso, termos, aprovação robots e operação allowlisted; HTTP GET sem credenciais, HTTPS verificado, allowlist exata de hosts, validação de IP público e conexão ao IP fixado após DNS; redirects revalidados; timeout/tamanho limitados; ETag/Last-Modified condicionais; 304/403/404/410/429/5xx, `Retry-After`, backoff, suspensão; parsers de metadados RSS/Atom, JSON público e HTML sem reter descrição de artigo.
+- CPython 3.11.9: `& '.\.venv\Scripts\python.exe' -m unittest motor_editorial.tests.test_radar_connectors -v` → **10/10 OK**, 0,527 s; `py_compile motor_editorial/radar_connectors.py` e `git diff --check` passaram. Este resultado focado não conclui E05 nem substitui a regressão completa.
+- Testes HTTP de status/redirect/DNS usam transportes e resolutores falsos. Um teste usa servidor HTTP de loopback para verificar transporte e limite; não houve acesso a host público, fonte real, credencial ou provedor.
+- Sem bloqueio externo atual. As fontes concretas permanecem desativadas até configuração própria com termos/robots/operações; isto é uma guarda, não uma licença presumida.
+- Próximo: revisar sanitização/redirect/SSRF e a política do perfil, rodar regressão completa e `compileall`, documentar evidências, commitar/pushar E05 e atualizar handoffs da Issue #28/PR #30; então iniciar E06.
+
 ## Arquivos e commits
 
 - Relatório E01: `docs/engenharia/ENG-CODEX-007-E01-BASELINE-PLANO-INTEGRACAO.md`.
@@ -63,6 +73,6 @@ Próxima unidade: **E05 — conectores públicos permitidos e guardas de seguran
 
 ## Bloqueios e retomada
 
-Não há bloqueio atual. Não retomar ou reexecutar C2–D2; eles foram entregues na PR #26 e receberam parecer favorável de encerramento com ressalvas. E01–E04 foram validadas, commitadas e enviadas. Próxima ação: iniciar E05 e verificar primeiro o catálogo de fontes públicas/limites previsto na ordem e no Radar E04.
+Não há bloqueio atual. Não retomar ou reexecutar C2–D2; eles foram entregues na PR #26 e receberam parecer favorável de encerramento com ressalvas. E01–E04 foram validadas, commitadas e enviadas; E05 está em andamento conforme a seção acima.
 
-Se houver interrupção após o push, conferir primeiro `git status --short --branch`, upstream e HEAD remoto; depois verificar PR/Issue #28 e seguir para E05. Não editar a branch/documentação da PR #29, não reconstruir o motor/OAuth/DNAs e não acessar o banco runtime real.
+Se houver interrupção, conferir primeiro `git status --short --branch`, upstream e HEAD remoto; depois verificar PR/Issue #28 e retomar os dois arquivos ainda não commitados de E05 listados acima, validar a suíte e seguir para E06 após o handoff. Não editar a branch/documentação da PR #29, não reconstruir o motor/OAuth/DNAs e não acessar o banco runtime real.
