@@ -1,6 +1,6 @@
 # ENG-CODEX-007 — checkpoint de continuidade
 
-Atualizado: 2026-10-25 15:27 -03:00
+Atualizado: 2026-10-25 15:28 -03:00
 Última unidade concluída: **E09 — scheduler configurável, validada localmente e enviada à branch**
 Unidade em andamento: **E10 — Radar geral → DiscoveryBatch → triagem (leitura dos contratos e implementação)**
 Próxima unidade após E10: **E11 — ResearchService sob demanda com perfis compartilhados**
@@ -18,6 +18,7 @@ Próxima unidade após E10: **E11 — ResearchService sob demanda com perfis com
 - E06 código/testes no commit `eddc0e904b0a220f24651209a4e4da2d27153423`; relatório/índice/checkpoint no commit `1d78eb83100b5fc3dba0c3989a0e1142c0360725`; ambos enviados e sincronizados. Handoffs publicados na Issue #28 e PR #30; checklist E01–E06 marcado com evidências. PR #30 continua draft/aberta/sem merge.
 - E07 implementação/testes em `b63c620e39d3e4ac4fea3ebdca37a71d10cde653`; relatório/índice/checkpoint final em `dace58c53132c6db4ef5bd21c1795cc73709a80f`; handoffs Issue #28 [6401083176](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6401083176) e PR #30 [6401083777](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6401083777). Checklist E07 atualizado. Suíte integral 147/147. PR #30 segue draft/aberta/sem merge.
 - E08 código/testes em `bf96cfb12fa025577d0a3d48c31ad695434d3a78`; relatório/índice/checkpoint final em `0a622f45718a0a10cfeabeaedc7c32affe349ebb`; ambos enviados. Suíte integral 148/148. Handoffs Issue #28 [6401183533](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6401183533) e PR #30 [6401184099](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6401184099); checkbox E08 atualizado. PR #30 segue draft/aberta/sem merge.
+- E09 código/testes `579790c8a116be05f6444b02b36a161393309b5c`; relatório/índice/README/checkpoint `c867411924a56d545bb3da49ff0f6c0ec6aa8f7d`; suíte integral 162/162. Handoffs Issue #28 [6401478854](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6401478854) e PR #30 [6401479277](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6401479277); checkbox E09 atualizado. PR #30 segue draft/aberta/sem merge.
 
 ## Evidências E01 executadas nesta sessão
 
@@ -122,7 +123,7 @@ Próxima unidade após E10: **E11 — ResearchService sob demanda com perfis com
 - Corrigidas tentativas de teste: a primeira asserção de idempotência reutilizou uma reserva concorrente que podia ter sido negada; agora reutiliza uma chave de reserva confirmada. Uma rodada paralela atrasou o teste preexistente do heartbeat; ele passou isolado e as duas suítes focadas passaram sequencialmente.
 - Código e testes enviados em `579790c8a116be05f6444b02b36a161393309b5c` (`feat: add configurable Radar daily scheduler`). A suíte integral serial sobre esse código passou: `& '.\.venv\Scripts\python.exe' -m unittest discover -s motor_editorial/tests -q` → **162/162 OK**, 122,539 s. Focadas: orquestração **41/41** (23,108 s) e Radar **40/40** (20,899 s). `compileall` e `git diff --check` repetidos no fechamento documental; relatório E09 e README setorial atualizados.
 - Sem worker/daemon, banco runtime, fontes reais, LLM, SIWC/Plus, API paga, publicação, deploy ou merge. O teste de heartbeat que oscilou numa execução concorrente passou isolado e na suíte integral serial; não houve alteração nesse código.
-- Fechamento documental e comentários da Issue #28/PR #30 são o último passo de registro desta unidade. E10 já está em andamento na leitura do contrato versionado; seguir direto após registrar os handoffs E09.
+- Handoffs Issue #28 e PR #30 publicados; checkbox E09 marcado em 25/10/2026. Próxima unidade autorizada e em andamento: E10.
 
 ## Bloqueios e retomada
 
