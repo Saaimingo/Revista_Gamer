@@ -149,6 +149,10 @@ O conector foi executado uma única vez contra um endpoint público documentado 
 
 `AgentRoleCatalog.prepare_invocation()` exige que `persona_writer` receba instruções de DNA e que o SHA-256 do texto normalizado (após trim externo) corresponda a `persona_hash` no envelope. DNA ausente ou instrução de outra identidade falha antes da montagem do contexto. A regressão E18 usa apenas marcadores sintéticos e hashes/documentos-fonte versionados; não executa as matrizes T01–T16, não gera texto jornalístico e não avalia P/J. Veja [relatório E18](../docs/engenharia/ENG-CODEX-007-E18-JORNALISTAS-ISOLADOS-OFFLINE.md).
 
+### Roteamento offline do trio no ledger compartilhado (ENG-CODEX-007 E19)
+
+`TaskDispatcher` aceita um `persona_instruction_resolver` opcional, chamado apenas para `persona_writer`. O padrão não possui carregador de DNA; ausência, falha do resolvedor ou instrução incompatível com o hash bloqueia a tarefa antes do executor. O teste E19 acrescenta três tarefas sintéticas ao mesmo `AgentQueue`/`TaskDispatcher` do E2E multipauta e confirma um brief/packet comparável com seção de persona isolada para cada ID. Nenhum `StoryDraft`, texto de jornalista ou avaliação P/J é produzido; veja [relatório E19](../docs/engenharia/ENG-CODEX-007-E19-TRIO-NA-FABRICA-OFFLINE.md). Suíte integral serial atualizada: **198/198 OK**.
+
 ### Prova técnica opcional com o plano ChatGPT
 
 O acesso oficial é via Sign in with ChatGPT (SIWC), autorização explícita no navegador e escopo de uso do plano. Não use nem configure `OPENAI_API_KEY`. Para instalar a dependência OIDC opcional em ambiente isolado:

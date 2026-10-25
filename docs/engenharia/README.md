@@ -1,6 +1,6 @@
 # Setor: engenharia e Codex
 
-Status: **Motor Editorial v0.2 integrado à `main`; PRs #8, #10 e #18 continuam abertas e não mescladas; ENG-CODEX-007 E01–E16 validadas na branch `codex/eng-codex-007-factory-radar`, PR draft #30 sem merge; E17 está bloqueada por limite explícito contra SIWC/Plus real; E18 tem validação técnica parcial offline (sem execução das matrizes P/J); E19 está em andamento offline. ENG-CODEX-006 permanece registrado abaixo como trilha histórica.**
+Status: **Motor Editorial v0.2 integrado à `main`; PRs #8, #10 e #18 continuam abertas e não mescladas; ENG-CODEX-007 E01–E16 validadas na branch `codex/eng-codex-007-factory-radar`, PR draft #30 sem merge; E17 está bloqueada por limite explícito contra SIWC/Plus real; E18 e E19 têm validação técnica parcial offline, sem execução das matrizes P/J. ENG-CODEX-006 permanece registrado abaixo como trilha histórica.**
 
 ## Arquitetura operacional dos futuros agentes — 20/10/2026
 
@@ -80,7 +80,7 @@ Uma pauta real -> investigação com fonte -> texto com persona -> revisão -> e
 
 ## ENG-CODEX-007 — fábrica editorial e Radar (2026-10-25)
 
-**Estado atual:** E01–E16 validadas localmente em branch/PR draft de implementação, sem merge; E17 bloqueada por escopo; E18 parcial no contrato de identidade offline, com os 48 casos T01–T16 não executados e P/J não avaliados; E19 em andamento somente offline. PR #29 continua sendo somente pacote documental; os papéis registrados não são sessões LLM permanentes nem agentes avaliados por inferência real.
+**Estado atual:** E01–E16 validadas localmente em branch/PR draft de implementação, sem merge; E17 bloqueada por escopo; E18 parcial no contrato de identidade offline; E19 parcial no roteamento isolado no ledger compartilhado. Em ambas, os 48 casos T01–T16 não foram executados e P/J não foram avaliados. PR #29 continua sendo somente pacote documental; os papéis registrados não são sessões LLM permanentes nem agentes avaliados por inferência real.
 
 - [E01 — baseline e plano de integração](ENG-CODEX-007-E01-BASELINE-PLANO-INTEGRACAO.md).
 - [E02 — contratos versionados e carregamento do regimento](ENG-CODEX-007-E02-CONTRATOS-VERSIONADOS.md).
@@ -100,4 +100,5 @@ Uma pauta real -> investigação com fonte -> texto com persona -> revisão -> e
 - [E16 — leitura pública controlada](ENG-CODEX-007-E16-LEITURA-PUBLICA-CONTROLADA.md): uma chamada manual sem autenticação ao endpoint público de releases do Godot; HTTP 200, projeção somente de metadados e SHA-256 do corpo, sem salvar ou republicar notas/ativos.
 - [E17 — bloqueio de SIWC/Plus real](ENG-CODEX-007-E17-BLOQUEIO-SIWC-PLUS.md): bloqueada por limite explícito atual do usuário; nenhuma consulta de conta/modelo, login ou inferência real foi feita. E18/E19 continuam offline.
 - [E18 — jornalistas isolados, validação offline](ENG-CODEX-007-E18-JORNALISTAS-ISOLADOS-OFFLINE.md): manifesto aponta os commits e hashes dos documentos de referência; `persona_writer` exige instruções cujo SHA-256 corresponda ao envelope; 23/23 testes focados. Matrizes T01–T16 não executadas, P/J não avaliados e revisão humana pendente.
+- [E19 — trio na fábrica, validação offline](ENG-CODEX-007-E19-TRIO-NA-FABRICA-OFFLINE.md): três tarefas sintéticas com brief/dossier/ResearchPacket comparáveis na mesma `AgentQueue`/`TaskDispatcher`, IDs e instruções isolados; falhas sem resolvedor, com identidade cruzada e erro foram bloqueadas; suíte integral 198/198. Sem `StoryDraft` real, matrizes executadas ou avaliação P/J.
 - [Checkpoint ENG-CODEX-007](ENG-CODEX-007-CHECKPOINT.md), [Issue #28](https://github.com/Saaimingo/Revista_Gamer/issues/28) e [PR draft #30](https://github.com/Saaimingo/Revista_Gamer/pull/30).
