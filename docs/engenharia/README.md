@@ -1,6 +1,6 @@
 # Setor: engenharia e Codex
 
-Status: **Motor Editorial v0.2 integrado à `main`; PRs #8, #10 e #18 continuam abertas e não mescladas; ENG-CODEX-007 E01–E14 validadas na branch `codex/eng-codex-007-factory-radar`, PR draft #30 sem merge; E15 está em andamento. ENG-CODEX-006 permanece registrado abaixo como trilha histórica.**
+Status: **Motor Editorial v0.2 integrado à `main`; PRs #8, #10 e #18 continuam abertas e não mescladas; ENG-CODEX-007 E01–E16 validadas na branch `codex/eng-codex-007-factory-radar`, PR draft #30 sem merge; E17 está bloqueada por limite explícito contra SIWC/Plus real; E18–E19 seguem somente offline. ENG-CODEX-006 permanece registrado abaixo como trilha histórica.**
 
 ## Arquitetura operacional dos futuros agentes — 20/10/2026
 
@@ -97,4 +97,5 @@ Uma pauta real -> investigação com fonte -> texto com persona -> revisão -> e
 - [E13 — dispatcher, dependências e pesquisa retomável](ENG-CODEX-007-E13-DISPATCHER-DEPENDENCIAS-PESQUISA-RETOMADA.md): dependências persistentes no ledger existente, rotas determinísticas registradas, pesquisa cache-first e handoff idempotente de retorno ao artigo; suite integral 192/192.
 - [E14 — handoffs editoriais, direitos e prévia](ENG-CODEX-007-E14-HANDOFFS-EDITORIAIS-DIREITOS-PREVIA.md): cinco artefatos tipados e presos por hash à revisão, papéis resolvidos no catálogo, rumores atribuídos e casos hardware/jogo-mod em fixtures, gate de direitos e prévia interna; suite integral 194/194.
 - [E15 — E2E multipauta Radar + fábrica](ENG-CODEX-007-E15-E2E-MULTIPAUTA-RADAR-FABRICA.md): duas ou três pautas no mesmo ledger/dispatcher, triagem e pesquisa local acopladas aos handoffs E14, bloqueio/correção/prévia interna e replay após restart; suíte integral 195/195.
+- [E16 — leitura pública controlada](ENG-CODEX-007-E16-LEITURA-PUBLICA-CONTROLADA.md): uma chamada manual sem autenticação ao endpoint público de releases do Godot; HTTP 200, projeção somente de metadados e SHA-256 do corpo, sem salvar ou republicar notas/ativos.
 - [Checkpoint ENG-CODEX-007](ENG-CODEX-007-CHECKPOINT.md), [Issue #28](https://github.com/Saaimingo/Revista_Gamer/issues/28) e [PR draft #30](https://github.com/Saaimingo/Revista_Gamer/pull/30).

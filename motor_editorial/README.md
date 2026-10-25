@@ -141,6 +141,10 @@ Validação CPython 3.11.9: foco relacionado E15 **18/18 OK**; suíte integral *
 
 Veja [relatório E15](../docs/engenharia/ENG-CODEX-007-E15-E2E-MULTIPAUTA-RADAR-FABRICA.md) e [checkpoint](../docs/engenharia/ENG-CODEX-007-CHECKPOINT.md). `published=false`.
 
+### Leitura pública controlada (ENG-CODEX-007 E16)
+
+O conector foi executado uma única vez contra um endpoint público documentado do GitHub REST API, sem autenticação. O resultado persistido é somente uma projeção de metadados e o SHA-256 da resposta; nenhum corpo integral, nota de release ou asset foi guardado. Este ensaio não configura polling ou scheduler; veja [relatório E16](../docs/engenharia/ENG-CODEX-007-E16-LEITURA-PUBLICA-CONTROLADA.md) para origem, robots, termos, limite e resultado.
+
 ### Prova técnica opcional com o plano ChatGPT
 
 O acesso oficial é via Sign in with ChatGPT (SIWC), autorização explícita no navegador e escopo de uso do plano. Não use nem configure `OPENAI_API_KEY`. Para instalar a dependência OIDC opcional em ambiente isolado:

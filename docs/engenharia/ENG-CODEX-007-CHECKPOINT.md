@@ -1,9 +1,9 @@
 # ENG-CODEX-007 — checkpoint de continuidade
 
-Atualizado: 2026-10-25 19:54 -03:00
-Ultima unidade concluida: **E15 - E2E integrado offline multipauta Radar + fabrica, validado localmente**
-Unidade em andamento: **E16 - ensaio minimo de conector publico permitido, somente leitura**
-Proxima unidade apos E16: **E17 - piloto real SIWC/Plus bloqueado pelas fronteiras atuais do usuario**
+Atualizado: 2026-10-25 19:58 -03:00
+Ultima unidade concluida: **E16 - leitura manual, unica e sanitizada da API publica do GitHub, validada**
+Unidade em andamento: **E17 - bloqueada por limite explicito do usuario contra SIWC/Plus real**
+Proxima unidade: **E18 - testes isolados em modo offline, com execucao real marcada not_executed**
 
 ## Estado do trabalho
 
@@ -188,8 +188,17 @@ Proxima unidade apos E16: **E17 - piloto real SIWC/Plus bloqueado pelas fronteir
 - Handoffs E15: Issue #28 comment [6404538607](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6404538607); PR #30 comment [6404538785](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6404538785). Caixa E15 marcada; corpo da Issue preserva as 59 quebras de linha. PR #30 continua aberta/draft, sem reviews ou merge.
 - Proximo: E16, uma leitura manual de fonte publica permitida e sem custo, apos conferir termos, robots e quotas por origem.
 
+## E16 — concluida/validada localmente
+
+- Uma leitura manual via `RadarConnectorService`/`PinnedHTTPTransport`, sem autenticação, token, retry ou scheduler: `GET https://api.github.com/repos/godotengine/godot/releases/latest`.
+- O preflight `GET https://api.github.com/robots.txt` respondeu 404 em 2026-10-25 19:56:26 -03:00. Perfil usou regra normalizada `User-agent: * / Allow: /` conforme RFC 9309 para robots 4xx indisponível; o relatório esclarece que isso não é texto obtido do servidor.
+- Termos/API: endpoint documentado pelo GitHub como acessível sem autenticação para recursos públicos; API segue sujeita aos termos. A API REST informa 60 solicitações/hora sem autenticação. Perfil: intervalo 3.600 s, timeout 15 s, máximo 1.000.000 bytes, redirects 0, falhas 1. Resposta de robots apresentou limit=60, remaining=56, used=4 antes da consulta; resposta de releases não expôs os cabeçalhos quota via interface segura, sem inferência de saldo posterior.
+- Resultado em 2026-10-25 19:57:08 -03:00: `observed`, HTTP 200, JSON, zero redirects, sem 403/429. Projeção: release ID 372486926, nome `4.7.2-stable`, publicação 2026-08-18T16:12:28Z, atualização 2026-08-22T14:27:33Z, URL de API `https://api.github.com/repos/godotengine/godot/releases/372486926`. ETag e Last-Modified estão no relatório.
+- SHA-256 do corpo recebido (corpo não persistido): `a3ada3c2c833631fcdd9221c4a86807886c95c994bbfc89abd87f1f369d0baad`. Somente metadados sanitizados foram registrados; sem notas de release/assets republicados. `published=false`.
+- Relatório: `docs/engenharia/ENG-CODEX-007-E16-LEITURA-PUBLICA-CONTROLADA.md`. Sem alteração de código nesta unidade; o teste real foi a chamada única e o resultado sanitizado. CPython 3.11.9: `& '.\\.venv\\Scripts\\python.exe' -m unittest motor_editorial.tests.test_radar_connectors -q` -> **13/13 OK em 0,701 s**; `compileall -q motor_editorial` e `git diff --check` exit 0.
+
 ## Bloqueios e retomada
 
-Nao retomar ou reexecutar C2-D2; eles foram entregues na PR #26. E16 deve usar transporte/escopo aprovado e uma unica leitura manual, registrando o resultado real e qualquer 403/429; se a origem nao for elegivel, marcar `blocked_external_access` e seguir. E17 permanece bloqueada: a ordem do usuario proibe chamadas reais SIWC/Plus mesmo com a franquia em 100%. E18/E19 podem avancar somente em documentacao e testes offline, sem alegar execucao de persona/modelo real.
+Nao retomar ou reexecutar C2-D2; eles foram entregues na PR #26. E17 permanece bloqueada: a instrucao atual do usuario proibe chamadas reais SIWC/Plus, mesmo com a franquia em 100%. Registrar `BLOCKED` sem login, preflight de conta/modelo ou chamada. E18/E19 devem concluir somente comparacoes e validações mock/offline, com inferências reais como `not_executed` e revisão humana como pendente; não alegar fidelidade de DNA ou qualidade jornalística real a partir de mocks.
 
-Proximo passo: iniciar E16 somente apos selecionar e validar uma origem publica permitida, usando uma unica leitura manual sem custo. Em interrupcao, conferir branch/upstream/HEAD remoto, PR #30, Issue #28 e este checkpoint. Manter branch de implementacao e limites de E17 sem SIWC/Plus real.
+Proximo passo: registrar E17 como bloqueada e iniciar E18 em modo offline. Em interrupcao, conferir branch/upstream/HEAD remoto, PR #30, Issue #28 e este checkpoint. Manter branch de implementacao, PR draft e `published=false`.
