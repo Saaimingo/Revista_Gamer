@@ -1,9 +1,9 @@
 # ENG-CODEX-007 — checkpoint de continuidade
 
-Atualizado: 2026-10-25 15:35 -03:00
-Última unidade concluída: **E09 — scheduler configurável, validada localmente e enviada à branch**
-Unidade em andamento: **E10 — Radar geral → DiscoveryBatch → triagem (leitura dos contratos e implementação)**
-Próxima unidade após E10: **E11 — ResearchService sob demanda com perfis compartilhados**
+Atualizado: 2026-10-25 15:38 -03:00
+Última unidade concluída: **E10 — Radar geral → DiscoveryBatch → triagem, validada localmente e enviada à branch**
+Unidade em andamento: **E11 — ResearchService sob demanda com perfis compartilhados**
+Próxima unidade após E11: **E12 — carteira dinâmica de 10 pautas principais + 10 reservas**
 
 ## Estado do trabalho
 
@@ -19,6 +19,7 @@ Próxima unidade após E10: **E11 — ResearchService sob demanda com perfis com
 - E07 implementação/testes em `b63c620e39d3e4ac4fea3ebdca37a71d10cde653`; relatório/índice/checkpoint final em `dace58c53132c6db4ef5bd21c1795cc73709a80f`; handoffs Issue #28 [6401083176](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6401083176) e PR #30 [6401083777](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6401083777). Checklist E07 atualizado. Suíte integral 147/147. PR #30 segue draft/aberta/sem merge.
 - E08 código/testes em `bf96cfb12fa025577d0a3d48c31ad695434d3a78`; relatório/índice/checkpoint final em `0a622f45718a0a10cfeabeaedc7c32affe349ebb`; ambos enviados. Suíte integral 148/148. Handoffs Issue #28 [6401183533](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6401183533) e PR #30 [6401184099](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6401184099); checkbox E08 atualizado. PR #30 segue draft/aberta/sem merge.
 - E09 código/testes `579790c8a116be05f6444b02b36a161393309b5c`; relatório/índice/README/checkpoint `c867411924a56d545bb3da49ff0f6c0ec6aa8f7d`; suíte integral 162/162. Handoffs Issue #28 [6401478854](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6401478854) e PR #30 [6401479277](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6401479277); checkbox E09 atualizado. PR #30 segue draft/aberta/sem merge.
+- E10 código/testes em `949ac16` (`feat: queue Radar discoveries for triage`); suíte integral serial **166/166 OK em 129,768 s**, foco E10 **4/4 OK em 6,929 s**, `compileall` e `git diff --check` exit 0. Relatório/índice/README/checkpoint e handoffs ainda serão registrados; E10 ainda não foi marcada na Issue.
 
 ## Evidências E01 executadas nesta sessão
 
@@ -125,17 +126,17 @@ Próxima unidade após E10: **E11 — ResearchService sob demanda com perfis com
 - Sem worker/daemon, banco runtime, fontes reais, LLM, SIWC/Plus, API paga, publicação, deploy ou merge. O teste de heartbeat que oscilou numa execução concorrente passou isolado e na suíte integral serial; não houve alteração nesse código.
 - Handoffs Issue #28 e PR #30 publicados; checkbox E09 marcado em 25/10/2026. Próxima unidade autorizada e em andamento: E10.
 
-## E10 — implementação em andamento
+## E10 — concluída/validada localmente
 
 - Critério da ordem versionada: alimentar a fila de triagem com `DiscoveryBatch`; threshold de relevância e pesos de prioridade configuráveis/auditáveis; polling sem novidade não enfileira IA; edição material gera candidato; grupos de rumor/republicação não duplicam e carregam proveniência.
 - Implementação local em `motor_editorial/radar_triage.py`: `RadarGeneralService` reaproveita `IncrementalRadarService`, `RadarStore`, `AgentQueue` e o contrato `triage_analyst@1.0.0`. Um batch válido cria uma tarefa versionada na mesma fila; não há segundo dispatcher, chamada LLM, promoção automática à carteira ou execução de tarefa nesta unidade. O executor permanece `triage.pending` para a integração de papéis E13.
 - A política expõe `relevance_threshold` e pesos por tipo de `ObservationEvent`, e grava versão, valores, score e base do score no `diff` do item. O score usa apenas o tipo de evento; não infere importância editorial, independência de fonte nem veracidade. Linhagens de republicação e de alegações conservam IDs/fontes/relações e `epistemic_status`, inclusive rumor atribuído.
 - Testes focados: `& '.\.venv\Scripts\python.exe' -m unittest motor_editorial.tests.test_radar_triage -v` → **4/4 OK** (6,929 s). Cobrem tarefa contratual em fila, 304/poll sem novidade sem tarefa nova, threshold/pesos, edição material e grupo atribuído com três fontes sem duplicação, com proveniência e estado epistêmico.
-- `& '.\.venv\Scripts\python.exe' -m compileall -q motor_editorial` → exit 0; `git diff --check` → exit 0. A suíte integral E10 ainda precisa rodar serialmente; depois fechar relatório/índice/README e registrar handoffs antes de começar E11.
+- `& '.\.venv\Scripts\python.exe' -m unittest discover -s motor_editorial/tests -q` → **166/166 OK em 129,768 s**, execução serial após `949ac16`. `& '.\.venv\Scripts\python.exe' -m compileall -q motor_editorial` → exit 0; `git diff --check` → exit 0. Relatório, índice e README setorial atualizados; pendem apenas checkbox/comentários da Issue/PR e referências finais ao handoff neste checkpoint.
 - Testes usam SQLite temporário, fontes/feeds `.invalid`, relógio/transportes/resolvedor simulados. Nenhuma fonte pública consultada, nenhum worker/dispatcher iniciado, sem LLM/SIWC/Plus/API paga, banco runtime, publicação, deploy ou merge.
 
 ## Bloqueios e retomada
 
-Não há bloqueio técnico atual para E10 offline. E09 foi fechada com suíte integral serial 162/162 e implementação enviada. Não retomar ou reexecutar C2–D2; eles foram entregues na PR #26. Os gates futuros de E16/E17 continuam: origem pública somente após perfis/termos/robots aprovados; SIWC/Plus só após preflight e elegibilidade/consentimento, sem chamadas faturáveis.
+Não há bloqueio técnico atual para E11 offline. E10 passou na suíte integral 166/166. Não retomar ou reexecutar C2–D2; eles foram entregues na PR #26. Os gates futuros E16/E17 continuam: fontes públicas somente após perfis/termos/robots aprovados; SIWC/Plus só após preflight e elegibilidade/consentimento, sem chamadas faturáveis.
 
-Se houver interrupção durante E10, conferir primeiro `git status --short --branch`, upstream, HEAD remoto, PR #30, Issue #28 e este checkpoint; seguir o contrato E10 na ordem versionada. Não editar a branch/documentação da PR #29, não reconstruir motor/OAuth/DNAs e não acessar o banco runtime real. O E09 não iniciou coleta: as agendas seguem default OFF e `dry_run=true`.
+Se houver interrupção durante E11, conferir primeiro `git status --short --branch`, upstream, HEAD remoto, PR #30, Issue #28 e este checkpoint; seguir o contrato E11 na ordem versionada. Não editar a branch/documentação da PR #29, não reconstruir motor/OAuth/DNAs e não acessar o banco runtime real. O scheduler E09 segue default OFF e `dry_run=true`; E10 só enfileira tarefa `triage.pending`, sem despacho.

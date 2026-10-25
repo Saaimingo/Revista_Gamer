@@ -95,6 +95,12 @@ py -3.11 -m motor_editorial --data-dir "$env:TEMP\revista-gamer-radar-demo" sche
 
 O configurador sempre cria janelas `enabled=false` e `dry_run=true`; não inicia worker, cron ou coleta real. `resume-group` retoma na próxima janela futura e continua em modo dry-run. O worker vazio consulta a fila existente e não invoca executor/IA. Horários e fontes de operação real dependem de autorização própria e de integração do coletor nas etapas seguintes.
 
+### Radar geral e fila de triagem (ENG-CODEX-007 E10)
+
+`RadarGeneralService` combina perfis `SourceProfile` explicitamente fornecidos com o `IncrementalRadarService` e o `RadarStore` existentes. Só snapshots novos ou mudanças materiais acima do `relevance_threshold` formam `DiscoveryBatch`; `304`, repetição e polling sem mudança não criam tarefa. Grupos de republicação e grupos de origem de alegações viram um item, com documentos, fontes, relações e estado epistêmico preservados.
+
+`RadarTriagePolicy` permite configurar threshold e pesos de prioridade por tipo de evento. O score é um filtro determinístico de fila, não uma avaliação editorial nem sinal de confirmação. Um batch não vazio cria uma tarefa contratual `agent.role.triage_analyst` na mesma `AgentQueue`, com gate humano preservado. O executor desta etapa é `triage.pending`; a tarefa fica enfileirada e não chama modelo nem cria promoção à carteira. A integração de papéis ao dispatcher continua prevista na E13.
+
 ### Prova técnica opcional com o plano ChatGPT
 
 O acesso oficial é via Sign in with ChatGPT (SIWC), autorização explícita no navegador e escopo de uso do plano. Não use nem configure `OPENAI_API_KEY`. Para instalar a dependência OIDC opcional em ambiente isolado:
