@@ -795,7 +795,13 @@ class AgentInvocationContext:
 class AgentRoleCatalog:
     """Exact version/hash resolver and regimento-aware invocation loader."""
 
-    def __init__(self, profiles: Iterable[AgentRoleProfile], *, regiment_version: str = REGIMENT_VERSION):
+    def __init__(
+        self,
+        profiles: Iterable[AgentRoleProfile],
+        *,
+        regiment_version: str = REGIMENT_VERSION,
+        disabled_role_ids: Iterable[str] = (),
+    ):
         profile_list = tuple(profiles)
         by_key = {(profile.role_id, profile.role_version): profile for profile in profile_list}
         if len(by_key) != len(profile_list):
@@ -804,15 +810,23 @@ class AgentRoleCatalog:
         self.regiment_version = _text(regiment_version, "regiment_version", maximum=32) or REGIMENT_VERSION
         if self.regiment_version != REGIMENT_VERSION:
             raise ContractValidationError("Versão do regimento não possui projeção runtime nesta versão do código.")
+        disabled = _string_list(list(disabled_role_ids), "disabled_role_ids")
+        if set(disabled) - {role_id for role_id, _ in by_key}:
+            raise ContractValidationError("disabled_role_ids referencia papel ausente no catálogo.")
+        self.disabled_role_ids = disabled
 
     @classmethod
     def from_mapping(cls, value: Any) -> "AgentRoleCatalog":
-        raw = _object(value, name="AgentRoleCatalog", required={"schema_version", "regiment_version", "profiles"})
+        raw = _object(value, name="AgentRoleCatalog", required={"schema_version", "regiment_version", "profiles"}, optional={"disabled_role_ids"})
         if raw["schema_version"] != CATALOG_SCHEMA_VERSION:
             raise ContractValidationError("Versão de catálogo não suportada.")
         if not isinstance(raw["profiles"], list):
             raise ContractValidationError("profiles precisa ser lista.")
-        return cls((AgentRoleProfile.from_mapping(item) for item in raw["profiles"]), regiment_version=raw["regiment_version"])
+        disabled = raw.get("disabled_role_ids", [])
+        if not isinstance(disabled, list):
+            raise ContractValidationError("disabled_role_ids precisa ser lista.")
+        return cls((AgentRoleProfile.from_mapping(item) for item in raw["profiles"]),
+                   regiment_version=raw["regiment_version"], disabled_role_ids=disabled)
 
     @classmethod
     def from_json_file(cls, path: Path) -> "AgentRoleCatalog":
@@ -824,12 +838,21 @@ class AgentRoleCatalog:
 
     def to_mapping(self) -> dict[str, Any]:
         return {"schema_version": CATALOG_SCHEMA_VERSION, "regiment_version": self.regiment_version,
+                "disabled_role_ids": list(self.disabled_role_ids),
                 "profiles": [profile.to_catalog_dict() for profile in self._profiles.values()]}
 
-    def resolve(self, role_id: str, role_version: str, expected_hash: str) -> AgentRoleProfile:
+    @property
+    def enabled_role_ids(self) -> tuple[str, ...]:
+        return tuple(role_id for role_id, _ in self._profiles if role_id not in self.disabled_role_ids)
+
+    def resolve(
+        self, role_id: str, role_version: str, expected_hash: str, *, allow_disabled: bool = False,
+    ) -> AgentRoleProfile:
         profile = self._profiles.get((role_id, role_version))
         if profile is None:
             raise ContractValidationError("Papel ou versão não existe no catálogo configurado.")
+        if role_id in self.disabled_role_ids and not allow_disabled:
+            raise ContractValidationError("Papel registrado, mas desligado na configuração atual.")
         if profile.content_hash != _sha256(expected_hash, "role_hash"):
             raise ContractValidationError("Hash do perfil do papel diverge do catálogo.")
         return profile
@@ -946,3 +969,8 @@ def enqueue_contract_task(
 
 def envelope_from_payload(payload: Mapping[str, Any]) -> AgentTaskEnvelope:
     return AgentTaskEnvelope.from_mapping(payload.get("agent_task_envelope"))
+
+
+def load_builtin_role_catalog() -> AgentRoleCatalog:
+    """Load the versioned, local role catalog shipped with the Motor Editorial."""
+    return AgentRoleCatalog.from_json_file(Path(__file__).with_name("agent_roles.json"))

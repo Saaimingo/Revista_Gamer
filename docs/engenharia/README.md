@@ -77,3 +77,12 @@ Uma pauta real -> investigação com fonte -> texto com persona -> revisão -> e
 - [Relatório técnico da Fase 0](RELATORIO-ENG-CODEX-005-FASE0-OFFLINE.md), vinculado à [Issue #17](https://github.com/Saaimingo/Revista_Gamer/issues/17). A4 corrige ordem/sequence, linhagem de identidades e consistência de direitos antes da prévia; validação foi sintética e offline.
 - Código e testes permanecem na branch fonte `codex/eng-codex-005-offline-layout`, head `ab7d11f`, e na [PR #18](https://github.com/Saaimingo/Revista_Gamer/pull/18), aberta e sem merge. A integração com B1–B3 está somente na branch C0 `codex/eng-codex-006-e2e-experiment`; isso não altera a PR nem declara as etapas integradas à `main`.
 - A4 usa artefatos versionados e render/validação determinísticos. A composição C0 documenta a ponte para o pipeline editorial e mantém a aprovação humana pós-prévia como gate separado; o leitor v0.3/identidade do Bloco 03 continua dependência futura da Issue #15.
+
+## ENG-CODEX-007 — fábrica editorial e Radar (2026-10-25)
+
+**Estado atual:** E01–E03 validadas localmente em branch/PR draft de implementação, sem merge. PR #29 continua sendo somente pacote documental; os papéis registrados não são sessões LLM permanentes nem agentes avaliados por inferência real.
+
+- [E01 — baseline e plano de integração](ENG-CODEX-007-E01-BASELINE-PLANO-INTEGRACAO.md).
+- [E02 — contratos versionados e carregamento do regimento](ENG-CODEX-007-E02-CONTRATOS-VERSIONADOS.md).
+- [E03 — catálogo de papéis funcionais](ENG-CODEX-007-E03-CATALOGO-PAPEIS-FUNCIONAIS.md): seis perfis habilitados, dois opcionais desligados e fixtures sintéticas.
+- [Checkpoint ENG-CODEX-007](ENG-CODEX-007-CHECKPOINT.md), [Issue #28](https://github.com/Saaimingo/Revista_Gamer/issues/28) e [PR draft #30](https://github.com/Saaimingo/Revista_Gamer/pull/30).
