@@ -22,9 +22,11 @@ from urllib.request import urlopen
 from unittest.mock import patch
 
 from motor_editorial.db import SCHEMA_VERSION, Store
+from motor_editorial.cli import _build_parser
 from motor_editorial.orchestration import (
     AgentProfile,
     AgentQueue,
+    SchedulerWorker,
     SimulatedExecutor,
     TaskDispatcher,
     TaskFailure,
@@ -88,8 +90,82 @@ class AgentOrchestrationTests(unittest.TestCase):
             available_at=available_at, **options,
         )
 
-    def test_schema_v5_adds_fenced_queue_scheduler_and_event_tables(self) -> None:
-        self.assertEqual(SCHEMA_VERSION, 5)
+    def test_task_dependencies_wait_for_success_and_do_not_block_independent_work(self) -> None:
+        parent_id = self.enqueue(key="dependency-parent")
+        child_id = self.queue.enqueue(
+            task_type="validation.child", payload={"role": "writer"},
+            profile=VALIDATION_PROFILE, executor_id="simulated",
+            idempotency_key="dependency-child", dependencies=(parent_id,),
+        )
+        independent_id = self.enqueue(key="dependency-independent")
+
+        self.assertEqual(self.queue.dependencies(child_id), (parent_id,))
+        self.assertIsNone(self.queue.claim_next(task_id=child_id))
+        independent = self.queue.claim_next(task_id=independent_id)
+        self.assertIsNotNone(independent)
+        self.assertTrue(self.queue.complete(
+            independent.task_id, independent.lease_owner, independent.lease_generation,
+            {"ok": True},
+        ))
+        parent = self.queue.claim_next(task_id=parent_id)
+        self.assertIsNotNone(parent)
+        self.assertTrue(self.queue.complete(
+            parent.task_id, parent.lease_owner, parent.lease_generation, {"ok": True},
+        ))
+        child = self.queue.claim_next(task_id=child_id)
+        self.assertIsNotNone(child)
+        self.assertEqual(child.state, "running")
+
+    def test_failed_dependency_blocks_child_but_preserves_independent_task(self) -> None:
+        parent_id = self.enqueue(key="failed-dependency-parent")
+        child_id = self.queue.enqueue(
+            task_type="validation.child", payload={"role": "writer"},
+            profile=VALIDATION_PROFILE, executor_id="simulated",
+            idempotency_key="failed-dependency-child", dependencies=(parent_id,),
+        )
+        independent_id = self.enqueue(key="failed-dependency-independent")
+        parent = self.queue.claim_next(task_id=parent_id)
+        self.assertEqual(self.queue.fail(
+            parent_id, parent.lease_owner, parent.lease_generation,
+            TaskFailure("fixture_blocked", "fixture blocked", blocked=True),
+        ), "blocked")
+
+        self.assertIsNone(self.queue.claim_next(task_id=child_id))
+        self.assertEqual(self.queue.get(child_id).state, "blocked")
+        self.assertEqual(self.queue.events(child_id)[-1]["action"], "dependency_blocked")
+        independent = self.queue.claim_next(task_id=independent_id)
+        self.assertIsNotNone(independent)
+
+    def test_dependency_idempotency_missing_edges_and_cycle_guard(self) -> None:
+        first_id = self.enqueue(key="dependency-cycle-first")
+        second_id = self.queue.enqueue(
+            task_type="validation.child", payload={"role": "writer"},
+            profile=VALIDATION_PROFILE, executor_id="simulated",
+            idempotency_key="dependency-cycle-second",
+        )
+        self.assertTrue(self.queue.add_dependency(second_id, first_id))
+        self.assertFalse(self.queue.add_dependency(second_id, first_id))
+        self.assertEqual(self.queue.dependencies(second_id), (first_id,))
+        with self.assertRaisesRegex(ValueError, "ciclo"):
+            self.queue.add_dependency(first_id, second_id)
+        with self.assertRaisesRegex(ValueError, "si mesma"):
+            self.queue.add_dependency(first_id, first_id)
+        with self.assertRaisesRegex(ValueError, "ausente"):
+            self.queue.add_dependency(first_id, "missing-task")
+        self.assertEqual(self.queue.enqueue(
+            task_type="validation.child", payload={"role": "writer"},
+            profile=VALIDATION_PROFILE, executor_id="simulated",
+            idempotency_key="dependency-cycle-second", dependencies=(first_id,),
+        ), second_id)
+        with self.assertRaisesRegex(ValueError, "dependências diferentes"):
+            self.queue.enqueue(
+                task_type="validation.child", payload={"role": "writer"},
+                profile=VALIDATION_PROFILE, executor_id="simulated",
+                idempotency_key="dependency-cycle-second",
+            )
+
+    def test_schema_v7_adds_durable_task_dependencies_to_existing_queue(self) -> None:
+        self.assertEqual(SCHEMA_VERSION, 7)
         with closing(self.store.connect()) as connection:
             version = connection.execute("PRAGMA user_version").fetchone()[0]
             tables = {
@@ -97,15 +173,23 @@ class AgentOrchestrationTests(unittest.TestCase):
                     "SELECT name FROM sqlite_master WHERE type = 'table'"
                 ).fetchall()
             }
-        self.assertEqual(version, 5)
+        self.assertEqual(version, 7)
         with closing(self.store.connect()) as connection:
             task_columns = {
                 row["name"] for row in connection.execute(
                     "PRAGMA table_info(agent_tasks)"
                 ).fetchall()
             }
-        self.assertTrue({"agent_tasks", "agent_task_events", "agent_schedules"}.issubset(tables))
+        self.assertTrue({"agent_tasks", "agent_task_events", "agent_task_dependencies", "agent_schedules"}.issubset(tables))
         self.assertTrue({"lease_owner", "lease_generation"}.issubset(task_columns))
+        with closing(self.store.connect()) as connection:
+            schedule_columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(agent_schedules)")
+            }
+        self.assertTrue({
+            "schedule_group_id", "schedule_kind", "local_time", "misfire_grace_seconds",
+            "domain_quotas_json", "dry_run",
+        }.issubset(schedule_columns))
 
     def test_v4_database_is_migrated_with_lease_fence_columns(self) -> None:
         legacy_path = self.root / "schema-v4.sqlite3"
@@ -130,8 +214,55 @@ class AgentOrchestrationTests(unittest.TestCase):
                     "PRAGMA table_info(agent_tasks)"
                 ).fetchall()
             }
-        self.assertEqual(version, 5)
+        self.assertEqual(version, 7)
         self.assertTrue({"lease_owner", "lease_generation"}.issubset(columns))
+
+    def test_v5_database_migrates_existing_interval_schedule_rows_additively(self) -> None:
+        legacy_path = self.root / "schema-v5.sqlite3"
+        with closing(sqlite3.connect(legacy_path)) as connection:
+            connection.execute("""CREATE TABLE agent_schedules (
+                id TEXT PRIMARY KEY, task_type TEXT NOT NULL, payload_json TEXT NOT NULL,
+                profile_id TEXT NOT NULL, profile_version TEXT NOT NULL, profile_hash TEXT NOT NULL,
+                executor_id TEXT NOT NULL, interval_seconds INTEGER NOT NULL,
+                timezone TEXT NOT NULL DEFAULT 'UTC', misfire_policy TEXT NOT NULL,
+                enabled INTEGER NOT NULL DEFAULT 0, next_run_at TEXT NOT NULL,
+                last_enqueued_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+            )""")
+            connection.execute(
+                """INSERT INTO agent_schedules
+                   VALUES ('legacy-interval','validation.research','{}','validation','1','hash',
+                           'simulated',60,'UTC','skip',0,'2026-01-01T00:00:00+00:00',NULL,
+                           'created','updated')"""
+            )
+            connection.execute("PRAGMA user_version = 5")
+            connection.commit()
+        migrated = Store(legacy_path, self.root / "schema-v5-artifacts")
+        with closing(migrated.connect()) as connection:
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 7)
+            row = connection.execute(
+                "SELECT * FROM agent_schedules WHERE id='legacy-interval'"
+            ).fetchone()
+            columns = {item["name"] for item in connection.execute("PRAGMA table_info(agent_schedules)")}
+        self.assertEqual(row["schedule_kind"], "interval")
+        self.assertEqual(row["dry_run"], 1)
+        self.assertIsNone(row["schedule_group_id"])
+        self.assertTrue({"schedule_group_id", "schedule_kind", "local_time", "domain_quotas_json", "dry_run"} <= columns)
+
+    def test_v6_database_migrates_task_dependency_ledger_additively(self) -> None:
+        with closing(self.store.connect()) as connection:
+            connection.execute("DROP TABLE agent_task_dependencies")
+            connection.execute("PRAGMA user_version = 6")
+            connection.commit()
+        migrated = Store(self.root / "motor.sqlite3", self.root / "artifacts")
+        with closing(migrated.connect()) as connection:
+            version = connection.execute("PRAGMA user_version").fetchone()[0]
+            columns = {
+                row["name"] for row in connection.execute(
+                    "PRAGMA table_info(agent_task_dependencies)"
+                ).fetchall()
+            }
+        self.assertEqual(version, 7)
+        self.assertEqual(columns, {"task_id", "depends_on_task_id", "created_at"})
 
     def test_v3_migration_preserves_records_and_backup_restores_the_legacy_database(self) -> None:
         legacy_path = self.root / "schema-v3.sqlite3"
@@ -228,7 +359,7 @@ class AgentOrchestrationTests(unittest.TestCase):
 
         migrated = Store(legacy_path, self.root / "schema-v3-artifacts")
         with closing(migrated.connect()) as connection:
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 5)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 7)
             tables = {
                 row["name"] for row in connection.execute(
                     "SELECT name FROM sqlite_master WHERE type = 'table'"
@@ -251,16 +382,16 @@ class AgentOrchestrationTests(unittest.TestCase):
         self.assertEqual(hashlib.sha256(backup_path.read_bytes()).hexdigest(), backup_hash)
 
     def test_newer_schema_is_rejected_without_mutating_the_database(self) -> None:
-        future_path = self.root / "schema-v6.sqlite3"
+        future_path = self.root / "schema-v8.sqlite3"
         with closing(sqlite3.connect(future_path)) as connection:
             connection.execute("CREATE TABLE future_records (id TEXT PRIMARY KEY, value TEXT NOT NULL)")
             connection.execute("INSERT INTO future_records VALUES ('kept', 'future data')")
-            connection.execute("PRAGMA user_version = 6")
+            connection.execute("PRAGMA user_version = 8")
             connection.commit()
         original_bytes = future_path.read_bytes()
 
         with self.assertRaisesRegex(RuntimeError, "mais novo"):
-            Store(future_path, self.root / "schema-v6-artifacts")
+            Store(future_path, self.root / "schema-v8-artifacts")
 
         self.assertEqual(future_path.read_bytes(), original_bytes)
 
@@ -596,6 +727,143 @@ class AgentOrchestrationTests(unittest.TestCase):
         self.assertEqual(self.queue.scheduler_tick(now=base + timedelta(seconds=35)), [])
         self.assertEqual(self.queue.list_tasks(), [])
         self.assertEqual(self.queue.list_schedules()[0]["next_run_at"], "2026-01-01T00:00:40+00:00")
+
+    def test_three_daily_local_windows_are_utc_persisted_disabled_and_deduplicated(self) -> None:
+        base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        ids = self.queue.create_daily_window_set(
+            schedule_group_id="radar-main", task_type="radar.general.scan",
+            payload={"source_ids": ["fixture-source"]}, profile=VALIDATION_PROFILE,
+            executor_id="simulated", local_times=["08:00", "14:00", "20:00"],
+            domain_quotas={"news.example.invalid": 8},
+            timezone_name="America/Sao_Paulo", misfire_policy="run_once",
+            start_at=base,
+        )
+        self.assertEqual(len(ids), 3)
+        schedules = self.queue.list_schedules()
+        self.assertTrue(all(not row["enabled"] for row in schedules))
+        self.assertTrue(all(row["schedule_kind"] == "daily_window" for row in schedules))
+        self.assertTrue(all(row["dry_run"] for row in schedules))
+        self.assertEqual(
+            {row["next_run_at"] for row in schedules},
+            {"2026-01-01T11:00:00+00:00", "2026-01-01T17:00:00+00:00", "2026-01-01T23:00:00+00:00"},
+        )
+        self.assertEqual(self.queue.scheduler_tick(now=base + timedelta(days=2)), [])
+
+        self.queue.set_schedule_group_enabled("radar-main", True, now=base)
+        first_due = datetime(2026, 1, 1, 11, tzinfo=timezone.utc)
+        task_ids = self.queue.scheduler_tick(now=first_due)
+        self.assertEqual(len(task_ids), 1)
+        task = self.queue.get(task_ids[0])
+        self.assertEqual(task.schedule_id, "radar-main:0800")  # type: ignore[union-attr]
+        policy = task.payload["radar_collection_policy"]  # type: ignore[union-attr]
+        self.assertEqual(policy["timezone"], "America/Sao_Paulo")
+        self.assertEqual(policy["domain_quotas"], {"news.example.invalid": 8})
+        self.assertEqual(policy["quota_period"], "local_day")
+        self.assertTrue(policy["dry_run"])
+        self.assertEqual(self.queue.scheduler_tick(now=first_due), [])
+
+    def test_daily_windows_accept_four_to_six_and_reject_bad_config_atomically(self) -> None:
+        base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+        def add(group: str, times: list[str]) -> list[str]:
+            return self.queue.create_daily_window_set(
+                schedule_group_id=group, task_type="radar.general.scan", payload={},
+                profile=VALIDATION_PROFILE, executor_id="simulated", local_times=times,
+                domain_quotas={"example.invalid": 2}, start_at=base,
+            )
+
+        self.assertEqual(len(add("four-windows", ["05:00", "11:00", "17:00", "23:00"])), 4)
+        self.assertEqual(len(add("six-windows", ["04:00", "08:00", "12:00", "16:00", "20:00", "23:00"])), 6)
+        initial_count = len(self.queue.list_schedules())
+        for group, times in (
+            ("too-few", ["08:00", "16:00"]),
+            ("too-many", ["01:00", "05:00", "09:00", "13:00", "17:00", "21:00", "23:00"]),
+            ("duplicate", ["08:00", "08:00", "16:00"]),
+            ("invalid-time", ["08:00", "24:00", "16:00"]),
+        ):
+            with self.subTest(group=group), self.assertRaises(ValueError):
+                add(group, times)
+        self.assertEqual(len(self.queue.list_schedules()), initial_count)
+
+    def test_daily_windows_cli_creates_disabled_dry_run_group(self) -> None:
+        args = _build_parser().parse_args([
+            "scheduler", "windows-add", "radar-cli", "radar.general.scan",
+            "--times", "07:00", "13:00", "19:00",
+            "--domain-quota", "example.invalid=3",
+            "--payload", '{"source_ids":["synthetic"]}',
+        ])
+        output = io.StringIO()
+        with redirect_stdout(output):
+            result = _handle_scheduler(args, self.queue)
+        self.assertEqual(result, 0)
+        body = json.loads(output.getvalue())
+        self.assertEqual(body["schedule_group_id"], "radar-cli")
+        self.assertFalse(body["enabled"])
+        self.assertTrue(body["dry_run"])
+        self.assertEqual(len(body["schedule_ids"]), 3)
+        self.assertTrue(all(not row["enabled"] for row in self.queue.list_schedules()))
+
+    def test_daily_skip_misfire_and_pause_resume_skip_paused_windows(self) -> None:
+        base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        self.queue.create_daily_window_set(
+            schedule_group_id="skip-daily", task_type="radar.general.scan", payload={},
+            profile=VALIDATION_PROFILE, executor_id="simulated",
+            local_times=["08:00", "14:00", "20:00"],
+            domain_quotas={"example.invalid": 5}, misfire_policy="skip",
+            misfire_grace_seconds=300, start_at=base,
+        )
+        self.queue.set_schedule_group_enabled("skip-daily", True, now=base)
+        overdue = datetime(2026, 1, 1, 11, 10, tzinfo=timezone.utc)
+        self.assertEqual(self.queue.scheduler_tick(now=overdue), [])
+        self.assertEqual(self.queue.list_tasks(), [])
+        morning = next(row for row in self.queue.list_schedules() if row["local_time"] == "08:00")
+        self.assertEqual(morning["next_run_at"], "2026-01-02T11:00:00+00:00")
+
+        paused = self.queue.set_schedule_group_enabled("skip-daily", False, now=overdue)
+        self.assertEqual(len(paused), 3)
+        self.assertTrue(all(not row["enabled"] for row in self.queue.list_schedules()))
+        resumed = self.queue.set_schedule_group_enabled(
+            "skip-daily", True, now=datetime(2026, 1, 3, 12, tzinfo=timezone.utc)
+        )
+        self.assertEqual(len(resumed), 3)
+        self.assertEqual(self.queue.scheduler_tick(now=datetime(2026, 1, 3, 12, tzinfo=timezone.utc)), [])
+        self.assertTrue(all(row["next_run_at"] > "2026-01-03T12:00:00+00:00" for row in self.queue.list_schedules()))
+
+    def test_daily_run_once_recovers_one_task_per_missed_window_without_duplicates(self) -> None:
+        base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        self.queue.create_daily_window_set(
+            schedule_group_id="recover-daily", task_type="radar.general.scan", payload={},
+            profile=VALIDATION_PROFILE, executor_id="simulated",
+            local_times=["08:00", "14:00", "20:00"],
+            domain_quotas={"example.invalid": 5}, misfire_policy="run_once",
+            start_at=base,
+        )
+        self.queue.set_schedule_group_enabled("recover-daily", True, now=base)
+        recovery = datetime(2026, 1, 4, 2, tzinfo=timezone.utc)
+        task_ids = self.queue.scheduler_tick(now=recovery)
+        self.assertEqual(len(task_ids), 3)
+        self.assertEqual(self.queue.scheduler_tick(now=recovery), [])
+        self.assertEqual(len(self.queue.list_tasks()), 3)
+        self.assertTrue(all(row["next_run_at"] > recovery.isoformat() for row in self.queue.list_schedules()))
+
+    def test_empty_scheduler_poll_does_not_call_executor(self) -> None:
+        class CountingExecutor:
+            executor_id = "counting"
+
+            def __init__(self) -> None:
+                self.calls = 0
+
+            def execute(self, task, profile, context):
+                self.calls += 1
+                return {"unexpected": True}
+
+        executor = CountingExecutor()
+        dispatcher = TaskDispatcher(
+            self.queue, executors={"counting": executor},
+            profiles={(VALIDATION_PROFILE.profile_id, VALIDATION_PROFILE.version): VALIDATION_PROFILE},
+        )
+        SchedulerWorker(self.queue, dispatcher, poll_seconds=0.001).run(max_cycles=1)
+        self.assertEqual(executor.calls, 0)
 
     def test_plus_schedule_requires_explicit_confirmation_and_worker_gate(self) -> None:
         self.queue.create_schedule(

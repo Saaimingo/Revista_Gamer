@@ -1,0 +1,80 @@
+{
+  "fixture_version": "1.0",
+  "execution_mode": "offline_contract_binding_only",
+  "persona_instruction_hash_scope": "SHA-256 of the normalized instruction string returned by _text after outer whitespace trimming; synthetic marker only",
+  "shared_reporting_directive": {
+    "source_pr": 27,
+    "source_commit": "d38c5da92ba76739d9234942f7bf0bd087949e5f",
+    "path": "docs/personagens/continuidade/DIRETRIZ-REPORTAGEM-APURACAO-E-VEREDITO-2026-10-24.md",
+    "sha256": "535b1691bd2a5672daaabd2040d8c0e4729054d0e4c69ac7720c7a0dd20eff52",
+    "sha256_scope": "exact file bytes at source_commit; not a persona DNA identity hash"
+  },
+  "personas": [
+    {
+      "persona_id": "ranzinza",
+      "display_name": "Arlindo Carranca / Ranzinza",
+      "documented_package_version": "consolidated v1.0; component DNA versions remain distinct",
+      "source_pr": 13,
+      "source_ref": "bloco-02/ranzinza-dna-editorial-v01",
+      "source_commit": "3d651fe1951818767b4a6b935732857f08cb7849",
+      "matrix_path": "docs/personagens/RANZINZA-MATRIZ-VALIDACAO-v0.1.md",
+      "source_documents": [
+        {"path": "docs/personagens/RANZINZA-PACOTE-OPERACIONAL-CONSOLIDADO-v1.0.md", "sha256": "a7fe9ff179d5750f382f3c7a5d8dc3c889872b3458df7423e45a34051debf583"},
+        {"path": "docs/personagens/RANZINZA-CONTRATO-CARREGAMENTO-AGENTE-v0.1.md", "sha256": "bde9405aa277c66ba63639b90a29a78a5a529e52dd2d30ef3135277b67718648"},
+        {"path": "docs/personagens/RANZINZA-MATRIZ-VALIDACAO-v0.1.md", "sha256": "3f5feacf07684fd5120e364f96bbb6ae9f7ac70b272b372330b57de4351e37c2"}
+      ],
+      "case_ids": ["T01", "T02", "T03", "T04", "T05", "T06", "T07", "T08", "T09", "T10", "T11", "T12", "T13", "T14", "T15", "T16"],
+      "execution_status": "not_executed",
+      "persona_axis_status": "not_evaluated",
+      "journalism_axis_status": "not_evaluated",
+      "human_review_status": "pending_direction",
+      "blocker": "SIWC/Plus real is prohibited by current user scope"
+    },
+    {
+      "persona_id": "beto-cartucho",
+      "display_name": "Beto Cartucho",
+      "documented_package_version": "contracts v0.2; creative identity approved, operational tests pending",
+      "source_pr": 19,
+      "source_ref": "bloco-02/gamer-dna-v02",
+      "source_commit": "21381c0975bef1da048d7887cbdfbd0dd97bed96",
+      "matrix_path": "docs/personagens/GAMER-MATRIZ-DE-TESTES-v0.2.md",
+      "source_documents": [
+        {"path": "docs/personagens/GAMER.md", "sha256": "3d6e4a24f32748f5b5d1cbfefae11837fb12e8bca8f538c24c383ef50c4ccda3"},
+        {"path": "docs/personagens/GAMER-CONTRATO-COGNITIVO-v0.2.md", "sha256": "f418527ccb56f782911b9c9c4e86b661eb11fafa54131788a0f8c7215c25ae32"},
+        {"path": "docs/personagens/GAMER-CONTRATO-EXPRESSAO-v0.2.md", "sha256": "45e89a2de1f0b6b9e133ab3aa11e729fca08383334cce80b5ccf11d5c87b9425"},
+        {"path": "docs/personagens/GAMER-CONTRATO-EDITORIAL-v0.2.md", "sha256": "62fe52038283bca31d50bb59e96186ee6cc888164dec05f92affd6b64b4d702d"},
+        {"path": "docs/personagens/GAMER-CONTRATO-CARREGAMENTO-E-VALIDACAO-v0.2.md", "sha256": "13f8fd18e5d1dbb723d1f01eec626f6e69a2730491e4dfd789883ea144e6f7b2"},
+        {"path": "docs/personagens/GAMER-MATRIZ-DE-TESTES-v0.2.md", "sha256": "fb9c5f601990615fc771ea50551ba2973b3795ad7aaeaa9955a1953d7f30f170"}
+      ],
+      "case_ids": ["T01", "T02", "T03", "T04", "T05", "T06", "T07", "T08", "T09", "T10", "T11", "T12", "T13", "T14", "T15", "T16"],
+      "execution_status": "not_executed",
+      "persona_axis_status": "not_evaluated",
+      "journalism_axis_status": "not_evaluated",
+      "human_review_status": "pending_direction",
+      "blocker": "SIWC/Plus real is prohibited by current user scope"
+    },
+    {
+      "persona_id": "nina-prisma",
+      "display_name": "Nina Prisma",
+      "documented_package_version": "consolidated v1.0; operational tests pending",
+      "source_pr": 19,
+      "source_ref": "bloco-02/gamer-dna-v02",
+      "source_commit": "21381c0975bef1da048d7887cbdfbd0dd97bed96",
+      "matrix_path": "docs/personagens/NINA-PRISMA-MATRIZ-DE-TESTES-v1.0.md",
+      "source_documents": [
+        {"path": "docs/personagens/NINA-PRISMA.md", "sha256": "62af383a2dec528a7f38a6e84cd2d30a5706d877ce065f34c0ef0a531078f420"},
+        {"path": "docs/personagens/NINA-PRISMA-CONTRATO-COGNITIVO-v1.0.md", "sha256": "19446ffe112a3b811b39e13a3a1c66815dd460b4833200f819c2d3224a87d252"},
+        {"path": "docs/personagens/NINA-PRISMA-CONTRATO-EXPRESSAO-v1.0.md", "sha256": "92d2d68b4e948a3883df0eeb106820c646f81d3669612caf43939fd2a1655dc0"},
+        {"path": "docs/personagens/NINA-PRISMA-CONTRATO-EDITORIAL-v1.0.md", "sha256": "bc3e6cd90b602a58883b1c2cf4fbe619b12ea0e5e32347dfcbe70e3537aafff3"},
+        {"path": "docs/personagens/NINA-PRISMA-CONTRATO-CARREGAMENTO-E-VALIDACAO-v1.0.md", "sha256": "686889e7f6a425c8af32a489a7374268bcf77f08c93de51e35b39f482bd139c6"},
+        {"path": "docs/personagens/NINA-PRISMA-MATRIZ-DE-TESTES-v1.0.md", "sha256": "5eba24cf0ab2e2c5f09d6df4a40d5c3b59324faca4502adda2b0b986cf0c70e9"}
+      ],
+      "case_ids": ["T01", "T02", "T03", "T04", "T05", "T06", "T07", "T08", "T09", "T10", "T11", "T12", "T13", "T14", "T15", "T16"],
+      "execution_status": "not_executed",
+      "persona_axis_status": "not_evaluated",
+      "journalism_axis_status": "not_evaluated",
+      "human_review_status": "pending_direction",
+      "blocker": "SIWC/Plus real is prohibited by current user scope"
+    }
+  ]
+}

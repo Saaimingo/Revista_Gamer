@@ -1,6 +1,6 @@
 # Setor: engenharia e Codex
 
-Status: **Motor Editorial v0.2 integrado à `main`; PRs #8, #10 e #18 continuam abertas e não mescladas; ENG-CODEX-006 tem propostas B1 e B2/B3 em drafts #24/#25 e a composição A/B em C0 na branch experimental `codex/eng-codex-006-e2e-experiment`.**
+Status: **Motor Editorial v0.2 integrado à `main`; PRs #8, #10 e #18 continuam abertas e não mescladas; ENG-CODEX-007 E01–E16 validadas na branch `codex/eng-codex-007-factory-radar`, PR draft #30 sem merge; E17 está bloqueada por limite explícito contra SIWC/Plus real; E18 e E19 têm validação técnica parcial offline, sem execução das matrizes P/J. ENG-CODEX-006 permanece registrado abaixo como trilha histórica.**
 
 ## Arquitetura operacional dos futuros agentes — 20/10/2026
 
@@ -77,3 +77,28 @@ Uma pauta real -> investigação com fonte -> texto com persona -> revisão -> e
 - [Relatório técnico da Fase 0](RELATORIO-ENG-CODEX-005-FASE0-OFFLINE.md), vinculado à [Issue #17](https://github.com/Saaimingo/Revista_Gamer/issues/17). A4 corrige ordem/sequence, linhagem de identidades e consistência de direitos antes da prévia; validação foi sintética e offline.
 - Código e testes permanecem na branch fonte `codex/eng-codex-005-offline-layout`, head `ab7d11f`, e na [PR #18](https://github.com/Saaimingo/Revista_Gamer/pull/18), aberta e sem merge. A integração com B1–B3 está somente na branch C0 `codex/eng-codex-006-e2e-experiment`; isso não altera a PR nem declara as etapas integradas à `main`.
 - A4 usa artefatos versionados e render/validação determinísticos. A composição C0 documenta a ponte para o pipeline editorial e mantém a aprovação humana pós-prévia como gate separado; o leitor v0.3/identidade do Bloco 03 continua dependência futura da Issue #15.
+
+## ENG-CODEX-007 — fábrica editorial e Radar (2026-10-25)
+
+**Estado atual:** E01–E16 validadas localmente em branch/PR draft de implementação, sem merge; E17 bloqueada por escopo; E18 parcial no contrato de identidade offline; E19 parcial no roteamento isolado no ledger compartilhado. Em ambas, os 48 casos T01–T16 não foram executados e P/J não foram avaliados. PR #29 continua sendo somente pacote documental; os papéis registrados não são sessões LLM permanentes nem agentes avaliados por inferência real.
+
+- [E01 — baseline e plano de integração](ENG-CODEX-007-E01-BASELINE-PLANO-INTEGRACAO.md).
+- [E02 — contratos versionados e carregamento do regimento](ENG-CODEX-007-E02-CONTRATOS-VERSIONADOS.md).
+- [E03 — catálogo de papéis funcionais](ENG-CODEX-007-E03-CATALOGO-PAPEIS-FUNCIONAIS.md): seis perfis habilitados, dois opcionais desligados e fixtures sintéticas.
+- [E04 — armazenamento isolado do Radar](ENG-CODEX-007-E04-RADAR-STORE.md): schema separado `radar_*`, alegações versionadas, evidências imutáveis e migração coberta por fixture/backup/rollback.
+- [E05 — conectores de leitura pública](ENG-CODEX-007-E05-CONETORES-LEITURA-PUBLICA.md): RSS/Atom, API JSON pública, HTML metadata-only, robots explícito e proteções TLS/SSRF/redirect/limite.
+- [E06 — coleta incremental, cache e deduplicação](ENG-CODEX-007-E06-COLETA-INCREMENTAL-CACHE-DEDUP.md): cache ETag/Last-Modified por fonte+URL, hashes/diffs append-only, migração isolada do Radar para v2 e grupos de republicação com evidência.
+- [E07 — pessoas, projetos, aliases, entrevistas e idiomas](ENG-CODEX-007-E07-PESSOAS-ALIAS-ENTREVISTAS-IDIOMAS.md): proveniência pública, homônimos contextualizados, histórico de funções, distinção entrevista/press release e linhagem de traduções; Radar schema v3, 147/147 testes integrais.
+- [E08 — ledger de alegações, rumores e histórico](ENG-CODEX-007-E08-LEDGER-ORIGEM-STATUS-HISTORICO.md): estados epistemológicos separados do conteúdo, fontes-base/republicações/grupos independentes, declarações atribuídas, correções e contradições append-only; Radar schema v4, 148/148 testes integrais.
+- [E09 — agendamento e política de coleta](ENG-CODEX-007-E09-AGENDAMENTO-POLITICA-COLETA.md): 3–6 janelas locais/dia no scheduler e fila existentes, UTC persistido, `skip`/`run_once`, pausa de grupo, `dry_run=true`, migrações aditivas de fixtures e quotas persistentes por hostname; Radar schema v5.
+- [E10 — Radar geral, DiscoveryBatch e fila de triagem](ENG-CODEX-007-E10-RADAR-GERAL-DISCOVERY-TRIAGEM.md): novidade incremental e prioridade determinística configurável, agrupamento de republicações/rumores com proveniência e tarefa `triage_analyst` versionada na mesma fila, sem despacho LLM; suíte integral 166/166.
+- [E11 — pesquisa sob demanda com perfis compartilhados](ENG-CODEX-007-E11-PESQUISA-SOB-DEMANDA.md): `ResearchService` cache-first sobre o mesmo índice de documentos/entidades/tópicos/alegações, request v1.1 ligado à revisão, budgets, escopos e packet persistente; suíte integral 176/176.
+- [E12 — carteira dinâmica 10 + 10](ENG-CODEX-007-E12-CARTEIRA-DINAMICA-10-10.md): seleção determinística por prioridade fornecida, sem gerar reportagens; reavaliação por evento material, proteção auditável de membros e migração Radar v6→v7; suíte integral 185/185.
+- [E13 — dispatcher, dependências e pesquisa retomável](ENG-CODEX-007-E13-DISPATCHER-DEPENDENCIAS-PESQUISA-RETOMADA.md): dependências persistentes no ledger existente, rotas determinísticas registradas, pesquisa cache-first e handoff idempotente de retorno ao artigo; suite integral 192/192.
+- [E14 — handoffs editoriais, direitos e prévia](ENG-CODEX-007-E14-HANDOFFS-EDITORIAIS-DIREITOS-PREVIA.md): cinco artefatos tipados e presos por hash à revisão, papéis resolvidos no catálogo, rumores atribuídos e casos hardware/jogo-mod em fixtures, gate de direitos e prévia interna; suite integral 194/194.
+- [E15 — E2E multipauta Radar + fábrica](ENG-CODEX-007-E15-E2E-MULTIPAUTA-RADAR-FABRICA.md): duas ou três pautas no mesmo ledger/dispatcher, triagem e pesquisa local acopladas aos handoffs E14, bloqueio/correção/prévia interna e replay após restart; suíte integral 195/195.
+- [E16 — leitura pública controlada](ENG-CODEX-007-E16-LEITURA-PUBLICA-CONTROLADA.md): uma chamada manual sem autenticação ao endpoint público de releases do Godot; HTTP 200, projeção somente de metadados e SHA-256 do corpo, sem salvar ou republicar notas/ativos.
+- [E17 — bloqueio de SIWC/Plus real](ENG-CODEX-007-E17-BLOQUEIO-SIWC-PLUS.md): bloqueada por limite explícito atual do usuário; nenhuma consulta de conta/modelo, login ou inferência real foi feita. E18/E19 continuam offline.
+- [E18 — jornalistas isolados, validação offline](ENG-CODEX-007-E18-JORNALISTAS-ISOLADOS-OFFLINE.md): manifesto aponta os commits e hashes dos documentos de referência; `persona_writer` exige instruções cujo SHA-256 corresponda ao envelope; 23/23 testes focados. Matrizes T01–T16 não executadas, P/J não avaliados e revisão humana pendente.
+- [E19 — trio na fábrica, validação offline](ENG-CODEX-007-E19-TRIO-NA-FABRICA-OFFLINE.md): três tarefas sintéticas com brief/dossier/ResearchPacket comparáveis na mesma `AgentQueue`/`TaskDispatcher`, IDs e instruções isolados; falhas sem resolvedor, com identidade cruzada e erro foram bloqueadas; suíte integral 198/198. Sem `StoryDraft` real, matrizes executadas ou avaliação P/J.
+- [Checkpoint ENG-CODEX-007](ENG-CODEX-007-CHECKPOINT.md), [Issue #28](https://github.com/Saaimingo/Revista_Gamer/issues/28) e [PR draft #30](https://github.com/Saaimingo/Revista_Gamer/pull/30).

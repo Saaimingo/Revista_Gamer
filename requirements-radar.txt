@@ -1,0 +1,2 @@
+# IANA time zone database for cross-platform zoneinfo (Windows has no system tzdb).
+tzdata>=2025.2

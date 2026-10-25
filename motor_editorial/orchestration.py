@@ -9,9 +9,15 @@ import uuid
 from contextlib import closing
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, Mapping, Protocol
+from typing import Any, Callable, Mapping, Protocol, Sequence
 
 from .db import Store, json_dumps, stable_hash, utc_now
+from .radar_policy import (
+    load_timezone,
+    next_daily_window_utc,
+    normalize_domain_quotas,
+    parse_local_time,
+)
 
 
 @dataclass(frozen=True)
@@ -178,6 +184,73 @@ class AgentQueue:
         )
 
     @staticmethod
+    def _normalized_dependencies(dependencies: Sequence[str]) -> tuple[str, ...]:
+        if isinstance(dependencies, (str, bytes)):
+            raise ValueError("dependencies precisa ser uma sequência de task_id.")
+        values = tuple(dependencies)
+        if any(not isinstance(value, str) or not value.strip() for value in values):
+            raise ValueError("dependencies contém task_id inválido.")
+        if len(set(values)) != len(values):
+            raise ValueError("dependencies contém task_id repetido.")
+        return tuple(sorted(values))
+
+    @staticmethod
+    def _link_dependency_in_connection(
+        connection: Any,
+        *,
+        task_id: str,
+        depends_on_task_id: str,
+    ) -> bool:
+        if task_id == depends_on_task_id:
+            raise ValueError("Uma tarefa não pode depender de si mesma.")
+        child = connection.execute(
+            "SELECT state, attempts FROM agent_tasks WHERE id = ?", (task_id,)
+        ).fetchone()
+        parent = connection.execute(
+            "SELECT state FROM agent_tasks WHERE id = ?", (depends_on_task_id,)
+        ).fetchone()
+        if child is None or parent is None:
+            raise ValueError("Dependência referencia tarefa ausente.")
+        if child["state"] not in {"queued", "retry_wait"}:
+            raise ValueError("Dependências só podem ser adicionadas antes do despacho da tarefa.")
+        exists = connection.execute(
+            "SELECT 1 FROM agent_task_dependencies WHERE task_id = ? AND depends_on_task_id = ?",
+            (task_id, depends_on_task_id),
+        ).fetchone()
+        if exists is not None:
+            return False
+        cycle = connection.execute(
+            """WITH RECURSIVE dependency_chain(task_id) AS (
+                   SELECT depends_on_task_id FROM agent_task_dependencies WHERE task_id = ?
+                   UNION
+                   SELECT edge.depends_on_task_id
+                   FROM agent_task_dependencies AS edge
+                   JOIN dependency_chain AS chain ON edge.task_id = chain.task_id
+               )
+               SELECT 1 FROM dependency_chain WHERE task_id = ? LIMIT 1""",
+            (depends_on_task_id, task_id),
+        ).fetchone()
+        if cycle is not None:
+            raise ValueError("Dependência criaria ciclo no grafo de tarefas.")
+        connection.execute(
+            """INSERT INTO agent_task_dependencies (task_id, depends_on_task_id, created_at)
+               VALUES (?, ?, ?)""",
+            (task_id, depends_on_task_id, utc_now()),
+        )
+        AgentQueue._event(connection, task_id, "dependency_added", child["attempts"], {
+            "depends_on_task_id": depends_on_task_id,
+        })
+        return True
+
+    @staticmethod
+    def _dependency_ids_in_connection(connection: Any, task_id: str) -> tuple[str, ...]:
+        rows = connection.execute(
+            "SELECT depends_on_task_id FROM agent_task_dependencies WHERE task_id = ? ORDER BY depends_on_task_id",
+            (task_id,),
+        ).fetchall()
+        return tuple(row["depends_on_task_id"] for row in rows)
+
+    @staticmethod
     def _enqueue_in_connection(
         connection: Any,
         *,
@@ -189,10 +262,13 @@ class AgentQueue:
         executor_id: str,
         idempotency_key: str,
         max_attempts: int,
+        task_id: str | None = None,
         available_at: datetime | str | None = None,
         schedule_id: str | None = None,
+        dependencies: Sequence[str] = (),
     ) -> tuple[str, bool]:
         _assert_no_credentials(payload)
+        dependency_ids = AgentQueue._normalized_dependencies(dependencies)
         payload_json = json_dumps(dict(payload))
         if len(payload_json.encode("utf-8")) > 1_000_000:
             raise ValueError("Payload excede o limite local de 1 MB.")
@@ -213,9 +289,13 @@ class AgentQueue:
             )
             if actual != expected:
                 raise ValueError("Chave idempotente já usada com conteúdo diferente.")
+            if task_id is not None and existing["id"] != task_id:
+                raise ValueError("Chave idempotente já vinculada a outro task_id.")
+            if AgentQueue._dependency_ids_in_connection(connection, existing["id"]) != dependency_ids:
+                raise ValueError("Chave idempotente já usada com dependências diferentes.")
             return existing["id"], False
 
-        task_id = str(uuid.uuid4())
+        task_id = task_id or str(uuid.uuid4())
         now = utc_now()
         connection.execute(
             """INSERT INTO agent_tasks
@@ -231,6 +311,10 @@ class AgentQueue:
             "task_type": task_type, "executor_id": executor_id,
             "profile_id": profile_id, "profile_version": profile_version,
         })
+        for dependency_id in dependency_ids:
+            AgentQueue._link_dependency_in_connection(
+                connection, task_id=task_id, depends_on_task_id=dependency_id,
+            )
         return task_id, True
 
     def enqueue(
@@ -242,9 +326,11 @@ class AgentQueue:
         executor_id: str,
         idempotency_key: str,
         max_attempts: int = 3,
+        task_id: str | None = None,
         available_at: datetime | str | None = None,
+        dependencies: Sequence[str] = (),
     ) -> str:
-        if not task_type.strip() or not executor_id.strip() or not idempotency_key.strip():
+        if not task_type.strip() or not executor_id.strip() or not idempotency_key.strip() or (task_id is not None and not task_id.strip()):
             raise ValueError("Tipo, executor e chave idempotente são obrigatórios.")
         if max_attempts < 1:
             raise ValueError("O limite de tentativas deve ser positivo.")
@@ -254,9 +340,59 @@ class AgentQueue:
                 profile_id=profile.profile_id, profile_version=profile.version,
                 profile_hash=profile.content_hash, executor_id=executor_id,
                 idempotency_key=idempotency_key, max_attempts=max_attempts,
+                task_id=task_id,
                 available_at=available_at,
+                dependencies=dependencies,
             )
             return task_id
+
+    def add_dependency(self, task_id: str, depends_on_task_id: str) -> bool:
+        """Add a prerequisite to a queued task, with existence and cycle checks."""
+        if not isinstance(task_id, str) or not task_id.strip() or not isinstance(depends_on_task_id, str) or not depends_on_task_id.strip():
+            raise ValueError("task_id e depends_on_task_id são obrigatórios.")
+        with self.store.transaction() as connection:
+            return self._link_dependency_in_connection(
+                connection, task_id=task_id, depends_on_task_id=depends_on_task_id,
+            )
+
+    def dependencies(self, task_id: str) -> tuple[str, ...]:
+        with closing(self.store.connect()) as connection:
+            exists = connection.execute("SELECT 1 FROM agent_tasks WHERE id = ?", (task_id,)).fetchone()
+            if exists is None:
+                return ()
+            return self._dependency_ids_in_connection(connection, task_id)
+
+    @staticmethod
+    def _block_failed_dependencies(connection: Any, now: str) -> None:
+        while True:
+            rows = connection.execute(
+                """SELECT child.id, child.attempts, edge.depends_on_task_id, parent.state AS parent_state
+                   FROM agent_tasks AS child
+                   JOIN agent_task_dependencies AS edge ON edge.task_id = child.id
+                   JOIN agent_tasks AS parent ON parent.id = edge.depends_on_task_id
+                   WHERE child.state IN ('queued', 'retry_wait')
+                     AND parent.state IN ('failed', 'blocked', 'uncertain', 'cancelled')
+                   ORDER BY child.id, edge.depends_on_task_id"""
+            ).fetchall()
+            if not rows:
+                return
+            seen: set[str] = set()
+            for row in rows:
+                if row["id"] in seen:
+                    continue
+                seen.add(row["id"])
+                changed = connection.execute(
+                    """UPDATE agent_tasks SET state = 'blocked', completed_at = ?,
+                           error_code = 'dependency_not_satisfied',
+                           error_summary = 'Tarefa prerequisito terminou sem sucesso.'
+                       WHERE id = ? AND state IN ('queued', 'retry_wait')""",
+                    (now, row["id"]),
+                ).rowcount
+                if changed:
+                    AgentQueue._event(connection, row["id"], "dependency_blocked", row["attempts"], {
+                        "depends_on_task_id": row["depends_on_task_id"],
+                        "dependency_state": row["parent_state"],
+                    })
 
     def _recover_expired(self, connection: Any, now: str) -> None:
         expired = connection.execute(
@@ -314,18 +450,29 @@ class AgentQueue:
         lease_until = _lease_iso(instant + timedelta(seconds=lease_seconds))
         with self.store.transaction() as connection:
             self._recover_expired(connection, now_iso)
+            self._block_failed_dependencies(connection, now_iso)
             if task_id:
                 row = connection.execute(
-                    """SELECT * FROM agent_tasks
-                       WHERE id = ? AND state IN ('queued', 'retry_wait')
-                         AND available_at <= ?""",
+                    """SELECT task.* FROM agent_tasks AS task
+                       WHERE task.id = ? AND task.state IN ('queued', 'retry_wait')
+                         AND task.available_at <= ?
+                         AND NOT EXISTS (
+                             SELECT 1 FROM agent_task_dependencies AS edge
+                             JOIN agent_tasks AS prerequisite ON prerequisite.id = edge.depends_on_task_id
+                             WHERE edge.task_id = task.id AND prerequisite.state <> 'succeeded'
+                         )""",
                     (task_id, now_iso),
                 ).fetchone()
             else:
                 row = connection.execute(
-                    """SELECT * FROM agent_tasks
-                       WHERE state IN ('queued', 'retry_wait') AND available_at <= ?
-                       ORDER BY available_at, created_at, id LIMIT 1""",
+                    """SELECT task.* FROM agent_tasks AS task
+                       WHERE task.state IN ('queued', 'retry_wait') AND task.available_at <= ?
+                         AND NOT EXISTS (
+                             SELECT 1 FROM agent_task_dependencies AS edge
+                             JOIN agent_tasks AS prerequisite ON prerequisite.id = edge.depends_on_task_id
+                             WHERE edge.task_id = task.id AND prerequisite.state <> 'succeeded'
+                         )
+                       ORDER BY task.available_at, task.created_at, task.id LIMIT 1""",
                     (now_iso,),
                 ).fetchone()
             if row is None:
@@ -590,6 +737,108 @@ class AgentQueue:
                 })),
             )
 
+    def create_daily_window_set(
+        self,
+        *,
+        schedule_group_id: str,
+        task_type: str,
+        payload: Mapping[str, Any],
+        profile: AgentProfile,
+        executor_id: str,
+        local_times: Sequence[str],
+        domain_quotas: Mapping[str, int],
+        timezone_name: str = "America/Sao_Paulo",
+        misfire_policy: str = "skip",
+        misfire_grace_seconds: int = 300,
+        start_at: datetime | str | None = None,
+    ) -> list[str]:
+        """Create 3–6 disabled local daily Radar windows on the existing queue."""
+        if not isinstance(schedule_group_id, str) or not schedule_group_id.strip() or len(schedule_group_id) > 128:
+            raise ValueError("Identificador do grupo de agendas é obrigatório e deve ter até 128 caracteres.")
+        if not isinstance(task_type, str) or not task_type.startswith("radar."):
+            raise ValueError("Janelas diárias são reservadas a tarefas radar.*.")
+        if not isinstance(executor_id, str) or not executor_id.strip():
+            raise ValueError("Executor da agenda é obrigatório.")
+        if len(local_times) < 3 or len(local_times) > 6:
+            raise ValueError("Configure de 3 a 6 janelas locais por dia.")
+        normalized_times = [value.strip() if isinstance(value, str) else value for value in local_times]
+        for local_time in normalized_times:
+            parse_local_time(local_time)
+        if len(set(normalized_times)) != len(normalized_times):
+            raise ValueError("Horários locais duplicados no grupo de agendas.")
+        load_timezone(timezone_name)
+        if misfire_policy not in {"skip", "run_once"}:
+            raise ValueError("Política de atraso deve ser skip ou run_once.")
+        if (
+            isinstance(misfire_grace_seconds, bool)
+            or not isinstance(misfire_grace_seconds, int)
+            or not 0 <= misfire_grace_seconds <= 86_400
+        ):
+            raise ValueError("Tolerância de atraso deve ficar entre 0 e 86400 segundos.")
+        quotas = normalize_domain_quotas(domain_quotas)
+        if "radar_collection_policy" in payload:
+            raise ValueError("radar_collection_policy é reservado à configuração da agenda.")
+        base_payload = dict(payload)
+        _assert_no_credentials(base_payload)
+        group_id = schedule_group_id.strip()
+        _assert_no_credentials(group_id, "schedule_group_id")
+        now_instant = _as_utc(start_at)
+        now_value = _iso(now_instant)
+        schedule_ids: list[str] = []
+        with self.store.transaction() as connection:
+            if connection.execute(
+                "SELECT 1 FROM agent_schedules WHERE schedule_group_id=? LIMIT 1",
+                (group_id,),
+            ).fetchone() is not None:
+                raise ValueError("Identificador de grupo de agendas já está em uso.")
+            for local_time in sorted(normalized_times):
+                schedule_id = f"{group_id}:{local_time.replace(':', '')}"
+                next_run = _iso(next_daily_window_utc(
+                    local_time, timezone_name, now_instant, include_equal=True
+                ))
+                task_payload = {
+                    **base_payload,
+                    "radar_collection_policy": {
+                        "schedule_group_id": group_id,
+                        "window_local_time": local_time,
+                        "timezone": timezone_name,
+                        "domain_quotas": quotas,
+                        "quota_period": "local_day",
+                        "dry_run": True,
+                    },
+                }
+                connection.execute(
+                    """INSERT INTO agent_schedules
+                       (id, task_type, payload_json, profile_id, profile_version,
+                        profile_hash, executor_id, interval_seconds, timezone,
+                        misfire_policy, enabled, next_run_at, created_at, updated_at,
+                        schedule_group_id, schedule_kind, local_time,
+                        misfire_grace_seconds, domain_quotas_json, dry_run)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, 86400, ?, ?, 0, ?, ?, ?, ?,
+                               'daily_window', ?, ?, ?, 1)""",
+                    (schedule_id, task_type, json_dumps(task_payload), profile.profile_id,
+                     profile.version, profile.content_hash, executor_id, timezone_name,
+                     misfire_policy, next_run, now_value, now_value, group_id, local_time,
+                     misfire_grace_seconds, json_dumps(quotas)),
+                )
+                connection.execute(
+                    """INSERT INTO audit_events
+                       (occurred_at, entity_type, entity_id, action, actor, source,
+                        before_json, after_json)
+                       VALUES (?, 'agent_schedule', ?, 'created', 'operator', 'scheduler',
+                               NULL, ?)""",
+                    (now_value, schedule_id, json_dumps({
+                        "enabled": False, "schedule_group_id": group_id,
+                        "schedule_kind": "daily_window", "local_time": local_time,
+                        "timezone": timezone_name, "misfire_policy": misfire_policy,
+                        "misfire_grace_seconds": misfire_grace_seconds,
+                        "domain_quotas": quotas, "dry_run": True,
+                        "executor_id": executor_id,
+                    })),
+                )
+                schedule_ids.append(schedule_id)
+        return schedule_ids
+
     def set_schedule_enabled(
         self, schedule_id: str, enabled: bool, *, now: datetime | str | None = None
     ) -> None:
@@ -599,11 +848,15 @@ class AgentQueue:
             ).fetchone()
             if row is None:
                 raise ValueError("Agenda inexistente.")
-            now_value = _iso(now)
+            if row["schedule_kind"] == "daily_window":
+                raise ValueError("Janelas diárias devem ser pausadas ou retomadas pelo grupo completo.")
+            now_instant = _as_utc(now)
+            now_value = _iso(now_instant)
+            next_run = now_value
             connection.execute(
                 """UPDATE agent_schedules SET enabled = ?, next_run_at = ?, updated_at = ?
                    WHERE id = ?""",
-                (int(enabled), now_value, now_value, schedule_id),
+                (int(enabled), next_run, now_value, schedule_id),
             )
             connection.execute(
                 """INSERT INTO audit_events
@@ -614,6 +867,43 @@ class AgentQueue:
                  json_dumps({"enabled": bool(row["enabled"])}),
                  json_dumps({"enabled": bool(enabled)})),
             )
+
+    def set_schedule_group_enabled(
+        self, schedule_group_id: str, enabled: bool, *, now: datetime | str | None = None
+    ) -> list[str]:
+        with self.store.transaction() as connection:
+            rows = connection.execute(
+                "SELECT * FROM agent_schedules WHERE schedule_group_id=? ORDER BY local_time, id",
+                (schedule_group_id,),
+            ).fetchall()
+            if not rows:
+                raise ValueError("Grupo de agendas inexistente.")
+            now_instant = _as_utc(now)
+            now_value = _iso(now_instant)
+            updated_ids: list[str] = []
+            for row in rows:
+                next_run = now_value
+                if enabled and row["schedule_kind"] == "daily_window":
+                    next_run = _iso(next_daily_window_utc(
+                        row["local_time"], row["timezone"], now_instant, include_equal=True
+                    ))
+                connection.execute(
+                    """UPDATE agent_schedules SET enabled=?, next_run_at=?, updated_at=?
+                       WHERE id=?""",
+                    (int(enabled), next_run, now_value, row["id"]),
+                )
+                connection.execute(
+                    """INSERT INTO audit_events
+                       (occurred_at, entity_type, entity_id, action, actor, source,
+                        before_json, after_json)
+                       VALUES (?, 'agent_schedule', ?, ?, 'operator', 'scheduler', ?, ?)""",
+                    (now_value, row["id"], "enabled" if enabled else "disabled",
+                     json_dumps({"enabled": bool(row["enabled"]), "schedule_group_id": schedule_group_id}),
+                     json_dumps({"enabled": bool(enabled), "schedule_group_id": schedule_group_id,
+                                 "next_run_at": next_run})),
+                )
+                updated_ids.append(row["id"])
+            return updated_ids
 
     def list_schedules(self) -> list[dict[str, Any]]:
         with closing(self.store.connect()) as connection:
@@ -626,6 +916,11 @@ class AgentQueue:
                 "timezone": row["timezone"], "misfire_policy": row["misfire_policy"],
                 "enabled": bool(row["enabled"]), "next_run_at": row["next_run_at"],
                 "last_enqueued_at": row["last_enqueued_at"],
+                "schedule_group_id": row["schedule_group_id"],
+                "schedule_kind": row["schedule_kind"], "local_time": row["local_time"],
+                "misfire_grace_seconds": row["misfire_grace_seconds"],
+                "domain_quotas": json.loads(row["domain_quotas_json"]),
+                "dry_run": bool(row["dry_run"]),
             } for row in rows]
 
     def scheduler_tick(self, now: datetime | str | None = None) -> list[str]:
@@ -640,6 +935,50 @@ class AgentQueue:
             ).fetchall()
             for schedule in due_schedules:
                 due = _as_utc(schedule["next_run_at"])
+                if schedule["schedule_kind"] == "daily_window":
+                    lateness = max(0.0, (instant - due).total_seconds())
+                    missed = lateness > int(schedule["misfire_grace_seconds"])
+                    next_run = next_daily_window_utc(
+                        schedule["local_time"], schedule["timezone"], instant,
+                        include_equal=False,
+                    )
+                    if missed and schedule["misfire_policy"] == "skip":
+                        connection.execute(
+                            """UPDATE agent_schedules SET next_run_at=?, updated_at=?
+                               WHERE id=?""",
+                            (_iso(next_run), now_iso, schedule["id"]),
+                        )
+                        connection.execute(
+                            """INSERT INTO audit_events
+                               (occurred_at, entity_type, entity_id, action, actor, source, after_json)
+                               VALUES (?, 'agent_schedule', ?, 'missed_run_skipped',
+                                       'scheduler', 'scheduler', ?)""",
+                            (now_iso, schedule["id"], json_dumps({
+                                "missed_policy": "skip", "due_at": _iso(due),
+                                "next_run_at": _iso(next_run),
+                            })),
+                        )
+                        continue
+                    slot_key = _iso(due)
+                    task_id, was_created = self._enqueue_in_connection(
+                        connection, task_type=schedule["task_type"],
+                        payload=json.loads(schedule["payload_json"]),
+                        profile_id=schedule["profile_id"],
+                        profile_version=schedule["profile_version"],
+                        profile_hash=schedule["profile_hash"],
+                        executor_id=schedule["executor_id"],
+                        idempotency_key=f"schedule:{schedule['id']}:{slot_key}",
+                        max_attempts=3, available_at=now_iso,
+                        schedule_id=schedule["id"],
+                    )
+                    if was_created:
+                        created_task_ids.append(task_id)
+                    connection.execute(
+                        """UPDATE agent_schedules SET next_run_at=?, last_enqueued_at=?,
+                           updated_at=? WHERE id=?""",
+                        (_iso(next_run), now_iso, now_iso, schedule["id"]),
+                    )
+                    continue
                 interval = schedule["interval_seconds"]
                 lateness = (instant - due).total_seconds()
                 missed = lateness > interval
@@ -701,9 +1040,17 @@ class TaskExecutionContext:
         self._lease_generation = task.lease_generation
         self._lease_seconds = max(1, lease_seconds)
         self.external_request_started = False
+        self.agent_role_profile: Any | None = None
+        self.agent_task_envelope: Any | None = None
+        self.agent_invocation_context: Any | None = None
         self._heartbeat_stop = threading.Event()
         self._ownership_lost = threading.Event()
         self._heartbeat_thread: threading.Thread | None = None
+
+    @property
+    def queue(self) -> AgentQueue:
+        """Shared durable queue for executor adapters that validate task lineage."""
+        return self._queue
 
     def start_heartbeat(self) -> None:
         interval = max(0.05, min(self._lease_seconds / 3, 30.0))
@@ -768,11 +1115,19 @@ class TaskDispatcher:
         executors: Mapping[str, TaskExecutor],
         profiles: Mapping[tuple[str, str], AgentProfile],
         lease_seconds: int = 120,
+        role_catalog: Any | None = None,
+        persona_instruction_resolver: Callable[[Any], str | None] | None = None,
+        deterministic_task_routes: Mapping[str, str] | None = None,
+        result_router: Callable[[AgentTask], None] | None = None,
     ):
         self.queue = queue
         self.executors = dict(executors)
         self.profiles = dict(profiles)
         self.lease_seconds = lease_seconds
+        self.role_catalog = role_catalog
+        self.persona_instruction_resolver = persona_instruction_resolver
+        self.deterministic_task_routes = dict(deterministic_task_routes or {})
+        self.result_router = result_router
 
     def dispatch_one(
         self,
@@ -796,6 +1151,15 @@ class TaskDispatcher:
                 )
             return DispatchOutcome(task.task_id, state, failure.code)
 
+        if self.role_catalog is not None and not task.task_type.startswith("agent.role."):
+            expected_executor = self.deterministic_task_routes.get(task.task_type)
+            if expected_executor is None or expected_executor != task.executor_id:
+                return report_failure(TaskFailure(
+                    "task_route_unregistered",
+                    "Tipo determinístico sem rota local explícita no registro do dispatcher.",
+                    blocked=True,
+                ))
+
         executor = self.executors.get(task.executor_id)
         profile = self.profiles.get((task.profile_id, task.profile_version))
         if executor is None:
@@ -809,7 +1173,43 @@ class TaskDispatcher:
                 blocked=True,
             )
             return report_failure(failure)
+        invocation_context = None
+        task_envelope = None
+        if self.role_catalog is not None and task.task_type.startswith("agent.role."):
+            try:
+                from .agent_contracts import envelope_from_payload
+
+                task_envelope = envelope_from_payload(task.payload)
+                if task_envelope.task_id != task.task_id:
+                    raise ValueError("task_id do envelope diverge da fila")
+                if task.task_type != f"agent.role.{task_envelope.role_id}":
+                    raise ValueError("tipo da fila diverge do role_id")
+                persona_instructions = None
+                if (
+                    task_envelope.role_id == "persona_writer"
+                    and self.persona_instruction_resolver is not None
+                ):
+                    try:
+                        persona_instructions = self.persona_instruction_resolver(task_envelope)
+                    except Exception as error:
+                        raise ValueError("resolvedor de instruções de persona indisponível") from error
+                invocation_context = self.role_catalog.prepare_invocation(
+                    task_envelope,
+                    input_payload=task.payload.get("input"),
+                    research_packet=task.payload.get("research_packet"),
+                    persona_instructions=persona_instructions,
+                )
+            except (ValueError, TypeError) as error:
+                return report_failure(TaskFailure(
+                    "agent_contract_invalid",
+                    f"Contrato funcional bloqueado ({type(error).__name__}).",
+                    blocked=True,
+                ))
         context = TaskExecutionContext(self.queue, task, self.lease_seconds)
+        if invocation_context is not None:
+            context.agent_role_profile = invocation_context.role_profile
+            context.agent_task_envelope = task_envelope
+            context.agent_invocation_context = invocation_context
         try:
             context.start_heartbeat()
             try:
@@ -819,6 +1219,17 @@ class TaskDispatcher:
             context.assert_lease_owned()
             if not isinstance(result, Mapping):
                 raise TaskFailure("invalid_result", "Executor não retornou um objeto estruturado.")
+            if invocation_context is not None:
+                try:
+                    result = self.role_catalog.validate_result(
+                        task_envelope, result, invocation_context.role_profile
+                    ).to_dict()
+                except (ValueError, TypeError) as error:
+                    raise TaskFailure(
+                        "invalid_agent_result",
+                        f"AgentResultEnvelope inválido ({type(error).__name__}).",
+                        blocked=True,
+                    ) from error
             completed = self.queue.complete(
                 task.task_id, task.lease_owner, task.lease_generation, result
             )
@@ -826,6 +1237,13 @@ class TaskDispatcher:
                 return DispatchOutcome(
                     task.task_id, self.queue.reconcile_expired(task.task_id), "lease_lost"
                 )
+            if self.result_router is not None:
+                completed_task = self.queue.get(task.task_id)
+                if completed_task is not None:
+                    try:
+                        self.result_router(completed_task)
+                    except Exception:
+                        return DispatchOutcome(task.task_id, "succeeded", "workflow_route_pending")
             return DispatchOutcome(task.task_id, "succeeded")
         except LeaseOwnershipLost:
             return DispatchOutcome(

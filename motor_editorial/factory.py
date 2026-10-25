@@ -5,8 +5,9 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from .db import Store, json_dumps, stable_hash
 from .editorial import (
@@ -18,6 +19,13 @@ from .editorial import (
     review_matches_revision,
     validate_stage_output,
 )
+from .editorial_handoffs import (
+    ARTIFACT_KEYS,
+    HandoffError,
+    build_handoff_artifact,
+    validate_handoff_chain,
+)
+from .agent_contracts import ResearchPacket, load_builtin_role_catalog
 from .layout.contracts import (
     SCHEMA_MEDIA,
     SCHEMA_REFERENCE,
@@ -50,6 +58,7 @@ from .orchestration import (
 
 
 FACTORY_FIXTURE = Path(__file__).parent / "fixtures" / "factory-demo.json"
+FACTORY_E14_CASES_FIXTURE = Path(__file__).parent / "fixtures" / "factory-e14-cases.json"
 FACTORY_EXECUTOR_ID = "synthetic-factory"
 FACTORY_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{2,79}$")
 LAYOUT_TASK_TYPE = "factory.layout_stage"
@@ -57,6 +66,14 @@ MEDIA_TASK_TYPE = "factory.media_inventory"
 STORY_PACKAGE_TASK_TYPE = "factory.story_package"
 PREVIEW_TASK_TYPE = "factory.internal_preview"
 HUMAN_GATE_TASK_TYPE = "factory.simulated_human_gate"
+FACTORY_TASK_ROUTES = {
+    EDITORIAL_TASK_TYPE: FACTORY_EXECUTOR_ID,
+    LAYOUT_TASK_TYPE: FACTORY_EXECUTOR_ID,
+    MEDIA_TASK_TYPE: FACTORY_EXECUTOR_ID,
+    STORY_PACKAGE_TASK_TYPE: FACTORY_EXECUTOR_ID,
+    PREVIEW_TASK_TYPE: FACTORY_EXECUTOR_ID,
+    HUMAN_GATE_TASK_TYPE: FACTORY_EXECUTOR_ID,
+}
 
 LAYOUT_PROFILE = AgentProfile(
     profile_id="synthetic-layout-engine",
@@ -90,9 +107,43 @@ _STAGE_ROLES = {
     "final_review": "reviewer",
 }
 
+_FUNCTIONAL_STAGE_ROLES = {
+    "source_analysis": "evidence_investigator",
+    "outline": "assignment_editor",
+    "draft": "persona_writer",
+    "fact_check": "fact_checker",
+    "review": "editorial_reviewer",
+    "correction": "persona_writer",
+    "final_fact_check": "fact_checker",
+    "final_review": "editorial_reviewer",
+}
+
 
 class FactoryFixtureError(ValueError):
     """A synthetic fixture is malformed or contains a non-synthetic decision."""
+
+
+@dataclass(frozen=True)
+class FactoryStoryRun:
+    """One isolated story fixture composed into a shared multipauta run."""
+
+    run_id: str
+    fixture_path: Path
+    review_flow: str = "pass"
+    source_disagreement: bool = False
+    research_packet: ResearchPacket | Mapping[str, Any] | None = None
+    research_source_bindings: Mapping[str, str] | None = None
+
+
+def _build_factory_dispatcher(queue: AgentQueue) -> TaskDispatcher:
+    return TaskDispatcher(
+        queue,
+        executors={FACTORY_EXECUTOR_ID: SyntheticFactoryExecutor(artifact_dir=queue.store.artifact_dir)},
+        profiles={
+            (profile.profile_id, profile.version): profile
+            for profile in (EDITORIAL_PROFILE, LAYOUT_PROFILE, MEDIA_PROFILE, PACKAGE_PROFILE, GATE_PROFILE)
+        },
+    )
 
 
 def _load_fixture(path: Path | None = None) -> dict[str, Any]:
@@ -109,6 +160,40 @@ def _load_fixture(path: Path | None = None) -> dict[str, Any]:
         key: value[key]
         for key in ("article_type", "topic", "research_note", "sources")
     })
+    case = value.get("e14_case")
+    if case is not None:
+        if not isinstance(case, Mapping) or case.get("case_type") not in {
+            "attributed_rumor", "hardware", "game_mod",
+        }:
+            raise FactoryFixtureError("e14_case precisa declarar um tipo de caso conhecido.")
+        required_case_fields = (
+            "genre", "angle", "claim", "assessment", "headline", "dek",
+            "section_heading", "section_focus", "body_markdown", "fact_claim", "source_ids",
+        )
+        if any(not isinstance(case.get(field), str) or not case[field].strip() for field in required_case_fields[:-1]):
+            raise FactoryFixtureError("e14_case contém texto obrigatório vazio ou inválido.")
+        if case.get("genre") not in {"news", "rumor", "investigation", "analysis", "review", "guide"}:
+            raise FactoryFixtureError("e14_case.genre fora do contrato funcional.")
+        if case.get("assessment") not in {"supported", "uncertain", "rumor", "contradicted"}:
+            raise FactoryFixtureError("e14_case.assessment fora do contrato editorial.")
+        if not isinstance(case.get("source_ids"), list) or not case["source_ids"] or any(
+            not isinstance(item, str) for item in case["source_ids"]
+        ):
+            raise FactoryFixtureError("e14_case.source_ids precisa listar fontes da fixture.")
+        if not set(case["source_ids"]).issubset(_source_ids(_packet(value))):
+            raise FactoryFixtureError("e14_case cita ID ausente do pacote de evidências.")
+        if case.get("fact_status", "supported") not in {"supported", "uncertain", "contradicted", "unsupported"}:
+            raise FactoryFixtureError("e14_case.fact_status fora do contrato de checagem.")
+        correction_body = case.get("correction_body_markdown")
+        if correction_body is not None and (
+            not isinstance(correction_body, str) or not correction_body.strip()
+            or correction_body == case.get("body_markdown")
+        ):
+            raise FactoryFixtureError("e14_case.correction_body_markdown precisa criar um texto corrigido distinto.")
+        if case.get("case_type") == "attributed_rumor" and case.get("assessment") != "rumor":
+            raise FactoryFixtureError("Caso de rumor precisa manter epistemic status rumor.")
+        if case.get("case_type") == "attributed_rumor" and case.get("genre") != "rumor":
+            raise FactoryFixtureError("Caso de rumor precisa usar gênero rumor.")
     identities = value.get("identities")
     if not isinstance(identities, Mapping) or set(identities) != {
         "editor", "writer_persona", "reviewer",
@@ -150,37 +235,47 @@ def _editorial_output(
     *,
     review_flow: str = "pass",
     source_disagreement: bool = False,
+    case: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
+    case = case or {}
     ids = [str(source["id"]) for source in packet["sources"]]
     if stage == "source_analysis":
         source = packet["sources"][0]
+        assessment = "uncertain" if source_disagreement else str(case.get("assessment", "supported"))
         return {"claims": [{
             "claim_id": "fictional-claim-01",
             "claim": (
                 "As fontes fictícias divergem sobre a exploração solo e os mapas desenhados à mão."
                 if source_disagreement else
-                "Farol de Papel é um jogo fictício de exploração solo com mapas desenhados à mão."
+                str(case.get("claim") or "Farol de Papel é um jogo fictício de exploração solo com mapas desenhados à mão.")
             ),
-            "source_ids": ids,
+            "source_ids": list(case.get("source_ids") or ids),
             "evidence_excerpt": source["evidence"],
-            "assessment": "uncertain" if source_disagreement else "supported",
-            "confidence": "medium" if source_disagreement else "high",
+            "assessment": assessment,
+            "confidence": "low" if assessment == "rumor" else "medium" if assessment == "uncertain" else "high",
             "caveat": (
                 "A divergência precisa permanecer explícita; a fixture não descreve um jogo real."
-                if source_disagreement else "A fixture não descreve um jogo real."
+                if source_disagreement else str(case.get("caveat") or "A fixture não descreve um produto real.")
             ),
         }]}
     if stage == "outline":
         return {
-            "headline": "Farol de Papel: exploração em mapas feitos à mão",
-            "dek": "Uma pauta fictícia demonstra como organizar evidência sem inventar uma data de lançamento.",
+            "headline": str(case.get("headline") or "Farol de Papel: exploração em mapas feitos à mão"),
+            "dek": str(case.get("dek") or "Uma pauta fictícia demonstra como organizar evidência sem inventar uma data de lançamento."),
             "sections": [{
-                "heading": "Descoberta sem pressa",
-                "focus": "Apresentar a proposta imaginária e registrar o limite do que as fontes dizem.",
-                "source_ids": ids,
+                "heading": str(case.get("section_heading") or "Descoberta sem pressa"),
+                "focus": str(case.get("section_focus") or "Apresentar a proposta imaginária e registrar o limite do que as fontes dizem."),
+                "source_ids": list(case.get("source_ids") or ids),
             }],
         }
     if stage == "draft":
+        if case:
+            return {
+                "headline": case["headline"],
+                "dek": case["dek"],
+                "body_markdown": case["body_markdown"],
+                "source_ids": list(case["source_ids"]),
+            }
         return {
             "headline": "Farol de Papel: exploração em mapas feitos à mão",
             "dek": "Uma pauta fictícia demonstra como organizar evidência sem inventar uma data de lançamento.",
@@ -199,18 +294,19 @@ def _editorial_output(
         }
     if stage in {"fact_check", "final_fact_check"}:
         article = previous["draft"] if stage == "fact_check" else previous["correction"]
+        fact_status = "uncertain" if source_disagreement else str(case.get("fact_status", "supported"))
         return {"findings": [{
             "claim": (
                 "As fontes fictícias divergem sobre mapas desenhados à mão e exploração solo."
                 if source_disagreement else
-                "As fontes fictícias descrevem mapas desenhados à mão e exploração solo."
+                str(case.get("fact_claim") or "As fontes fictícias descrevem mapas desenhados à mão e exploração solo.")
             ),
-            "source_ids": ids,
-            "status": "uncertain" if source_disagreement else "supported",
-            "confidence": "medium" if source_disagreement else "high",
+            "source_ids": list(case.get("source_ids") or ids),
+            "status": fact_status,
+            "confidence": "low" if fact_status == "uncertain" else "high",
             "correction": (
                 "Preservar a divergência e pedir decisão editorial."
-                if source_disagreement else ""
+                if source_disagreement else str(case.get("fact_correction", ""))
             ),
         }]}
     if stage in {"review", "final_review"}:
@@ -244,7 +340,10 @@ def _editorial_output(
         return {
             "headline": article["headline"],
             "dek": article["dek"],
-            "body_markdown": article["body_markdown"].replace(original_sentence, corrected_sentence),
+            "body_markdown": str(
+                case.get("correction_body_markdown")
+                or article["body_markdown"].replace(original_sentence, corrected_sentence)
+            ),
             "source_ids": article["source_ids"],
             "remaining_issues": [],
             "human_review_required": True,
@@ -271,6 +370,20 @@ def _build_story_package(payload: Mapping[str, Any]) -> dict[str, Any]:
     fixture = payload["fixture"]
     packet = payload["packet"]
     content_identities = payload["content_identities"]
+    story_id = f"story-{fixture['run_id']}"
+    try:
+        handoff_chain = validate_handoff_chain(
+            payload.get("editorial_handoffs", {}),
+            expected_story_id=story_id,
+            expected_article=article,
+            require_pass=True,
+        )
+    except HandoffError as error:
+        raise TaskFailure(
+            "factory_typed_handoff_not_current",
+            f"Cadeia EvidenceDossier→Review bloqueada: {error}",
+            blocked=True,
+        ) from error
     revision_stage = review.get("reviewed_revision_stage")
     if review.get("verdict") != "pass" or not review_matches_revision(review, article):
         raise TaskFailure(
@@ -293,7 +406,6 @@ def _build_story_package(payload: Mapping[str, Any]) -> dict[str, Any]:
                 blocked=True,
             )
     story_revision = 2 if revision_stage == "correction" else 1
-    story_id = f"story-{fixture['run_id']}"
     figure = fixture["synthetic_figure"]
     revision_prefix = f"{story_id}-r{story_revision}"
     figure_block_id = f"{revision_prefix}-{figure['block_id_suffix']}"
@@ -348,6 +460,11 @@ def _build_story_package(payload: Mapping[str, Any]) -> dict[str, Any]:
             "story_revision": story_revision,
             "source_ids": packet_source_ids,
             "synthetic_fixture_only": True,
+            "typed_handoffs": {
+                key: handoff_chain[key]["content_sha256"]
+                for key in ARTIFACT_KEYS
+            },
+            "epistemic_claims": [dict(claim) for claim in handoff_chain["evidence_dossier"]["payload"]["claims"]],
         },
         "review": {},
     }
@@ -361,6 +478,7 @@ def _build_story_package(payload: Mapping[str, Any]) -> dict[str, Any]:
         "reviewer_profile_id": story_payload["identities"]["reviewer"]["profile_id"],
         "reviewer_profile_version": story_payload["identities"]["reviewer"]["version"],
         "review_kind": "synthetic_contract_bridge",
+        "editorial_review_sha256": handoff_chain["editorial_review"]["content_sha256"],
         "human_approval": False,
         "synthetic_fixture": True,
     }
@@ -455,10 +573,28 @@ class SyntheticFactoryExecutor:
         if profile.content_hash != EDITORIAL_PROFILE.content_hash:
             raise TaskFailure("factory_profile_mismatch", "Perfil B2 de execução divergiu.", blocked=True)
         stage = str(payload.get("stage", ""))
+        expected_role_id = _FUNCTIONAL_STAGE_ROLES.get(stage)
+        functional_role_id = str(payload.get("functional_role_id", ""))
+        if expected_role_id is None or functional_role_id != expected_role_id:
+            raise TaskFailure("factory_functional_role_mismatch", "Papel funcional não corresponde à etapa.", blocked=True)
+        role_catalog = load_builtin_role_catalog()
+        role_rows = role_catalog.to_mapping()["profiles"]
+        role_row = next((row for row in role_rows if row["role_id"] == functional_role_id), None)
+        if role_row is None:
+            raise TaskFailure("factory_functional_role_missing", "Papel funcional ausente no catálogo versionado.", blocked=True)
+        try:
+            role_profile = role_catalog.resolve(
+                functional_role_id, role_row["role_version"], role_row["profile_sha256"]
+            )
+        except (ValueError, KeyError) as error:
+            raise TaskFailure("factory_functional_role_blocked", "Papel funcional não habilitado ou hash inválido.", blocked=True) from error
         packet = normalize_source_packet(payload.get("packet", {}))
         previous = payload.get("previous_outputs", {})
         if not isinstance(previous, Mapping):
             raise TaskFailure("factory_previous_output_invalid", "Saídas anteriores inválidas.", blocked=True)
+        handoffs = payload.get("handoffs", {})
+        if not isinstance(handoffs, Mapping):
+            raise TaskFailure("factory_handoffs_invalid", "Handoffs anteriores inválidos.", blocked=True)
         build_stage_input(stage=stage, packet=packet, previous_outputs=previous)
         structured = validate_stage_output(
             stage,
@@ -468,6 +604,7 @@ class SyntheticFactoryExecutor:
                 previous,
                 review_flow=str(payload.get("review_flow", "pass")),
                 source_disagreement=bool(payload.get("source_disagreement", False)),
+                case=payload.get("e14_case"),
             ),
             _source_ids(packet),
         )
@@ -477,8 +614,41 @@ class SyntheticFactoryExecutor:
             structured["reviewed_revision_stage"] = revision_stage
         elif stage == "final_fact_check":
             structured["checked_revision_sha256"] = article_revision_sha256(previous["correction"])
+        artifact_output = dict(structured)
+        if stage == "fact_check":
+            artifact_output["article_for_check"] = previous["draft"]
+        elif stage == "final_fact_check":
+            artifact_output["article_for_check"] = previous["correction"]
+        elif stage == "review":
+            artifact_output["article_for_review"] = previous["draft"]
+        elif stage == "final_review":
+            artifact_output["article_for_review"] = previous["correction"]
+        try:
+            handoff_artifact = build_handoff_artifact(
+                stage,
+                run_id=str(payload.get("run_id", "")),
+                packet=packet,
+                output=artifact_output,
+                inputs=handoffs,
+                content_identity=payload.get("content_identity", {}),
+                case=payload.get("e14_case"),
+            )
+        except (HandoffError, KeyError, TypeError, ValueError) as error:
+            raise TaskFailure("factory_editorial_handoff_invalid", str(error), blocked=True) from error
+        upstream_handoff_hashes = {
+            key: value.get("content_sha256")
+            for key, value in handoffs.items()
+            if isinstance(value, Mapping)
+        }
         return {
             "structured_output": structured,
+            "handoff_artifact": handoff_artifact,
+            "functional_role": {
+                "role_id": role_profile.role_id,
+                "role_version": role_profile.role_version,
+                "role_hash": role_profile.content_hash,
+            },
+            "upstream_handoff_hashes": upstream_handoff_hashes,
             "stage": stage,
             "actor_role": payload.get("actor_role"),
             "content_identity": dict(payload.get("content_identity", {})),
@@ -646,8 +816,12 @@ def run_factory_demo(
     run_id: str | None = None,
     review_flow: str = "pass",
     source_disagreement: bool = False,
+    queue: AgentQueue | None = None,
+    dispatcher: TaskDispatcher | None = None,
+    research_packet: ResearchPacket | Mapping[str, Any] | None = None,
+    research_source_bindings: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Run a synthetic editorial-to-layout flow through one queue and dispatcher."""
+    """Run one synthetic story, optionally composing it into a shared E2E queue."""
     fixture = _load_fixture(fixture_path)
     if review_flow not in {"pass", "revise", "hold"}:
         raise FactoryFixtureError("review_flow deve ser pass, revise ou hold.")
@@ -655,24 +829,45 @@ def run_factory_demo(
         if not FACTORY_ID_RE.fullmatch(run_id):
             raise FactoryFixtureError("run_id informado é inválido.")
         fixture["run_id"] = run_id
+    if (queue is None) != (dispatcher is None):
+        raise FactoryFixtureError("queue e dispatcher compartilhados precisam ser fornecidos juntos.")
+    if queue is None:
+        queue = AgentQueue(store)
+        dispatcher = _build_factory_dispatcher(queue)
+    elif dispatcher is None or dispatcher.queue is not queue:
+        raise FactoryFixtureError("dispatcher compartilhado precisa usar a mesma AgentQueue.")
+    if research_packet is None:
+        validated_research_packet = None
+    elif isinstance(research_packet, ResearchPacket):
+        validated_research_packet = research_packet
+    else:
+        validated_research_packet = ResearchPacket.from_mapping(research_packet)
     packet = _packet(fixture)
+    if research_source_bindings is not None:
+        if validated_research_packet is None or not isinstance(research_source_bindings, Mapping):
+            raise FactoryFixtureError("Vínculos de fonte Radar exigem ResearchPacket validado.")
+        normalized_bindings = dict(research_source_bindings)
+        expected_refs = {item.ref for item in validated_research_packet.document_refs}
+        if (
+            set(normalized_bindings) != expected_refs
+            or any(not isinstance(source_id, str) for source_id in normalized_bindings.values())
+            or not set(normalized_bindings.values()).issubset(_source_ids(packet))
+        ):
+            raise FactoryFixtureError("ResearchPacket precisa apontar para fontes presentes no pacote editorial.")
+    elif validated_research_packet is not None:
+        raise FactoryFixtureError("ResearchPacket exige vínculo explícito para cada fonte editorial Radar.")
+    else:
+        normalized_bindings = None
     reference_index = LayoutReferenceIndex(
         Path(store.db_path).resolve().parent / "factory-reference-index.sqlite3"
     )
     _seed_reference_index(reference_index)
 
-    queue = AgentQueue(store)
-    dispatcher = TaskDispatcher(
-        queue,
-        executors={FACTORY_EXECUTOR_ID: SyntheticFactoryExecutor(artifact_dir=store.artifact_dir)},
-        profiles={
-            (profile.profile_id, profile.version): profile
-            for profile in (EDITORIAL_PROFILE, LAYOUT_PROFILE, MEDIA_PROFILE, PACKAGE_PROFILE, GATE_PROFILE)
-        },
-    )
+    assert queue is not None and dispatcher is not None
     tasks: list[AgentTask] = []
     outputs: dict[str, Mapping[str, Any]] = {}
     stage_identities: dict[str, Mapping[str, Any]] = {}
+    handoffs: dict[str, Mapping[str, Any]] = {}
 
     def run_editorial(stage: str, previous: Mapping[str, Any]) -> Mapping[str, Any]:
         result, task = _run_task(
@@ -684,15 +879,32 @@ def run_factory_demo(
                 "packet": packet,
                 "previous_outputs": dict(previous),
                 "actor_role": _STAGE_ROLES[stage],
+                "functional_role_id": _FUNCTIONAL_STAGE_ROLES[stage],
                 "content_identity": _identity_for_stage(fixture, stage),
+                "handoffs": dict(handoffs),
+                "e14_case": fixture.get("e14_case"),
                 "review_flow": review_flow,
                 "source_disagreement": source_disagreement,
+                "radar_research_packet": (
+                    validated_research_packet.to_dict()
+                    if stage == "source_analysis" and validated_research_packet is not None
+                    else None
+                ),
+                "radar_research_source_bindings": (
+                    normalized_bindings if stage == "source_analysis" else None
+                ),
             },
             profile=EDITORIAL_PROFILE,
         )
         tasks.append(task)
         outputs[stage] = result["structured_output"]
         stage_identities[stage] = result["content_identity"]
+        artifact = result.get("handoff_artifact")
+        artifact_key = next((key for key, kind in ARTIFACT_KEYS.items()
+                             if isinstance(artifact, Mapping) and artifact.get("artifact_type") == kind), None)
+        if artifact_key is None:
+            raise TaskFailure("factory_handoff_missing", f"A etapa {stage} não persistiu um handoff tipado.", blocked=True)
+        handoffs[artifact_key] = artifact
         return outputs[stage]
 
     source_analysis = run_editorial("source_analysis", {})
@@ -748,6 +960,7 @@ def run_factory_demo(
             "run_id": fixture["run_id"], "fixture": run_fixture, "packet": packet,
             "article": article, "outline": outline, "review": review,
             "final_fact_check": outputs.get("final_fact_check"),
+            "editorial_handoffs": dict(handoffs),
             "content_identities": {
                 "editor": stage_identities["outline"],
                 "writer_persona": stage_identities.get("correction", stage_identities["draft"]),
@@ -883,6 +1096,11 @@ def run_factory_demo(
             "task_type": task.task_type,
             "stage": task.payload.get("stage"),
             "actor_role": task.payload.get("actor_role"),
+            "functional_role_id": task.result.get("functional_role", {}).get("role_id") if isinstance(task.result, Mapping) else None,
+            "functional_role_version": task.result.get("functional_role", {}).get("role_version") if isinstance(task.result, Mapping) else None,
+            "handoff_artifact_type": task.result.get("handoff_artifact", {}).get("artifact_type") if isinstance(task.result, Mapping) else None,
+            "handoff_artifact_sha256": task.result.get("handoff_artifact", {}).get("content_sha256") if isinstance(task.result, Mapping) else None,
+            "upstream_handoff_hashes": task.result.get("upstream_handoff_hashes", {}) if isinstance(task.result, Mapping) else {},
             "content_identity": task.payload.get("content_identity"),
             "state": task.state,
             "profile_id": task.profile_id,
@@ -891,6 +1109,30 @@ def run_factory_demo(
         } for task in tasks],
         "review_flow": review_flow,
         "source_disagreement": source_disagreement,
+        "radar_research_packet": (
+            {
+                "request_id": validated_research_packet.request_id,
+                "content_hash": validated_research_packet.content_hash,
+                "status": validated_research_packet.status,
+                "document_refs": [item.to_dict() for item in validated_research_packet.document_refs],
+                "source_bindings": normalized_bindings,
+            }
+            if validated_research_packet is not None else None
+        ),
+        "e14_case_id": fixture.get("e14_case", {}).get("case_id") if isinstance(fixture.get("e14_case"), Mapping) else None,
+        "editorial_handoffs": {
+            key: {
+                "artifact_type": value["artifact_type"],
+                "artifact_id": value["artifact_id"],
+                "story_id": value["story_id"],
+                "revision_id": value["revision_id"],
+                "content_sha256": value["content_sha256"],
+            }
+            for key, value in handoffs.items()
+        },
+        "editorial_handoff_chain_sha256": stable_hash(json_dumps({
+            key: handoffs[key]["content_sha256"] for key in ARTIFACT_KEYS
+        })),
         "initial_article_revision_sha256": article_revision_sha256(draft),
         "article_revision_sha256": article_revision_sha256(article),
         "initial_reviewed_revision_sha256": initial_review["reviewed_revision_sha256"],
@@ -928,6 +1170,147 @@ def run_factory_demo(
         "paid_api_calls": 0,
     }
     report_path = store.artifact_dir / "factory-demo" / fixture["run_id"] / "factory-demo-report.json"
+    report["report_path"] = str(report_path.resolve())
+    _write_json(report_path, report)
+    return report
+
+
+def run_factory_multipauta_demo(
+    store: Store,
+    stories: Sequence[FactoryStoryRun],
+    *,
+    queue: AgentQueue | None = None,
+    dispatcher: TaskDispatcher | None = None,
+    batch_id: str = "factory-e15-multipauta",
+) -> dict[str, Any]:
+    """Run two or three synthetic stories through one durable queue/dispatcher."""
+    if not FACTORY_ID_RE.fullmatch(batch_id):
+        raise FactoryFixtureError("batch_id informado é inválido.")
+    if isinstance(stories, (str, bytes)) or not isinstance(stories, Sequence) or not 2 <= len(stories) <= 3:
+        raise FactoryFixtureError("Ensaio multipauta exige duas ou três pautas.")
+    if (queue is None) != (dispatcher is None):
+        raise FactoryFixtureError("queue e dispatcher compartilhados precisam ser fornecidos juntos.")
+    if queue is None:
+        queue = AgentQueue(store)
+        dispatcher = _build_factory_dispatcher(queue)
+    elif dispatcher is None or dispatcher.queue is not queue:
+        raise FactoryFixtureError("dispatcher compartilhado precisa usar a mesma AgentQueue.")
+    assert queue is not None and dispatcher is not None
+
+    run_ids: list[str] = []
+    for story in stories:
+        if not isinstance(story, FactoryStoryRun):
+            raise FactoryFixtureError("Cada pauta precisa ser FactoryStoryRun.")
+        if not FACTORY_ID_RE.fullmatch(story.run_id):
+            raise FactoryFixtureError("run_id de pauta multipauta é inválido.")
+        if story.run_id in run_ids:
+            raise FactoryFixtureError("run_id de pauta multipauta está duplicado.")
+        if story.review_flow not in {"pass", "revise", "hold"}:
+            raise FactoryFixtureError("review_flow deve ser pass, revise ou hold.")
+        _load_fixture(story.fixture_path)
+        if story.research_packet is not None:
+            if isinstance(story.research_packet, ResearchPacket):
+                ResearchPacket.from_mapping(story.research_packet.to_dict())
+            else:
+                ResearchPacket.from_mapping(story.research_packet)
+        run_ids.append(story.run_id)
+
+    outcomes: list[dict[str, Any]] = []
+    for story in stories:
+        if story.research_packet is None:
+            story_research_summary = None
+        else:
+            packet_value = (
+                ResearchPacket.from_mapping(story.research_packet.to_dict())
+                if isinstance(story.research_packet, ResearchPacket)
+                else ResearchPacket.from_mapping(story.research_packet)
+            )
+            story_research_summary = {
+                "request_id": packet_value.request_id,
+                "content_hash": packet_value.content_hash,
+                "status": packet_value.status,
+                "document_refs": [item.to_dict() for item in packet_value.document_refs],
+                "source_bindings": story.research_source_bindings,
+            }
+        try:
+            result = run_factory_demo(
+                store,
+                story.fixture_path,
+                run_id=story.run_id,
+                review_flow=story.review_flow,
+                source_disagreement=story.source_disagreement,
+                queue=queue,
+                dispatcher=dispatcher,
+                research_packet=story.research_packet,
+                research_source_bindings=story.research_source_bindings,
+            )
+        except TaskFailure as error:
+            story_tasks = [
+                task for task in queue.list_tasks(limit=1000)
+                if task.payload.get("run_id") == story.run_id
+            ]
+            failed_tasks = []
+            for task in story_tasks:
+                terminal_events = [event for event in queue.events(task.task_id) if event["action"] in {"failed", "blocked"}]
+                if terminal_events:
+                    failed_tasks.append({
+                        "task_id": task.task_id,
+                        "task_type": task.task_type,
+                        "stage": task.payload.get("stage"),
+                        "failure_code": terminal_events[-1]["detail"].get("error_code"),
+                    })
+            outcomes.append({
+                "run_id": story.run_id,
+                "outcome": "blocked",
+                "failure_code": error.code,
+                "summary": error.summary,
+                "radar_research_packet": story_research_summary,
+                "failed_tasks": failed_tasks,
+                "task_ids": [task.task_id for task in story_tasks],
+                "task_states": [task.state for task in story_tasks],
+                "published": False,
+            })
+            continue
+
+        if result["story_revision"] > 1:
+            outcome = "corrected"
+        elif result["status"] == "simulated_approved_internally":
+            outcome = "approved_internal_preview"
+        elif result["status"] == "simulated_on_hold":
+            outcome = "preview_held_for_human"
+        else:
+            outcome = "completed"
+        outcomes.append({
+            "run_id": story.run_id,
+            "outcome": outcome,
+            "factory_status": result["status"],
+            "review_flow": result["review_flow"],
+            "story_revision": result["story_revision"],
+            "article_revision_sha256": result["article_revision_sha256"],
+            "reviewed_revision_sha256": result["reviewed_revision_sha256"],
+            "radar_research_packet": result["radar_research_packet"],
+            "preview_sha256": result["preview_sha256"],
+            "preview_path": result["preview_path"],
+            "task_ids": result["task_ids"],
+            "published": False,
+        })
+
+    task_ids = [task_id for outcome in outcomes for task_id in outcome["task_ids"]]
+    report = {
+        "schema_version": "FactoryMultipautaRun.v1",
+        "batch_id": batch_id,
+        "status": "completed_with_blocked_stories" if any(item["outcome"] == "blocked" for item in outcomes) else "completed",
+        "synthetic_fixture_only": True,
+        "shared_task_ledger": "agent_tasks/agent_task_events",
+        "shared_dispatcher": True,
+        "story_count": len(outcomes),
+        "story_outcomes": outcomes,
+        "task_count": len(set(task_ids)),
+        "task_ids": list(dict.fromkeys(task_ids)),
+        "publication_state": "not_published",
+        "published": False,
+    }
+    report_path = store.artifact_dir / "factory-demo" / batch_id / "multipauta-report.json"
     report["report_path"] = str(report_path.resolve())
     _write_json(report_path, report)
     return report

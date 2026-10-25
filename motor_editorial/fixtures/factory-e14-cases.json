@@ -1,0 +1,147 @@
+{
+  "schema_version": "FactoryE14Cases.v1",
+  "notice": "Casos integralmente fictícios. URLs example.invalid são identificadores de fixture e não são consultados.",
+  "cases": [
+    {
+      "case_id": "rumor-atribuido",
+      "case_type": "attributed_rumor",
+      "article_type": "brief",
+      "topic": "Rumor fictício de adiamento de Neblina de Vidro",
+      "research_note": "Relato de rumor atribuído; a nota oficial fictícia não confirma a informação.",
+      "sources": [
+        {
+          "id": "S1",
+          "title": "Relato atribuído do Arquivo de Bruma",
+          "publisher": "Arquivo de Bruma (fictício)",
+          "url": "https://example.invalid/arquivo-bruma/rumor-neblina",
+          "published_at": "2026-10-25T10:00:00-03:00",
+          "accessed_at": "2026-10-25T10:05:00-03:00",
+          "kind": "secondary",
+          "confidence": "low",
+          "evidence": "O Arquivo de Bruma atribui a fontes não identificadas o rumor fictício de adiamento de Neblina de Vidro."
+        },
+        {
+          "id": "S2",
+          "title": "Nota oficial fictícia do Estúdio Vidro Lunar",
+          "publisher": "Estúdio Vidro Lunar (fictício)",
+          "url": "https://example.invalid/vidro-lunar/nota",
+          "published_at": "2026-10-25T10:02:00-03:00",
+          "accessed_at": "2026-10-25T10:05:00-03:00",
+          "kind": "official",
+          "confidence": "high",
+          "evidence": "O Estúdio Vidro Lunar informa que não confirmou uma data nova para o projeto fictício."
+        }
+      ],
+      "e14_case": {
+        "genre": "rumor",
+        "angle": "Registrar a atribuição e a ausência de confirmação, sem converter o rumor em fato.",
+        "claim": "O Arquivo de Bruma atribui a fontes não identificadas um rumor fictício de adiamento.",
+        "assessment": "rumor",
+        "fact_status": "uncertain",
+        "headline": "Neblina de Vidro: o que se sabe sobre o rumor atribuído",
+        "dek": "A nota fictícia do estúdio não confirma uma nova data.",
+        "section_heading": "Atribuição e limite",
+        "section_focus": "Separar o rumor atribuído da informação oficial disponível.",
+        "body_markdown": "O Arquivo de Bruma atribuiu a fontes não identificadas um rumor de adiamento de Neblina de Vidro [S1]. A nota do Estúdio Vidro Lunar diz que não confirmou uma nova data [S2]. O rumor permanece não confirmado e não é apresentado como fato.",
+        "fact_claim": "O adiamento continua sendo rumor atribuído e não confirmado.",
+        "questions": ["Quem publicou a atribuição?", "O estúdio confirmou a alegação?"],
+        "gaps": ["As fontes originais do rumor não foram identificadas."],
+        "source_ids": ["S1", "S2"]
+      }
+    },
+    {
+      "case_id": "hardware-declaracao",
+      "case_type": "hardware",
+      "article_type": "brief",
+      "topic": "Especificação fictícia da placa Aurora de Papel",
+      "research_note": "A especificação é atribuída ao fabricante; nenhuma medição independente foi feita.",
+      "sources": [
+        {
+          "id": "S1",
+          "title": "Ficha técnica fictícia da Oficina Aurora",
+          "publisher": "Oficina Aurora (fictícia)",
+          "url": "https://example.invalid/oficina-aurora/placa",
+          "published_at": "2026-10-25T11:00:00-03:00",
+          "accessed_at": "2026-10-25T11:05:00-03:00",
+          "kind": "official",
+          "confidence": "high",
+          "evidence": "A ficha fictícia da Oficina Aurora declara 12 GB de memória para a placa Aurora de Papel."
+        },
+        {
+          "id": "S2",
+          "title": "Resumo fictício do Laboratório de Pixel",
+          "publisher": "Laboratório de Pixel (fictício)",
+          "url": "https://example.invalid/laboratorio-pixel/aurora",
+          "published_at": "2026-10-25T11:03:00-03:00",
+          "accessed_at": "2026-10-25T11:05:00-03:00",
+          "kind": "secondary",
+          "confidence": "medium",
+          "evidence": "O resumo fictício reproduz a capacidade declarada pelo fabricante, sem apresentar medição própria."
+        }
+      ],
+      "e14_case": {
+        "genre": "analysis",
+        "angle": "Relatar a capacidade como especificação declarada e explicitar a ausência de teste independente.",
+        "claim": "O fabricante declara 12 GB de memória para a placa Aurora de Papel.",
+        "assessment": "supported",
+        "fact_status": "supported",
+        "headline": "Aurora de Papel: fabricante declara 12 GB de memória",
+        "dek": "O resumo secundário repete a ficha técnica, sem medição independente.",
+        "section_heading": "Especificação declarada",
+        "section_focus": "Atribuir o número ao fabricante e não alegar benchmark.",
+        "body_markdown": "A ficha técnica fictícia da Oficina Aurora declara 12 GB de memória para a placa Aurora de Papel [S1]. Um resumo secundário reproduz a especificação, mas não apresenta medição independente [S2]. Este ensaio não executou teste, benchmark ou validação física do hardware.",
+        "fact_claim": "A capacidade de 12 GB aparece como especificação declarada pelo fabricante.",
+        "questions": ["Qual é a origem do número?", "Há medição independente no pacote?"],
+        "gaps": ["Não há benchmark ou teste físico neste ensaio."],
+        "source_ids": ["S1", "S2"]
+      }
+    },
+    {
+      "case_id": "jogo-mod",
+      "case_type": "game_mod",
+      "article_type": "brief",
+      "topic": "Mod fictício Jardim de Nuvem",
+      "research_note": "O caso descreve notas fictícias do autor do mod; nenhuma instalação ou sessão foi realizada.",
+      "sources": [
+        {
+          "id": "S1",
+          "title": "Notas fictícias do autor do Mod Jardim de Nuvem",
+          "publisher": "Equipe Jardim de Nuvem (fictícia)",
+          "url": "https://example.invalid/jardim-nuvem/notas",
+          "published_at": "2026-10-25T12:00:00-03:00",
+          "accessed_at": "2026-10-25T12:05:00-03:00",
+          "kind": "official",
+          "confidence": "high",
+          "evidence": "As notas fictícias do autor descrevem uma área cooperativa opcional no mod Jardim de Nuvem."
+        },
+        {
+          "id": "S2",
+          "title": "Resumo fictício do Mapa de Mods",
+          "publisher": "Mapa de Mods (fictício)",
+          "url": "https://example.invalid/mapa-de-mods/jardim-nuvem",
+          "published_at": "2026-10-25T12:03:00-03:00",
+          "accessed_at": "2026-10-25T12:05:00-03:00",
+          "kind": "secondary",
+          "confidence": "medium",
+          "evidence": "O resumo fictício atribui ao autor do mod a descrição de uma área cooperativa opcional."
+        }
+      ],
+      "e14_case": {
+        "genre": "guide",
+        "angle": "Explicar o que as notas do autor descrevem sem alegar que o mod foi instalado ou testado.",
+        "claim": "As notas do autor descrevem uma área cooperativa opcional no mod fictício.",
+        "assessment": "supported",
+        "fact_status": "supported",
+        "headline": "Jardim de Nuvem: notas descrevem área cooperativa opcional",
+        "dek": "O ensaio resume a descrição atribuída ao autor, sem afirmar teste do mod.",
+        "section_heading": "O que dizem as notas",
+        "section_focus": "Atribuir a descrição ao autor e marcar a ausência de teste próprio.",
+        "body_markdown": "As notas fictícias do autor descrevem uma área cooperativa opcional no mod Jardim de Nuvem [S1]. Um resumo secundário atribui a mesma descrição ao autor [S2]. Este ensaio não instalou, executou ou testou o mod.",
+        "fact_claim": "A área cooperativa opcional é descrita pelas notas do autor do mod.",
+        "questions": ["O que as notas do autor descrevem?", "O mod foi testado neste ensaio?"],
+        "gaps": ["Não houve instalação ou teste do mod."],
+        "source_ids": ["S1", "S2"]
+      }
+    }
+  ]
+}

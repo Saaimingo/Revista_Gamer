@@ -1,0 +1,44 @@
+{
+  "fixture_version": "1.0",
+  "roles": {
+    "triage_analyst": {
+      "input": {
+        "batch_id": "batch-fixture-01",
+        "items": [{"item_id": "item-01", "url": "https://studio.example/patch", "publisher": "Studio", "published_at": "2026-10-25", "republish_group": "group-01", "diff": "patch notes updated"}],
+        "portfolio": []
+      },
+      "output": {
+        "decisions": [{"candidate_angle": "Patch notes atualizados", "suggested_lane": "monitoramento", "evidence_refs": ["item-01"]}],
+        "no_change": false
+      }
+    },
+    "evidence_investigator": {
+      "input": {"question": "O que a atualização mudou?", "evidence_refs": ["evidence-01"], "claim_history": [], "search_limits": {"max_results": 5}},
+      "output": {"claims": [{"claim_id": "claim-01", "epistemic_status": "official_statement", "evidence_ids": ["evidence-01"]}], "blockers": []}
+    },
+    "assignment_editor": {
+      "input": {"evidence_dossier": {"claims": []}, "edition_state": {}, "editorial_constraints": {}, "required_coverage": ["source attribution"]},
+      "output": {"angle": "Explicar o conteúdo da atualização", "genre": "analysis", "questions": ["O que mudou?"], "modules": [{"name": "context"}], "gaps": [], "needs_more_research": false}
+    },
+    "persona_writer": {
+      "input": {"editorial_brief": {}, "evidence_dossier": {}, "writing_constraints": {"target_words": 500}},
+      "output": {"title": "Rascunho de fixture", "dek": "Sem alegações sobre fatos reais.", "sections": [{"heading": "Contexto", "body": "Texto sintético para validar o contrato.", "evidence_ids": ["fixture-evidence-01"]}], "claim_refs": ["claim-fixture-01"], "requested_research": []}
+    },
+    "fact_checker": {
+      "input": {"draft": "Texto sintético para checagem.", "draft_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "evidence_dossier": {}, "editorial_policy": {}},
+      "output": {"draft_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "status": "revise", "findings": [{"claim": "claim sem fonte", "evidence_ids": [], "severity": "major"}]}
+    },
+    "editorial_reviewer": {
+      "input": {"draft": "Texto sintético para revisão.", "draft_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "fact_check_verdict": {"status": "pass"}, "editorial_brief": {}, "persona_ref": {"id": "persona-fixture", "version": "fixture-1", "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}},
+      "output": {"draft_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "verdict": "revise", "findings": ["Atribuir a alegação ao material de origem."], "human_review_required": true}
+    },
+    "media_researcher": {
+      "input": {"sections": [{"section_id": "section-01"}], "media_inventory": [], "rights_matrix": {}},
+      "output": {"proposals": [], "rights_gate_required": true}
+    },
+    "layout_planner": {
+      "input": {"story_package": {"package_id": "fixture-package"}, "eligible_media": [], "viewport": {"width": 390}, "reference_ids": []},
+      "output": {"layout_plan": {"blocks": []}, "visual_provenance": [], "completeness_check": {"status": "fixture_only"}}
+    }
+  }
+}
