@@ -1,6 +1,6 @@
 # Setor: engenharia e Codex
 
-Status: **Motor Editorial v0.2 integrado à `main`; PRs #8, #10 e #18 continuam abertas e não mescladas; ENG-CODEX-006 tem propostas B1 e B2/B3 em drafts #24/#25 e a composição A/B em C0 na branch experimental `codex/eng-codex-006-e2e-experiment`.**
+Status: **Motor Editorial v0.2 integrado à `main`; PRs #8, #10 e #18 continuam abertas e não mescladas; ENG-CODEX-007 E01–E09 validada na branch `codex/eng-codex-007-factory-radar`, PR draft #30 sem merge; E10 é a próxima unidade. ENG-CODEX-006 permanece registrado abaixo como trilha histórica.**
 
 ## Arquitetura operacional dos futuros agentes — 20/10/2026
 
@@ -80,7 +80,7 @@ Uma pauta real -> investigação com fonte -> texto com persona -> revisão -> e
 
 ## ENG-CODEX-007 — fábrica editorial e Radar (2026-10-25)
 
-**Estado atual:** E01–E08 validadas localmente em branch/PR draft de implementação, sem merge. E09 é a próxima unidade. PR #29 continua sendo somente pacote documental; os papéis registrados não são sessões LLM permanentes nem agentes avaliados por inferência real.
+**Estado atual:** E01–E09 validadas localmente em branch/PR draft de implementação, sem merge. E10 é a próxima unidade. PR #29 continua sendo somente pacote documental; os papéis registrados não são sessões LLM permanentes nem agentes avaliados por inferência real.
 
 - [E01 — baseline e plano de integração](ENG-CODEX-007-E01-BASELINE-PLANO-INTEGRACAO.md).
 - [E02 — contratos versionados e carregamento do regimento](ENG-CODEX-007-E02-CONTRATOS-VERSIONADOS.md).
@@ -90,4 +90,5 @@ Uma pauta real -> investigação com fonte -> texto com persona -> revisão -> e
 - [E06 — coleta incremental, cache e deduplicação](ENG-CODEX-007-E06-COLETA-INCREMENTAL-CACHE-DEDUP.md): cache ETag/Last-Modified por fonte+URL, hashes/diffs append-only, migração isolada do Radar para v2 e grupos de republicação com evidência.
 - [E07 — pessoas, projetos, aliases, entrevistas e idiomas](ENG-CODEX-007-E07-PESSOAS-ALIAS-ENTREVISTAS-IDIOMAS.md): proveniência pública, homônimos contextualizados, histórico de funções, distinção entrevista/press release e linhagem de traduções; Radar schema v3, 147/147 testes integrais.
 - [E08 — ledger de alegações, rumores e histórico](ENG-CODEX-007-E08-LEDGER-ORIGEM-STATUS-HISTORICO.md): estados epistemológicos separados do conteúdo, fontes-base/republicações/grupos independentes, declarações atribuídas, correções e contradições append-only; Radar schema v4, 148/148 testes integrais.
+- [E09 — agendamento e política de coleta](ENG-CODEX-007-E09-AGENDAMENTO-POLITICA-COLETA.md): 3–6 janelas locais/dia no scheduler e fila existentes, UTC persistido, `skip`/`run_once`, pausa de grupo, `dry_run=true`, migrações aditivas de fixtures e quotas persistentes por hostname; Radar schema v5.
 - [Checkpoint ENG-CODEX-007](ENG-CODEX-007-CHECKPOINT.md), [Issue #28](https://github.com/Saaimingo/Revista_Gamer/issues/28) e [PR draft #30](https://github.com/Saaimingo/Revista_Gamer/pull/30).

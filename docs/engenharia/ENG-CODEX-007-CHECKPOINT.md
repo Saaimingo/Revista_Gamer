@@ -1,9 +1,9 @@
 # ENG-CODEX-007 — checkpoint de continuidade
 
-Atualizado: 2026-10-25 15:22 -03:00
-Última unidade concluída: **E08 — ledger de alegações, rumores e histórico, validada localmente**
-Unidade em andamento: **E09 — scheduler configurável (implementação e testes focados passaram; suíte integral final pendente)**
-Próxima unidade após E09: **E10 — Radar geral → DiscoveryBatch → triagem**
+Atualizado: 2026-10-25 15:27 -03:00
+Última unidade concluída: **E09 — scheduler configurável, validada localmente e enviada à branch**
+Unidade em andamento: **E10 — Radar geral → DiscoveryBatch → triagem (leitura dos contratos e implementação)**
+Próxima unidade após E10: **E11 — ResearchService sob demanda com perfis compartilhados**
 
 ## Estado do trabalho
 
@@ -114,16 +114,18 @@ Próxima unidade após E09: **E10 — Radar geral → DiscoveryBatch → triagem
 - Handoff Issue #28 [6401183533](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6401183533); handoff PR #30 [6401184099](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6401184099). Checkbox E08 da Issue marcada como concluída.
 - Somente fixtures SQLite temporárias, domínios `.invalid` e nenhuma rede/LLM/SIWC/API paga/runtime DB; sem scheduler/publicação/deploy/merge. Sem dados privados; `published=false`.
 
-## E09 — implementação em andamento
+## E09 — concluída/validada localmente
 
 - Critério da ordem: configurar três janelas locais por dia, 4–6 opcionais, usar UTC internamente, política `skip/run_once`, deduplicação, quota por domínio, pausa e `dry_run`; default OFF. Horários operacionais seguem configuráveis e sem valores escolhidos pela engenharia.
 - Alterações locais: schema do Motor v5→v6 aditivo para janelas/grupos; extensão da `AgentQueue` existente com criação 3–6, controle atômico de grupo, UTC, grace de atraso de 300s configurável, payload `dry_run=true` e quota por hostname; schema Radar v4→v5 com reservas de quota append-only e atômicas; `RadarConnectorService` recusa hostname sem quota configurada e bloqueia antes do transporte ao atingir o limite. CLI `scheduler windows-add|pause-group|resume-group`. Fuso: `America/Sao_Paulo` por padrão, `tzdata` isolado no `.venv` (3.11.9 / 2026.5).
 - Validação focada sequencial: `test_orchestration.py` **41/41 OK (23,108 s)**; `test_radar*.py` **40/40 OK (20,899 s)**. Os testes usam relógio injetado, DST de fixture, SQLite temporário, resolver/transporte falsos; nada de executor externo.
 - Corrigidas tentativas de teste: a primeira asserção de idempotência reutilizou uma reserva concorrente que podia ter sido negada; agora reutiliza uma chave de reserva confirmada. Uma rodada paralela atrasou o teste preexistente do heartbeat; ele passou isolado e as duas suítes focadas passaram sequencialmente.
-- Código e testes estão no working tree; a suíte integral final ainda precisa ser repetida após essas últimas alterações. Não iniciar worker/daemon, não abrir ou migrar o banco runtime, não consultar fontes reais. Próximo passo imediato: commit/push de implementação e checkpoint parcial; executar suíte integral serial; fechar relatório/README/checkpoint E09 e registrar handoff antes de seguir E10.
+- Código e testes enviados em `579790c8a116be05f6444b02b36a161393309b5c` (`feat: add configurable Radar daily scheduler`). A suíte integral serial sobre esse código passou: `& '.\.venv\Scripts\python.exe' -m unittest discover -s motor_editorial/tests -q` → **162/162 OK**, 122,539 s. Focadas: orquestração **41/41** (23,108 s) e Radar **40/40** (20,899 s). `compileall` e `git diff --check` repetidos no fechamento documental; relatório E09 e README setorial atualizados.
+- Sem worker/daemon, banco runtime, fontes reais, LLM, SIWC/Plus, API paga, publicação, deploy ou merge. O teste de heartbeat que oscilou numa execução concorrente passou isolado e na suíte integral serial; não houve alteração nesse código.
+- Fechamento documental e comentários da Issue #28/PR #30 são o último passo de registro desta unidade. E10 já está em andamento na leitura do contrato versionado; seguir direto após registrar os handoffs E09.
 
 ## Bloqueios e retomada
 
-Não há bloqueio técnico atual para E09 offline. Não retomar ou reexecutar C2–D2; eles foram entregues na PR #26 e receberam parecer favorável de encerramento com ressalvas. E01–E08 foram validadas, commitadas e enviadas. Os gates futuros de E16/E17 continuam: origem pública só com perfil/termos/robots aprovados; SIWC/Plus apenas após preflight e elegibilidade/consentimento, sem chamadas faturáveis.
+Não há bloqueio técnico atual para E10 offline. E09 foi fechada com suíte integral serial 162/162 e implementação enviada. Não retomar ou reexecutar C2–D2; eles foram entregues na PR #26. Os gates futuros de E16/E17 continuam: origem pública somente após perfis/termos/robots aprovados; SIWC/Plus só após preflight e elegibilidade/consentimento, sem chamadas faturáveis.
 
-Se houver interrupção durante E09, conferir primeiro `git status --short --branch`, upstream, HEAD remoto, PR #30, Issue #28 e este checkpoint; continuar a inspeção de agendadores sem ativar produção. E08 está concluída conforme o relatório vinculado no índice de Engenharia. Não editar a branch/documentação da PR #29, não reconstruir o motor/OAuth/DNAs e não acessar o banco runtime real.
+Se houver interrupção durante E10, conferir primeiro `git status --short --branch`, upstream, HEAD remoto, PR #30, Issue #28 e este checkpoint; seguir o contrato E10 na ordem versionada. Não editar a branch/documentação da PR #29, não reconstruir motor/OAuth/DNAs e não acessar o banco runtime real. O E09 não iniciou coleta: as agendas seguem default OFF e `dry_run=true`.
