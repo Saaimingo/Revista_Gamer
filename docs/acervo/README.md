@@ -33,3 +33,7 @@ Press rooms de fabricantes/publishers, capturas válidas para reportagem, arte o
 - [Estudo de casos reais de disputas sobre imagens (2021–2026)](ESTUDO-CASOS-DISPUTAS-MIDIAS-2021-2026.md): decisões judiciais, notificações e retiradas; inclui imprensa, sites de games, foto profissional, acusações revertidas e padrões de cautela. **Pesquisa preliminar, não autorização jurídica.**
 
 **Atenção:** o mapa apenas localiza fontes. Não são licenças de imagens individuais, não autoriza baixar mídias em massa, coleta agendada, contas, deploy ou publicação. Documentos criados para revisão da direção em PR, não como regras definitivas.
+
+## Direção operacional simplificada (25/10/2026)
+
+- [Fluxo de obtenção de imagens oficiais intactas v0.1](FLUXO-SIMPLES-OBTENCAO-MIDIA-OFICIAL-V0.1.md): prioridade para pacotes gratuitos de imprensa, descoberta/credenciamento/download autorizado e crédito; sem edição ou geração por IA no fluxo padrão. **Proposta, sem implementação.**
