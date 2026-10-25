@@ -37,3 +37,7 @@ Press rooms de fabricantes/publishers, capturas válidas para reportagem, arte o
 ## Direção operacional simplificada (25/10/2026)
 
 - [Fluxo de obtenção de imagens oficiais intactas v0.1](FLUXO-SIMPLES-OBTENCAO-MIDIA-OFICIAL-V0.1.md): prioridade para pacotes gratuitos de imprensa, descoberta/credenciamento/download autorizado e crédito; sem edição ou geração por IA no fluxo padrão. **Proposta, sem implementação.**
+
+## Redes sociais: posts orgânicos e divulgação de edições (25/10/2026)
+
+- [Pesquisa sobre mídias em Facebook, Instagram, Reels e impulsionamentos](USO-MIDIAS-REDES-SOCIAIS-ORGANICO-IMPULSIONADO-V0.1.md): critérios para conteúdo orgânico dos cronistas (Beto Cartucho, Nina Prisma e Arlindo Carranca), posts de matérias, vídeos/trilhas e distinção do impulsionamento pago; handoff ao Bloco 06. **PROPOSTA — nenhuma conta, post, API ou anúncio ativado.**
