@@ -1,9 +1,9 @@
 # ENG-CODEX-007 — checkpoint de continuidade
 
-Atualizado: 2026-10-25 15:39 -03:00
-Última unidade concluída: **E10 — Radar geral → DiscoveryBatch → triagem, validada localmente e enviada à branch**
-Unidade em andamento: **E11 — ResearchService sob demanda com perfis compartilhados**
-Próxima unidade após E11: **E12 — carteira dinâmica de 10 pautas principais + 10 reservas**
+Atualizado: 2026-10-25 16:12 -03:00
+Ultima unidade concluida: **E11 - ResearchService sob demanda com perfis compartilhados, validada localmente e enviada a branch**
+Unidade em andamento: **E12 - carteira dinamica de 10 pautas principais + 10 reservas**
+Proxima unidade apos E12: **E13 - integracao dos papeis ao dispatcher existente**
 
 ## Estado do trabalho
 
@@ -20,6 +20,7 @@ Próxima unidade após E11: **E12 — carteira dinâmica de 10 pautas principais
 - E08 código/testes em `bf96cfb12fa025577d0a3d48c31ad695434d3a78`; relatório/índice/checkpoint final em `0a622f45718a0a10cfeabeaedc7c32affe349ebb`; ambos enviados. Suíte integral 148/148. Handoffs Issue #28 [6401183533](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6401183533) e PR #30 [6401184099](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6401184099); checkbox E08 atualizado. PR #30 segue draft/aberta/sem merge.
 - E09 código/testes `579790c8a116be05f6444b02b36a161393309b5c`; relatório/índice/README/checkpoint `c867411924a56d545bb3da49ff0f6c0ec6aa8f7d`; suíte integral 162/162. Handoffs Issue #28 [6401478854](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6401478854) e PR #30 [6401479277](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6401479277); checkbox E09 atualizado. PR #30 segue draft/aberta/sem merge.
 - E10 código/testes em `949ac16` (`feat: queue Radar discoveries for triage`); relatório/índice/README/checkpoint final em `249bd09`; suíte integral serial **166/166 OK em 129,768 s**, foco E10 **4/4 OK em 6,929 s**, `compileall` e `git diff --check` exit 0. Handoffs Issue #28 [6401597398](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6401597398) e PR #30 [6401597864](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6401597864); checkbox E10 atualizado. PR #30 segue draft/aberta/sem merge.
+- E11 codigo/testes enviados em `3ed30ca` (`feat: add shared Radar research service`). `ResearchRequest` v1.1 vincula `story_revision_id`; Radar schema v6 adiciona coluna/index por migracao v5 to v6; o servico compartilhado busca primeiro documentos/entidades/aliases/topicos/alegacoes/historico com perfis `radar.general.v1`, `research.hardware.v1`, `research.games.v1` e `research.creators.v1`. Foco E11 **9/9 OK em 3,423 s**, foco contratos+store+ResearchService **38/38 OK em 14,433 s**, suite integral serial **176/176 OK em 128,493 s**; `compileall` e `git diff --check` exit 0. Relatorio E11 criado; handoffs e IDs de comentarios serao registrados apos publicacao. PR #30 segue aberta/draft/sem merge.
 
 ## Evidências E01 executadas nesta sessão
 
@@ -135,8 +136,18 @@ Próxima unidade após E11: **E12 — carteira dinâmica de 10 pautas principais
 - `& '.\.venv\Scripts\python.exe' -m unittest discover -s motor_editorial/tests -q` → **166/166 OK em 129,768 s**, execução serial após `949ac16`. `& '.\.venv\Scripts\python.exe' -m compileall -q motor_editorial` → exit 0; `git diff --check` → exit 0. Relatório, índice, README setorial, checkbox e handoffs Issue/PR concluídos; links acima.
 - Testes usam SQLite temporário, fontes/feeds `.invalid`, relógio/transportes/resolvedor simulados. Nenhuma fonte pública consultada, nenhum worker/dispatcher iniciado, sem LLM/SIWC/Plus/API paga, banco runtime, publicação, deploy ou merge.
 
+## E11 - concluida/validada localmente
+
+- Implementacao: `motor_editorial/research_service.py`; perfis versionados e compartilhados sobre o mesmo `RadarStore`; busca por documentos, entidades/aliases, topicos, alegacoes e eventos, com ordenacao deterministica. Nenhum scraper por jornalista.
+- `ResearchRequest` v1.1 exige `story_revision_id`; v1.0 continua parseavel para legado e e bloqueado na execucao E11 sem revisao. Migracao Radar v5 to v6 aditiva adiciona a coluna nullable aos pedidos antigos e indexa `(story_id, story_revision_id, created_at)`.
+- O servico reaproveita packet cacheado por request/idempotency; valida escopo, perfil, periodo, fontes/host/idioma/exclusoes, referencias ja persistidas e limites de chamadas, bytes, fontes e duracao. Rate limit conserva `retry_at`; escopo, orcamento ou referencia invalida falham fechado. So estados epistemologicos do ledger satisfazem categorias requeridas; similaridade textual nao vira confirmacao.
+- `& '.\.venv\Scripts\python.exe' -m unittest motor_editorial.tests.test_research_service -q` -> **9/9 OK em 3,423 s**; `& '.\.venv\Scripts\python.exe' -m unittest motor_editorial.tests.test_research_service motor_editorial.tests.test_agent_contracts motor_editorial.tests.test_radar_store -q` -> **38/38 OK em 14,433 s**.
+- Suite integral serial final: `& '.\.venv\Scripts\python.exe' -m unittest discover -s motor_editorial/tests -q` -> **176/176 OK em 128,493 s**. CPython 3.11.9 (`.venv`); `compileall` e `git diff --check` passaram. Fixtures SQLite e provider falso; sem fonte publica, LLM, SIWC/Plus, API paga, banco runtime, worker, publicacao, deploy ou merge.
+- Codigo/testes: `3ed30ca442b031cf26f0cb8b6b0eb69a8116ba18`. Relatorio: `docs/engenharia/ENG-CODEX-007-E11-PESQUISA-SOB-DEMANDA.md`. O relatorio, indice, README setorial, checkbox e handoffs serao sincronizados neste ciclo.
+- Limite para E17: a instrucao vigente do usuario exclui SIWC/Plus real. O usuario reportou que a tela mostrava 10% da franquia disponivel e retorno a 100% as 18:12 (fuso nao informado); nenhuma chamada real foi feita. O piloto real E17 fica `BLOCKED` neste escopo; seguir com validacao offline independente.
+
 ## Bloqueios e retomada
 
-Não há bloqueio técnico atual para E11 offline. E10 passou na suíte integral 166/166. Não retomar ou reexecutar C2–D2; eles foram entregues na PR #26. Os gates futuros E16/E17 continuam: fontes públicas somente após perfis/termos/robots aprovados; SIWC/Plus só após preflight e elegibilidade/consentimento, sem chamadas faturáveis.
+Nao ha bloqueio tecnico atual para E12 offline. Nao retomar ou reexecutar C2-D2; eles foram entregues na PR #26. Para E16, manter fontes, termos/robots e quotas revisados por origem antes de qualquer coleta real. E17 permanece bloqueada para chamadas SIWC/Plus reais pela instrucao vigente; nao inferir autorizacao da janela de franquia.
 
-Se houver interrupção durante E11, conferir primeiro `git status --short --branch`, upstream, HEAD remoto, PR #30, Issue #28 e este checkpoint; seguir o contrato E11 na ordem versionada. Não editar a branch/documentação da PR #29, não reconstruir motor/OAuth/DNAs e não acessar o banco runtime real. O scheduler E09 segue default OFF e `dry_run=true`; E10 só enfileira tarefa `triage.pending`, sem despacho.
+Se houver interrupcao durante E12, conferir primeiro `git status --short --branch`, upstream, HEAD remoto, PR #30, Issue #28 e este checkpoint; seguir o contrato E12 na ordem versionada. Nao editar a branch/documentacao da PR #29, nao reconstruir motor/OAuth/DNAs e nao acessar o banco runtime real. O scheduler E09 segue default OFF e `dry_run=true`; E10 so enfileira tarefa `triage.pending`, sem despacho.

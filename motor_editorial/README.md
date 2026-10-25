@@ -101,6 +101,14 @@ O configurador sempre cria janelas `enabled=false` e `dry_run=true`; não inicia
 
 `RadarTriagePolicy` permite configurar threshold e pesos de prioridade por tipo de evento. O score é um filtro determinístico de fila, não uma avaliação editorial nem sinal de confirmação. Um batch não vazio cria uma tarefa contratual `agent.role.triage_analyst` na mesma `AgentQueue`, com gate humano preservado. O executor desta etapa é `triage.pending`; a tarefa fica enfileirada e não chama modelo nem cria promoção à carteira. A integração de papéis ao dispatcher continua prevista na E13.
 
+### Pesquisa sob demanda com perfis compartilhados (ENG-CODEX-007 E11)
+
+`ResearchService` usa o mesmo `RadarStore` para os perfis `radar.general.v1`, `research.hardware.v1`, `research.games.v1` e `research.creators.v1`. O perfil vem do `ResearchRequest` e da pergunta, não do DNA do jornalista. Carranca, Beto e Nina podem consultar o mesmo índice de documentos, entidades/aliases, tópicos e alegações/histórico.
+
+O pedido v1.1 exige `story_revision_id`; a migração Radar v5→v6 acrescenta o vínculo indexado aos pedidos persistidos. O serviço procura primeiro no cache/índice, aplica filtros de fonte, domínio, idioma, período, exclusões e evidências conhecidas, e retorna packet versionado com hash, referências, linhagem, mudanças materiais e categorias faltantes. Só estados epistemológicos registrados satisfazem um tipo de evidência; texto semelhante não é tratado como confirmação.
+
+O `ResearchService` não configura conector externo por padrão. Um adaptador injetado só pode rodar com `read:registered_public_sources`, budget restante e evidência pendente; seus IDs precisam existir no Radar e obedecer aos limites de fontes, chamadas, bytes e duração. Retentativas rate-limited respeitam `retry_at`. A integração ao dispatcher permanece na E13; pesquisa real em fontes públicas, na E16.
+
 ### Prova técnica opcional com o plano ChatGPT
 
 O acesso oficial é via Sign in with ChatGPT (SIWC), autorização explícita no navegador e escopo de uso do plano. Não use nem configure `OPENAI_API_KEY`. Para instalar a dependência OIDC opcional em ambiente isolado:
