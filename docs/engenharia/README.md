@@ -80,7 +80,7 @@ Uma pauta real -> investigação com fonte -> texto com persona -> revisão -> e
 
 ## ENG-CODEX-007 — fábrica editorial e Radar (2026-10-25)
 
-**Estado atual:** E01–E07 validadas localmente em branch/PR draft de implementação, sem merge. E08 é a próxima unidade. PR #29 continua sendo somente pacote documental; os papéis registrados não são sessões LLM permanentes nem agentes avaliados por inferência real.
+**Estado atual:** E01–E08 validadas localmente em branch/PR draft de implementação, sem merge. E09 é a próxima unidade. PR #29 continua sendo somente pacote documental; os papéis registrados não são sessões LLM permanentes nem agentes avaliados por inferência real.
 
 - [E01 — baseline e plano de integração](ENG-CODEX-007-E01-BASELINE-PLANO-INTEGRACAO.md).
 - [E02 — contratos versionados e carregamento do regimento](ENG-CODEX-007-E02-CONTRATOS-VERSIONADOS.md).
@@ -89,4 +89,5 @@ Uma pauta real -> investigação com fonte -> texto com persona -> revisão -> e
 - [E05 — conectores de leitura pública](ENG-CODEX-007-E05-CONETORES-LEITURA-PUBLICA.md): RSS/Atom, API JSON pública, HTML metadata-only, robots explícito e proteções TLS/SSRF/redirect/limite.
 - [E06 — coleta incremental, cache e deduplicação](ENG-CODEX-007-E06-COLETA-INCREMENTAL-CACHE-DEDUP.md): cache ETag/Last-Modified por fonte+URL, hashes/diffs append-only, migração isolada do Radar para v2 e grupos de republicação com evidência.
 - [E07 — pessoas, projetos, aliases, entrevistas e idiomas](ENG-CODEX-007-E07-PESSOAS-ALIAS-ENTREVISTAS-IDIOMAS.md): proveniência pública, homônimos contextualizados, histórico de funções, distinção entrevista/press release e linhagem de traduções; Radar schema v3, 147/147 testes integrais.
+- [E08 — ledger de alegações, rumores e histórico](ENG-CODEX-007-E08-LEDGER-ORIGEM-STATUS-HISTORICO.md): estados epistemológicos separados do conteúdo, fontes-base/republicações/grupos independentes, declarações atribuídas, correções e contradições append-only; Radar schema v4, 148/148 testes integrais.
 - [Checkpoint ENG-CODEX-007](ENG-CODEX-007-CHECKPOINT.md), [Issue #28](https://github.com/Saaimingo/Revista_Gamer/issues/28) e [PR draft #30](https://github.com/Saaimingo/Revista_Gamer/pull/30).

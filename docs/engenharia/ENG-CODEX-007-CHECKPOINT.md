@@ -1,9 +1,9 @@
 # ENG-CODEX-007 — checkpoint de continuidade
 
-Atualizado: 2026-10-25 14:52 -03:00
-Última unidade concluída: **E07 — pessoas, projetos, aliases, entrevistas e idiomas, validada localmente**
-Unidade em andamento: **E08 — ledger de alegações e rumores**
-Próxima unidade após E08: **E09 — scheduler configurável, default OFF**
+Atualizado: 2026-10-25 15:00 -03:00
+Última unidade concluída: **E08 — ledger de alegações, rumores e histórico, validada localmente**
+Unidade em andamento: **E09 — scheduler configurável (análise dos agendadores existentes; sem edição E09 ainda)**
+Próxima unidade após E09: **E10 — Radar geral → DiscoveryBatch → triagem**
 
 ## Estado do trabalho
 
@@ -17,6 +17,7 @@ Próxima unidade após E08: **E09 — scheduler configurável, default OFF**
 - E05 código/testes no commit `313baeeb1384354189c49a2a3ec206dc8a428ae1`; relatório/índice/checkpoint em `d4bbb81e2c8d0019f4d6062f42062803ab6097e4`, handoffs na Issue #28 (`6400677577`) e PR #30 (`6400677792`); checklist E01–E05 marcado com evidências.
 - E06 código/testes no commit `eddc0e904b0a220f24651209a4e4da2d27153423`; relatório/índice/checkpoint no commit `1d78eb83100b5fc3dba0c3989a0e1142c0360725`; ambos enviados e sincronizados. Handoffs publicados na Issue #28 e PR #30; checklist E01–E06 marcado com evidências. PR #30 continua draft/aberta/sem merge.
 - E07 implementação/testes em `b63c620e39d3e4ac4fea3ebdca37a71d10cde653`; relatório/índice/checkpoint final em `dace58c53132c6db4ef5bd21c1795cc73709a80f`; handoffs Issue #28 [6401083176](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6401083176) e PR #30 [6401083777](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6401083777). Checklist E07 atualizado. Suíte integral 147/147. PR #30 segue draft/aberta/sem merge.
+- E08 código/testes e checkpoint parcial em `bf96cfb12fa025577d0a3d48c31ad695434d3a78`, enviado. Suíte integral final 148/148; relatório/índice/checkpoint final e handoffs serão registrados ao fechar a documentação. Issue #28 ainda precisa da marcação E08; PR #30 permanece draft/aberta/sem merge no último estado consultado.
 
 ## Evidências E01 executadas nesta sessão
 
@@ -103,17 +104,23 @@ Próxima unidade após E08: **E09 — scheduler configurável, default OFF**
 - Handoff Issue #28: [6401083176](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6401083176); handoff PR #30: [6401083777](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6401083777). Issue E07 marcada como concluída com evidências.
 - Fixtures/SQLite temporário e hosts `.invalid` somente; sem rede pública, LLM, SIWC/Plus, API paga, runtime DB, scheduler, publicação, deploy ou merge; `published=false`.
 
-## E08 — implementação em andamento
+## E08 — concluída/validada localmente
 
 - Critério da ordem versionada: registrar estados epistêmicos, fonte original/intermediária, grupos de origem independentes, declarações pessoais/oficiais, fontes contraditórias e histórico; status da declaração separado da comprovação do conteúdo. Dez sites repetindo o mesmo rumor não são dez confirmações; rumores atribuídos continuam sem alegação de confirmação; alterações/correções preservam a história.
 - Inventário E04: `radar_claims`, `radar_claim_sources` e `radar_claim_events` já existiam. Faltava impedir linhagem de republicação sem fonte-base, validar que os status de eventos correspondam ao tipo, exigir documento/fonte nas mudanças probatórias e proteger as alegações/links contra sobrescrita.
 - Alterações locais E08: Radar schema v4 e migração v3→v4 com `based_on_source_id`, imutabilidade de alegações/vínculos e índice de linhagem. `link_claim_source` exige documento público da própria fonte; republicação precisa derivar de uma fonte já ligada no mesmo grupo; grupos `origin`/`independent` são distintos. Declaração oficial/pessoal exige entidade do tipo correspondente e relação `statement_by`; transições de conteúdo exigem status coerente e evidência pública ligada à fonte. Eventos preservam histórico sem editar a classificação inicial da alegação.
-- Testes focados após correção da primeira tentativa de sintaxe: `& '.\.venv\Scripts\python.exe' -m unittest discover -s motor_editorial/tests -p 'test_radar*.py' -v` → **33/33 OK**, 16,507 s. `compileall` → exit 0; `git diff --check` → exit 0 (avisos LF→CRLF do Git).
-- Suíte integral `& '.\.venv\Scripts\python.exe' -m unittest discover -s motor_editorial/tests -q` está em execução; **resultado pendente**. Próximo passo: coletar o resultado, corrigir se necessário e completar relatório, checkpoint, commits/push e handoffs Issue #28/PR #30.
+- Testes focados após correção da primeira tentativa de sintaxe: `& '.\.venv\Scripts\python.exe' -m unittest discover -s motor_editorial/tests -p 'test_radar*.py' -v` → **33/33 OK**, 16,507 s; suíte integral `& '.\.venv\Scripts\python.exe' -m unittest discover -s motor_editorial/tests -q` → **148/148 OK**, 163,240 s. `compileall` → exit 0; `git diff --check` → exit 0 (avisos LF→CRLF do Git).
+- Relatório: `docs/engenharia/ENG-CODEX-007-E08-LEDGER-ORIGEM-STATUS-HISTORICO.md`; testes em `motor_editorial/tests/test_radar_store.py`. Código/testes/checkpoint parcial: commit `bf96cfb12fa025577d0a3d48c31ad695434d3a78`, enviado. Relatório final, índice e handoffs ainda serão sincronizados.
 - Somente fixtures SQLite temporárias, domínios `.invalid` e nenhuma rede/LLM/SIWC/API paga/runtime DB; sem scheduler/publicação/deploy/merge. Sem dados privados; `published=false`.
+
+## E09 — início de análise
+
+- Critério da ordem: configurar três janelas locais por dia, 4–6 opcionais, usar UTC internamente, política `skip/run_once` para atraso, deduplicação por execução, limites por domínio, pausa e dry-run; scheduler **default OFF**. O relógio simulado precisa provar execução, janela perdida e retomada sem duplicar, e polling vazio não chama IA.
+- Próximo passo: localizar agendadores/fila atuais e seus limites, determinar se E09 pode reutilizar o scheduler existente sem iniciar daemon nem tocar em produção; implementar relógio injetável e persistência apenas no Radar isolado/fixtures quando compatível.
+- Nenhuma alteração de código E09 ainda. Sem cron, serviço de sistema, scheduler ativo ou coleta real; manter configuração desligada e usar testes determinísticos.
 
 ## Bloqueios e retomada
 
-Não há bloqueio técnico atual para E08 offline. Não retomar ou reexecutar C2–D2; eles foram entregues na PR #26 e receberam parecer favorável de encerramento com ressalvas. E01–E07 foram validadas, commitadas e enviadas. Os gates futuros de E16/E17 continuam: origem pública só com perfil/termos/robots aprovados; SIWC/Plus apenas após preflight e elegibilidade/consentimento, sem chamadas faturáveis.
+Não há bloqueio técnico atual para E09 offline. Não retomar ou reexecutar C2–D2; eles foram entregues na PR #26 e receberam parecer favorável de encerramento com ressalvas. E01–E08 foram validadas, commitadas e enviadas. Os gates futuros de E16/E17 continuam: origem pública só com perfil/termos/robots aprovados; SIWC/Plus apenas após preflight e elegibilidade/consentimento, sem chamadas faturáveis.
 
-Se houver interrupção durante E08, conferir primeiro `git status --short --branch`, upstream, HEAD remoto, PR #30, Issue #28 e este checkpoint; resultado da suíte integral continua pendente até ser efetivamente registrado. E07 está concluída conforme o relatório vinculado no índice de Engenharia. Não editar a branch/documentação da PR #29, não reconstruir o motor/OAuth/DNAs e não acessar o banco runtime real.
+Se houver interrupção durante E09, conferir primeiro `git status --short --branch`, upstream, HEAD remoto, PR #30, Issue #28 e este checkpoint; continuar a inspeção de agendadores sem ativar produção. E08 está concluída conforme o relatório vinculado no índice de Engenharia. Não editar a branch/documentação da PR #29, não reconstruir o motor/OAuth/DNAs e não acessar o banco runtime real.
