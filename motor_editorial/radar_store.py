@@ -23,11 +23,13 @@ from .db import json_dumps, normalize_text, stable_hash
 from .orchestration import _assert_no_credentials
 
 
-RADAR_SCHEMA_VERSION = 1
+RADAR_SCHEMA_VERSION = 2
 _HASH_RE = re.compile(r"^[a-f0-9]{64}$")
 _SENSITIVE_URL_KEYS = {
-    "access_token", "refresh_token", "id_token", "token", "api_key", "apikey", "client_secret",
-    "password", "cookie", "authorization", "code_verifier", "authorization_code", "credentials",
+    "access_token", "refresh_token", "id_token", "token", "oauth_token", "api_key", "apikey", "key",
+    "access_key", "client_secret", "secret", "signature", "sig", "auth", "credential", "credentials",
+    "x_amz_credential", "x_amz_signature", "x_amz_security_token", "password", "cookie", "authorization",
+    "code", "code_verifier", "authorization_code",
 }
 _SOURCE_TYPES = {"official", "publisher", "creator", "community", "public_api", "unknown"}
 _ACCESS_POLICIES = {"unreviewed", "allowed", "blocked", "suspended"}
@@ -349,6 +351,58 @@ _SCHEMA_V1_STATEMENTS = (
         BEFORE DELETE ON radar_candidate_events BEGIN SELECT RAISE(ABORT, 'candidate events are append-only'); END""",
 )
 
+_SCHEMA_V2_STATEMENTS = (
+    "CREATE INDEX IF NOT EXISTS idx_radar_documents_body_sha256 ON radar_documents(body_sha256)",
+    """CREATE TABLE IF NOT EXISTS radar_fetch_events (
+        fetch_event_id TEXT PRIMARY KEY,
+        source_id TEXT NOT NULL REFERENCES radar_sources(source_id) ON DELETE RESTRICT,
+        request_url TEXT NOT NULL,
+        observed_at TEXT NOT NULL,
+        fetch_status TEXT NOT NULL CHECK (fetch_status IN ('observed','not_modified','removed','forbidden','rate_limited','error','blocked')),
+        response_sha256 TEXT CHECK (response_sha256 IS NULL OR length(response_sha256)=64),
+        etag TEXT,
+        last_modified TEXT,
+        retry_at TEXT
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_radar_fetch_events_source_time ON radar_fetch_events(source_id, observed_at)",
+    """CREATE TRIGGER IF NOT EXISTS radar_fetch_events_no_update
+        BEFORE UPDATE ON radar_fetch_events BEGIN SELECT RAISE(ABORT, 'fetch events are append-only'); END""",
+    """CREATE TRIGGER IF NOT EXISTS radar_fetch_events_no_delete
+        BEFORE DELETE ON radar_fetch_events BEGIN SELECT RAISE(ABORT, 'fetch events are append-only'); END""",
+    """CREATE TABLE IF NOT EXISTS radar_fetch_cache (
+        source_id TEXT NOT NULL REFERENCES radar_sources(source_id) ON DELETE RESTRICT,
+        request_url TEXT NOT NULL,
+        etag TEXT,
+        last_modified TEXT,
+        last_fetched_at TEXT NOT NULL,
+        response_sha256 TEXT CHECK (response_sha256 IS NULL OR length(response_sha256)=64),
+        fetch_status TEXT NOT NULL CHECK (fetch_status IN ('observed','not_modified','removed','forbidden','rate_limited','error','blocked')),
+        PRIMARY KEY(source_id, request_url)
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_radar_fetch_cache_fetched ON radar_fetch_cache(last_fetched_at)",
+    """CREATE TABLE IF NOT EXISTS radar_republication_groups (
+        group_id TEXT PRIMARY KEY,
+        basis TEXT NOT NULL CHECK (basis IN ('canonical_origin','identical_body_same_byline')),
+        identity_sha256 TEXT NOT NULL CHECK (length(identity_sha256)=64),
+        evidence_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE(basis, identity_sha256)
+    )""",
+    """CREATE TABLE IF NOT EXISTS radar_republication_members (
+        group_id TEXT NOT NULL REFERENCES radar_republication_groups(group_id) ON DELETE RESTRICT,
+        document_id TEXT NOT NULL REFERENCES radar_documents(document_id) ON DELETE RESTRICT,
+        relation TEXT NOT NULL CHECK (relation IN ('origin','identical_copy')),
+        evidence_json TEXT NOT NULL,
+        linked_at TEXT NOT NULL,
+        PRIMARY KEY(group_id, document_id)
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_radar_republication_members_document ON radar_republication_members(document_id)",
+    """CREATE TRIGGER IF NOT EXISTS radar_republication_members_no_update
+        BEFORE UPDATE ON radar_republication_members BEGIN SELECT RAISE(ABORT, 'republication links are append-only'); END""",
+    """CREATE TRIGGER IF NOT EXISTS radar_republication_members_no_delete
+        BEFORE DELETE ON radar_republication_members BEGIN SELECT RAISE(ABORT, 'republication links are append-only'); END""",
+)
+
 
 class RadarStore:
     """Explicit-path, independently versioned SQLite store for Radar data."""
@@ -372,6 +426,13 @@ class RadarStore:
                 raise RadarStoreError(
                     f"Radar schema v{version} é posterior ao suportado (v{RADAR_SCHEMA_VERSION})."
                 )
+            if version == 0:
+                self._migrate_v0_to_v1(connection)
+                self._migrate_v1_to_v2(connection)
+                version = RADAR_SCHEMA_VERSION
+            elif version == 1:
+                self._migrate_v1_to_v2(connection)
+                version = RADAR_SCHEMA_VERSION
             if version == RADAR_SCHEMA_VERSION:
                 check = connection.execute("PRAGMA quick_check").fetchone()[0]
                 if check != "ok":
@@ -386,14 +447,15 @@ class RadarStore:
                     "radar_entity_aliases", "radar_topics", "radar_topic_entities", "radar_document_entities",
                     "radar_document_topics", "radar_claims", "radar_claim_sources", "radar_claim_events",
                     "radar_research_requests", "radar_research_packets", "radar_candidates", "radar_candidate_events",
+                    "radar_fetch_events", "radar_fetch_cache", "radar_republication_groups", "radar_republication_members",
                 }
                 if not required.issubset(tables):
-                    raise RadarStoreError("Banco marcado como Radar v1 sem as tabelas obrigatórias.")
+                    raise RadarStoreError("Banco marcado como Radar v2 sem as tabelas obrigatórias.")
                 unrelated = {name for name in tables if not name.startswith(("radar_", "sqlite_"))}
                 if unrelated:
                     raise RadarStoreError("Banco Radar v1 contém tabelas fora do namespace reservado.")
                 return
-            self._migrate_v0_to_v1(connection)
+            raise RadarStoreError(f"Versão de schema Radar não suportada: {version}.")
 
     @staticmethod
     def _migrate_v0_to_v1(connection: sqlite3.Connection) -> None:
@@ -430,7 +492,39 @@ class RadarStore:
                          (parts.hostname or "unknown").casefold(), created_at, created_at),
                     )
                 connection.execute("DROP TABLE radar_sources_v0")
-            connection.execute(f"PRAGMA user_version = {RADAR_SCHEMA_VERSION}")
+            connection.execute("PRAGMA user_version = 1")
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+
+    @staticmethod
+    def _migrate_v1_to_v2(connection: sqlite3.Connection) -> None:
+        connection.execute("BEGIN IMMEDIATE")
+        try:
+            tables = {
+                row[0] for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+            unexpected = {name for name in tables if not name.startswith(("radar_", "sqlite_"))}
+            if unexpected or "radar_documents" not in tables or "radar_sources" not in tables:
+                raise RadarStoreError("Migração v1→v2 recusada: banco não corresponde ao namespace do Radar.")
+            document_columns = {
+                row[1] for row in connection.execute("PRAGMA table_info(radar_documents)").fetchall()
+            }
+            additive_columns = (
+                ("body_sha256", "TEXT"),
+                ("body_segment_hashes_json", "TEXT NOT NULL DEFAULT '[]'"),
+                ("body_char_count", "INTEGER NOT NULL DEFAULT 0 CHECK (body_char_count >= 0)"),
+                ("origin_url", "TEXT"),
+            )
+            for name, declaration in additive_columns:
+                if name not in document_columns:
+                    connection.execute(f"ALTER TABLE radar_documents ADD COLUMN {name} {declaration}")
+            for statement in _SCHEMA_V2_STATEMENTS:
+                connection.execute(statement)
+            connection.execute("PRAGMA user_version = 2")
             connection.commit()
         except Exception:
             connection.rollback()
@@ -552,6 +646,286 @@ class RadarStore:
             except sqlite3.IntegrityError as error:
                 connection.rollback()
                 raise RadarStoreError("Documento repetido ou fonte de origem inexistente.") from error
+
+    def get_document_by_source_url(self, *, source_id: str, canonical_url: str) -> dict[str, Any] | None:
+        source_id = _text(source_id, "source_id", maximum=256)  # type: ignore[assignment]
+        canonical_url = _url(canonical_url, "canonical_url")  # type: ignore[assignment]
+        with closing(self.connect()) as connection:
+            row = connection.execute(
+                "SELECT * FROM radar_documents WHERE source_id=? AND canonical_url=?",
+                (source_id, canonical_url),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def record_fetch_event(
+        self, *, source_id: str, request_url: str, observed_at: str, fetch_status: str,
+        response_sha256: str | None = None, etag: str | None = None,
+        last_modified: str | None = None, retry_at: str | None = None,
+    ) -> str:
+        source_id = _text(source_id, "source_id", maximum=256)  # type: ignore[assignment]
+        request_url = _url(request_url, "request_url")  # type: ignore[assignment]
+        observed_at = _timestamp(observed_at, "observed_at")  # type: ignore[assignment]
+        response_sha256 = _sha256(response_sha256, "response_sha256", optional=True)
+        etag = _text(etag, "etag", maximum=1_000, optional=True)
+        last_modified = _text(last_modified, "last_modified", maximum=256, optional=True)
+        retry_at = _timestamp(retry_at, "retry_at", optional=True)
+        if fetch_status not in {"observed", "not_modified", "removed", "forbidden", "rate_limited", "error", "blocked"}:
+            raise RadarStoreError("fetch_status inválido para histórico do Radar.")
+        event_id = uuid.uuid4().hex
+        with closing(self.connect()) as connection:
+            try:
+                connection.execute(
+                    """INSERT INTO radar_fetch_events
+                       (fetch_event_id, source_id, request_url, observed_at, fetch_status,
+                        response_sha256, etag, last_modified, retry_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (event_id, source_id, request_url, observed_at, fetch_status,
+                     response_sha256, etag, last_modified, retry_at),
+                )
+                connection.commit()
+                return event_id
+            except sqlite3.IntegrityError as error:
+                connection.rollback()
+                raise RadarStoreError("FetchEvent sem fonte registrada ou inválido.") from error
+
+    def get_fetch_cache(self, *, source_id: str, request_url: str) -> dict[str, Any] | None:
+        source_id = _text(source_id, "source_id", maximum=256)  # type: ignore[assignment]
+        request_url = _url(request_url, "request_url")  # type: ignore[assignment]
+        with closing(self.connect()) as connection:
+            row = connection.execute(
+                "SELECT * FROM radar_fetch_cache WHERE source_id=? AND request_url=?",
+                (source_id, request_url),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def save_fetch_cache(
+        self, *, source_id: str, request_url: str, fetched_at: str, fetch_status: str,
+        etag: str | None = None, last_modified: str | None = None,
+        response_sha256: str | None = None,
+    ) -> None:
+        source_id = _text(source_id, "source_id", maximum=256)  # type: ignore[assignment]
+        request_url = _url(request_url, "request_url")  # type: ignore[assignment]
+        fetched_at = _timestamp(fetched_at, "fetched_at")  # type: ignore[assignment]
+        etag = _text(etag, "etag", maximum=1_000, optional=True)
+        last_modified = _text(last_modified, "last_modified", maximum=256, optional=True)
+        response_sha256 = _sha256(response_sha256, "response_sha256", optional=True)
+        if fetch_status not in {"observed", "not_modified", "removed", "forbidden", "rate_limited", "error", "blocked"}:
+            raise RadarStoreError("fetch_status inválido para cache incremental.")
+        with closing(self.connect()) as connection:
+            try:
+                connection.execute(
+                    """INSERT INTO radar_fetch_cache
+                       (source_id, request_url, etag, last_modified, last_fetched_at, response_sha256, fetch_status)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)
+                       ON CONFLICT(source_id, request_url) DO UPDATE SET
+                         etag=excluded.etag, last_modified=excluded.last_modified,
+                         last_fetched_at=excluded.last_fetched_at, response_sha256=excluded.response_sha256,
+                         fetch_status=excluded.fetch_status""",
+                    (source_id, request_url, etag, last_modified, fetched_at, response_sha256, fetch_status),
+                )
+                connection.commit()
+            except sqlite3.IntegrityError as error:
+                connection.rollback()
+                raise RadarStoreError("Cache incremental sem fonte registrada.") from error
+
+    def observe_document_snapshot(
+        self, *, document_id: str, source_id: str, canonical_url: str, publisher: str,
+        language: str, fetched_at: str, content_sha256: str, normalized_sha256: str,
+        title: str, source_snapshot_id: str, body_sha256: str | None = None,
+        body_segment_hashes: Iterable[str] = (), body_char_count: int = 0,
+        origin_url: str | None = None, resolved_url: str | None = None, byline: str | None = None,
+        published_at: str | None = None, modified_at: str | None = None,
+        etag: str | None = None, last_modified: str | None = None,
+    ) -> dict[str, Any]:
+        """Atomically upsert metadata and append an immutable observation event."""
+        document_id = _text(document_id, "document_id", maximum=256)  # type: ignore[assignment]
+        source_id = _text(source_id, "source_id", maximum=256)  # type: ignore[assignment]
+        canonical_url = _url(canonical_url, "canonical_url")  # type: ignore[assignment]
+        origin_url = _url(origin_url, "origin_url", optional=True)
+        resolved_url = _url(resolved_url, "resolved_url", optional=True)
+        publisher = _text(publisher, "publisher", maximum=500)  # type: ignore[assignment]
+        language = _text(language, "language", maximum=32)  # type: ignore[assignment]
+        fetched_at = _timestamp(fetched_at, "fetched_at")  # type: ignore[assignment]
+        published_at = _date_or_timestamp(published_at, "published_at", optional=True)
+        modified_at = _date_or_timestamp(modified_at, "modified_at", optional=True)
+        content_sha256 = _sha256(content_sha256, "content_sha256")  # type: ignore[assignment]
+        normalized_sha256 = _sha256(normalized_sha256, "normalized_sha256")  # type: ignore[assignment]
+        body_sha256 = _sha256(body_sha256, "body_sha256", optional=True)
+        title = _text(title, "title", maximum=1_000)  # type: ignore[assignment]
+        source_snapshot_id = _text(source_snapshot_id, "source_snapshot_id", maximum=256)  # type: ignore[assignment]
+        etag = _text(etag, "etag", maximum=1_000, optional=True)
+        last_modified = _text(last_modified, "last_modified", maximum=256, optional=True)
+        byline = _text(byline, "byline", maximum=500, optional=True)
+        if isinstance(body_char_count, bool) or not isinstance(body_char_count, int) or not 0 <= body_char_count <= 1_000_000:
+            raise RadarStoreError("body_char_count fora do limite.")
+        if not body_sha256 and body_char_count:
+            raise RadarStoreError("body_char_count exige hash de corpo.")
+        segment_hashes = [_sha256(item, "body_segment_hash") for item in body_segment_hashes]
+        if len(segment_hashes) > 256:
+            raise RadarStoreError("Máximo de 256 hashes de segmentos por documento.")
+        segments_json = _json(segment_hashes, "body_segment_hashes", max_bytes=32_000)
+
+        with closing(self.connect()) as connection:
+            try:
+                connection.execute("BEGIN IMMEDIATE")
+                existing_event = connection.execute(
+                    "SELECT event_id, document_id, event_type FROM radar_observation_events WHERE source_snapshot_id=?",
+                    (source_snapshot_id,),
+                ).fetchone()
+                if existing_event is not None:
+                    connection.rollback()
+                    return {
+                        "document_id": existing_event["document_id"], "event_id": existing_event["event_id"],
+                        "event_type": existing_event["event_type"], "is_new": False,
+                        "material_change": False, "duplicate_snapshot": True,
+                    }
+                source = connection.execute(
+                    "SELECT access_policy, rights_status FROM radar_sources WHERE source_id=?", (source_id,)
+                ).fetchone()
+                if source is None:
+                    raise RadarStoreError("Documento sem fonte registrada.")
+                previous = connection.execute(
+                    "SELECT * FROM radar_documents WHERE source_id=? AND canonical_url=?",
+                    (source_id, canonical_url),
+                ).fetchone()
+                if previous is None:
+                    collision = connection.execute(
+                        "SELECT source_id FROM radar_documents WHERE document_id=?", (document_id,)
+                    ).fetchone()
+                    if collision is not None:
+                        raise RadarStoreError("document_id já pertence a outra origem.")
+                    connection.execute(
+                        """INSERT INTO radar_documents
+                           (document_id, source_id, canonical_url, resolved_url, publisher, byline, language,
+                            published_at, modified_at, fetched_at, etag, last_modified, content_sha256,
+                            normalized_sha256, title, summary_snippet, outbound_primary_refs_json,
+                            access_policy, rights_status, content_retention, fetch_status, retry_after,
+                            body_sha256, body_segment_hashes_json, body_char_count, origin_url)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', '[]', ?, ?, 'metadata_only', 'observed', NULL, ?, ?, ?, ?)""",
+                        (document_id, source_id, canonical_url, resolved_url, publisher, byline, language,
+                         published_at, modified_at, fetched_at, etag, last_modified, content_sha256,
+                         normalized_sha256, title, source["access_policy"], source["rights_status"],
+                         body_sha256, segments_json, body_char_count, origin_url),
+                    )
+                    event_type = "first_seen"
+                    material_change = True
+                    previous_hash = None
+                    previous_segments: list[str] = []
+                    previous_title = None
+                else:
+                    if previous["document_id"] != document_id:
+                        document_id = previous["document_id"]
+                    previous_segments = json.loads(previous["body_segment_hashes_json"] or "[]")
+                    previous_title = previous["title"]
+                    previous_hash = previous["content_sha256"]
+                    material_change = (
+                        previous["normalized_sha256"] != normalized_sha256 or previous_title != title
+                    )
+                    event_type = "title_changed" if previous_title != title else "body_changed" if material_change else "repeated"
+                    connection.execute(
+                        """UPDATE radar_documents SET resolved_url=?, publisher=?, byline=?, language=?,
+                             published_at=?, modified_at=?, fetched_at=?, etag=?, last_modified=?,
+                             content_sha256=?, normalized_sha256=?, title=?, body_sha256=?,
+                             body_segment_hashes_json=?, body_char_count=?, origin_url=?, fetch_status='observed',
+                             retry_after=NULL WHERE document_id=?""",
+                        (resolved_url, publisher, byline, language, published_at, modified_at, fetched_at,
+                         etag, last_modified, content_sha256, normalized_sha256, title, body_sha256,
+                         segments_json, body_char_count, origin_url, document_id),
+                    )
+                current_segments = list(segment_hashes)
+                diff: dict[str, Any] = {}
+                if previous_title != title:
+                    diff["title"] = {"before": previous_title, "after": title}
+                if previous is None or previous["body_sha256"] != body_sha256 or previous_segments != current_segments:
+                    diff["body"] = {
+                        "previous_sha256": None if previous is None else previous["body_sha256"],
+                        "current_sha256": body_sha256,
+                        "added_segment_hashes": sorted(set(current_segments) - set(previous_segments)),
+                        "removed_segment_hashes": sorted(set(previous_segments) - set(current_segments)),
+                    }
+                if previous is not None and previous_hash != content_sha256:
+                    diff["content_hash"] = {
+                        "exact_changed": True,
+                        "normalized_changed": previous["normalized_sha256"] != normalized_sha256,
+                    }
+                event_id = stable_hash(json_dumps({
+                    "snapshot": source_snapshot_id, "document_id": document_id, "event": event_type,
+                }))
+                diff_json = _json(diff, "observation_diff")
+                connection.execute(
+                    """INSERT INTO radar_observation_events
+                       (event_id, document_id, source_id, event_type, observed_at,
+                        previous_content_sha256, current_content_sha256, source_snapshot_id, diff_json)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (event_id, document_id, source_id, event_type, fetched_at, previous_hash,
+                     content_sha256, source_snapshot_id, diff_json),
+                )
+                connection.commit()
+                return {
+                    "document_id": document_id, "event_id": event_id, "event_type": event_type,
+                    "is_new": previous is None, "material_change": material_change,
+                    "duplicate_snapshot": False, "diff": diff,
+                }
+            except Exception as error:
+                connection.rollback()
+                if isinstance(error, RadarStoreError):
+                    raise
+                if isinstance(error, sqlite3.IntegrityError):
+                    raise RadarStoreError("Snapshot/documento duplicado ou incompatível.") from error
+                raise
+
+    def link_republication_member(
+        self, *, group_id: str, basis: str, identity_sha256: str, document_id: str,
+        relation: str, evidence: Mapping[str, Any], linked_at: str,
+    ) -> None:
+        group_id = _text(group_id, "group_id", maximum=256)  # type: ignore[assignment]
+        identity_sha256 = _sha256(identity_sha256, "identity_sha256")  # type: ignore[assignment]
+        document_id = _text(document_id, "document_id", maximum=256)  # type: ignore[assignment]
+        linked_at = _timestamp(linked_at, "linked_at")  # type: ignore[assignment]
+        if basis not in {"canonical_origin", "identical_body_same_byline"}:
+            raise RadarStoreError("Base de republicação não permitida.")
+        if relation not in {"origin", "identical_copy"}:
+            raise RadarStoreError("Relação de republicação inválida.")
+        evidence_json = _json(dict(evidence), "republication_evidence")
+        group_evidence_json = _json({"basis": basis, "identity_sha256": identity_sha256}, "republication_group_evidence")
+        with closing(self.connect()) as connection:
+            try:
+                connection.execute("BEGIN IMMEDIATE")
+                connection.execute(
+                    """INSERT OR IGNORE INTO radar_republication_groups
+                       (group_id, basis, identity_sha256, evidence_json, created_at)
+                       VALUES (?, ?, ?, ?, ?)""",
+                    (group_id, basis, identity_sha256, group_evidence_json, linked_at),
+                )
+                group = connection.execute(
+                    "SELECT group_id FROM radar_republication_groups WHERE basis=? AND identity_sha256=?",
+                    (basis, identity_sha256),
+                ).fetchone()
+                if group is None or group["group_id"] != group_id:
+                    raise RadarStoreError("Identidade de grupo de republicação inconsistente.")
+                connection.execute(
+                    """INSERT OR IGNORE INTO radar_republication_members
+                       (group_id, document_id, relation, evidence_json, linked_at)
+                       VALUES (?, ?, ?, ?, ?)""",
+                    (group_id, document_id, relation, evidence_json, linked_at),
+                )
+                connection.commit()
+            except Exception as error:
+                connection.rollback()
+                if isinstance(error, RadarStoreError):
+                    raise
+                if isinstance(error, sqlite3.IntegrityError):
+                    raise RadarStoreError("Membro de republicação sem documento/grupo ou incompatível.") from error
+                raise
+
+    def list_republication_members(self, *, group_id: str) -> list[dict[str, Any]]:
+        group_id = _text(group_id, "group_id", maximum=256)  # type: ignore[assignment]
+        with closing(self.connect()) as connection:
+            rows = connection.execute(
+                "SELECT * FROM radar_republication_members WHERE group_id=? ORDER BY linked_at, document_id",
+                (group_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
 
     def record_observation(
         self, *, event_id: str, document_id: str, source_id: str, event_type: str,
@@ -929,6 +1303,7 @@ class RadarStore:
             ("radar_claims", "claim_id"), ("radar_claim_events", "event_id"),
             ("radar_candidates", "candidate_id"), ("radar_candidate_events", "event_id"),
             ("radar_research_requests", "request_id"), ("radar_research_packets", "packet_id"),
+            ("radar_republication_groups", "group_id"),
         }
         if (table, key_column) not in allowed:
             raise RadarStoreError("Tabela/chave de leitura não suportada.")
@@ -942,10 +1317,11 @@ class RadarStore:
             "radar_topics", "radar_topic_entities", "radar_document_entities", "radar_document_topics", "radar_claims",
             "radar_claim_sources", "radar_claim_events", "radar_research_requests", "radar_research_packets",
             "radar_candidates", "radar_candidate_events",
+            "radar_fetch_events", "radar_fetch_cache", "radar_republication_groups", "radar_republication_members",
         }
         if table not in allowed:
             raise RadarStoreError("Tabela de leitura não suportada.")
-        if where_column is not None and not re.fullmatch(r"[a-z_]+", where_column):
+        if where_column is not None and not re.fullmatch(r"[a-z_][a-z0-9_]*", where_column):
             raise RadarStoreError("Filtro de coluna inválido.")
         with closing(self.connect()) as connection:
             if where_column is None:

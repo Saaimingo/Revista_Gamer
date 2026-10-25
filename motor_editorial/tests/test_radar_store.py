@@ -92,7 +92,7 @@ class RadarStoreTests(unittest.TestCase):
         self.store.register_topic(topic_id=topic_id, canonical_key=f"key-{topic_id}", title="Pauta sintética", now=NOW)
 
     def test_schema_is_separate_versioned_and_runtime_path_is_refused(self) -> None:
-        self.assertEqual(RADAR_SCHEMA_VERSION, 1)
+        self.assertEqual(RADAR_SCHEMA_VERSION, 2)
         self.assertEqual(db.SCHEMA_VERSION, 5)
         names = self.store.table_names()
         self.assertGreaterEqual(
@@ -101,7 +101,7 @@ class RadarStoreTests(unittest.TestCase):
         )
         self.assertTrue(all(name.startswith("radar_") for name in names))
         with closing(self.store.connect()) as connection:
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 1)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 2)
             self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
         with self.assertRaisesRegex(RadarStoreError, "não pode abrir"):
             RadarStore(RUNTIME_DB_PATH)
@@ -212,6 +212,43 @@ class RadarStoreTests(unittest.TestCase):
                 connection.execute("UPDATE radar_observation_events SET event_type='repeated' WHERE event_id='obs-1'")
             with self.assertRaises(sqlite3.IntegrityError):
                 connection.execute("DELETE FROM radar_observation_events WHERE event_id='obs-1'")
+
+    def test_v1_schema_migrates_additively_to_v2(self) -> None:
+        from motor_editorial.radar_store import _SCHEMA_V1_STATEMENTS
+
+        fixture_path = self.root / "radar-v1.sqlite3"
+        with closing(sqlite3.connect(fixture_path)) as connection:
+            for statement in _SCHEMA_V1_STATEMENTS:
+                connection.execute(statement)
+            connection.execute("PRAGMA user_version = 1")
+            connection.commit()
+        migrated = RadarStore(fixture_path)
+        with closing(migrated.connect()) as connection:
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 2)
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(radar_documents)")}
+            self.assertTrue({"body_sha256", "body_segment_hashes_json", "body_char_count", "origin_url"} <= columns)
+            tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            self.assertTrue({"radar_fetch_events", "radar_fetch_cache", "radar_republication_groups", "radar_republication_members"} <= tables)
+            self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
+
+    def test_fetch_cache_is_shared_by_source_url_and_fetch_events_are_append_only(self) -> None:
+        self.add_source()
+        url = "https://source-1.example.invalid/feed?edition=pc&format=rss"
+        self.store.save_fetch_cache(
+            source_id="source-1", request_url=url, fetched_at=NOW, fetch_status="observed",
+            etag='"rev-1"', last_modified="Sun, 25 Oct 2026 12:00:00 GMT", response_sha256=sha256("feed"),
+        )
+        self.assertEqual(self.store.get_fetch_cache(source_id="source-1", request_url=url)["etag"], '"rev-1"')  # type: ignore[index]
+        event_id = self.store.record_fetch_event(
+            source_id="source-1", request_url=url, observed_at=NOW, fetch_status="not_modified",
+            etag='"rev-1"', last_modified="Sun, 25 Oct 2026 12:00:00 GMT",
+        )
+        self.assertEqual(self.store.list_rows("radar_fetch_events", where_column="source_id", where_value="source-1")[0]["fetch_event_id"], event_id)
+        with closing(self.store.connect()) as connection:
+            with self.assertRaises(sqlite3.IntegrityError):
+                connection.execute("UPDATE radar_fetch_events SET fetch_status='observed' WHERE fetch_event_id=?", (event_id,))
+            with self.assertRaises(sqlite3.IntegrityError):
+                connection.execute("DELETE FROM radar_fetch_events WHERE fetch_event_id=?", (event_id,))
 
     def test_entities_aliases_topics_and_claim_history_are_linked(self) -> None:
         self.add_source()

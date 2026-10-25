@@ -152,7 +152,12 @@ class RadarConnectorTests(unittest.TestCase):
         self.assertEqual(entries[0].title, "Atualizacao")
         self.assertEqual(entries[0].url, "https://news.example.invalid/story/1")
         self.assertEqual(entries[0].external_id, "item-1")
+        self.assertRegex(entries[0].body_sha256 or "", r"^[a-f0-9]{64}$")
+        self.assertRegex(entries[0].content_sha256 or "", r"^[a-f0-9]{64}$")
+        self.assertTrue(entries[0].body_segment_hashes)
+        self.assertRegex(first.payload_sha256 or "", r"^[a-f0-9]{64}$")
         self.assertFalse(hasattr(entries[0], "description"))
+        self.assertFalse(hasattr(entries[0], "body"))
         self.assertFalse(hasattr(first, "body"))
 
         monotonic[0] += 3_600

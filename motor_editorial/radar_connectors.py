@@ -9,6 +9,7 @@ redirect handling, and it never schedules polling by itself.
 from __future__ import annotations
 
 import email.utils
+import hashlib
 import http.client
 import ipaddress
 import json
@@ -413,6 +414,7 @@ class FetchResult:
     redirect_count: int = 0
     metadata: Any = None
     error_code: str | None = None
+    payload_sha256: str | None = None
 
 
 def _retry_after_seconds(value: str | None, now: datetime, fallback: int, *, maximum: int = 86_400) -> int:
@@ -753,8 +755,10 @@ class RadarConnectorService:
                     self.limiter.cooldown(origin, retry)
                     if state.consecutive_failures >= profile.failure_budget:
                         state.suspended = True
+        payload_sha256 = hashlib.sha256(body).hexdigest() if result_status == "observed" else None
         return FetchResult(profile.source_id, result_status, requested_url, final_url, status, fetched_at,
-                           content_type, etag, last_modified, retry_at, redirects, metadata, error_code)
+                           content_type, etag, last_modified, retry_at, redirects, metadata, error_code,
+                           payload_sha256)
 
 
 @dataclass(frozen=True)
@@ -763,6 +767,74 @@ class FeedItem:
     url: str | None
     external_id: str | None
     published_at: str | None
+    byline: str | None = None
+    body_sha256: str | None = None
+    body_segment_hashes: tuple[str, ...] = ()
+    body_char_count: int = 0
+    origin_url: str | None = None
+    content_sha256: str | None = None
+    normalized_sha256: str | None = None
+
+
+class _FeedPlainTextParser(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+
+    def handle_data(self, data: str) -> None:
+        if data.strip():
+            self.parts.append(data)
+
+
+def _feed_body_fingerprints(
+    entry: ET.Element, raw_title: str,
+) -> tuple[str | None, tuple[str, ...], int, str, str]:
+    body_values: list[str] = []
+    for child in list(entry):
+        if local_name := child.tag.rsplit("}", 1)[-1].casefold():
+            if local_name in {"description", "summary", "content", "encoded"}:
+                value = "".join(child.itertext())
+                if value.strip():
+                    body_values.append(value)
+    raw_body = "\u0000".join(body_values)
+    plain_parser = _FeedPlainTextParser()
+    plain_parser.feed(raw_body.replace("\u0000", " "))
+    normalized_body = " ".join(" ".join(plain_parser.parts).split())
+    if not normalized_body:
+        normalized_body = ""
+        body_hash = None
+        body_char_count = 0
+    else:
+        body_hash = hashlib.sha256(raw_body.encode("utf-8")).hexdigest()
+        body_char_count = len(normalized_body)
+    segment_count = min(256, max(1, (len(normalized_body) + 1_023) // 1_024)) if normalized_body else 0
+    segment_hashes: list[str] = []
+    for index in range(segment_count):
+        start = index * len(normalized_body) // segment_count
+        end = (index + 1) * len(normalized_body) // segment_count
+        segment_hashes.append(hashlib.sha256(normalized_body[start:end].encode("utf-8")).hexdigest())
+    normalized_title = " ".join(raw_title.split())
+    exact_content_hash = hashlib.sha256(f"{raw_title}\u0000{raw_body}".encode("utf-8")).hexdigest()
+    normalized_content_hash = hashlib.sha256(f"{normalized_title}\u0000{normalized_body}".encode("utf-8")).hexdigest()
+    return body_hash, tuple(segment_hashes), body_char_count, exact_content_hash, normalized_content_hash
+
+
+def _feed_origin_url(entry: ET.Element) -> str | None:
+    for child in list(entry):
+        name = child.tag.rsplit("}", 1)[-1].casefold()
+        if name == "source":
+            candidate = child.attrib.get("url") or child.attrib.get("href")
+            if candidate:
+                safe = _safe_public_reference_url(candidate.strip())
+                if safe:
+                    return safe
+        if name == "link" and child.attrib.get("rel", "").casefold() == "via":
+            candidate = child.attrib.get("href")
+            if candidate:
+                safe = _safe_public_reference_url(candidate.strip())
+                if safe:
+                    return safe
+    return None
 
 
 def parse_rss_atom(payload: bytes, *, maximum_bytes: int = 1_000_000) -> tuple[FeedItem, ...]:
@@ -783,7 +855,9 @@ def parse_rss_atom(payload: bytes, *, maximum_bytes: int = 1_000_000) -> tuple[F
     def child_text(element: ET.Element, names: set[str]) -> str | None:
         for child in list(element):
             if local(child.tag) in names and child.text:
-                return " ".join(child.text.split())[:2_000]
+                value = " ".join(child.text.split())[:2_000]
+                if value:
+                    return value
         return None
 
     items: list[FeedItem] = []
@@ -791,6 +865,11 @@ def parse_rss_atom(payload: bytes, *, maximum_bytes: int = 1_000_000) -> tuple[F
         if local(entry.tag) not in {"item", "entry"}:
             continue
         title = child_text(entry, {"title"})
+        raw_title = ""
+        for child in list(entry):
+            if local(child.tag) == "title":
+                raw_title = "".join(child.itertext())
+                break
         link = None
         for child in list(entry):
             if local(child.tag) != "link":
@@ -803,8 +882,20 @@ def parse_rss_atom(payload: bytes, *, maximum_bytes: int = 1_000_000) -> tuple[F
                     break
         external_id = child_text(entry, {"guid", "id"})
         published_at = child_text(entry, {"pubdate", "published", "updated", "date"})
+        byline = child_text(entry, {"author", "creator"})
+        if byline is None:
+            for author in entry.iter():
+                if local(author.tag) == "author":
+                    byline = child_text(author, {"name"})
+                    if byline:
+                        break
+        body_sha256, body_segment_hashes, body_char_count, content_sha256, normalized_sha256 = _feed_body_fingerprints(entry, raw_title or title or "")
+        origin_url = _feed_origin_url(entry)
         if title:
-            items.append(FeedItem(title, link, external_id, published_at))
+            items.append(FeedItem(
+                title[:1_000], link, external_id, published_at, byline, body_sha256,
+                body_segment_hashes, body_char_count, origin_url, content_sha256, normalized_sha256,
+            ))
     return tuple(items[:10_000])
 
 
