@@ -1,6 +1,6 @@
 # ENG-CODEX-007 — checkpoint de continuidade
 
-Atualizado: 2026-10-25 19:14 -03:00
+Atualizado: 2026-10-25 19:18 -03:00
 Ultima unidade concluida: **E13 - dispatcher, dependencias e pesquisa retomavel, validada localmente e enviada a branch**
 Unidade em andamento: **E14 - handoff editorial com evidencias e revisoes**
 Proxima unidade apos E14: **E15 - ensaio integrado offline multipauta e regressões**
@@ -155,11 +155,12 @@ Proxima unidade apos E14: **E15 - ensaio integrado offline multipauta e regress�
 
 ## E13 - concluida/validada localmente
 
-- Código/testes: `6acb123` (`feat: route Radar research through durable agent workflow`) e `705efc1` (higiene final). Relatório: [E13 — dispatcher, dependências e pesquisa retomável](ENG-CODEX-007-E13-DISPATCHER-DEPENDENCIAS-PESQUISA-RETOMADA.md).
+- Código/testes: `6acb1239fd41ff25a772b0fffe7ab40e1980340c` (`feat: route Radar research through durable agent workflow`) e `705efc17e7e714607eca0007c2812855233d4f9a` (higiene final). Relatório: [E13 — dispatcher, dependências e pesquisa retomável](ENG-CODEX-007-E13-DISPATCHER-DEPENDENCIAS-PESQUISA-RETOMADA.md). Documentação/checkpoint: `55b07443be71d76c8e11132a44631ea9ec577f0c` e `1d4878c683ccf31e6f5030da7f3fd8cd6fcc405c`.
 - Motor SQLite v6→v7 aditivo cria `agent_task_dependencies` no ledger existente. A fila valida dependências/idempotência/ciclos, aguarda todas as predecessoras, bloqueia dependentes de predecessora terminal sem sucesso e mantém tarefas independentes aptas.
 - `TaskDispatcher` valida papéis no catálogo e usa rota determinística explícita para pesquisa. `ResearchResultRouter` persiste pesquisa derivada de resultado versionado e devolve packet hash-validado como evidência não confiável ao mesmo papel/artigo/revisão. Replay idempotente cobre reinício após conclusão da tarefa de papel ou da pesquisa.
 - CPython 3.11.9 (`.venv`): `test_orchestration`, `test_agent_contracts` e `test_agent_workflow` **60/60 OK em 31,121 s**; suíte integral serial **192/192 OK em 140,515 s**; `compileall` e `git diff --check` exit 0. Uma falha inicial do fixture revelou ausência de acesso público à fila no contexto do executor; a API foi ajustada. A regressão que esperava schema futuro v7 foi atualizada para v8. Todas as rodadas finais passaram.
 - Fluxo E13 totalmente sintético, duas pautas e dois papéis; Radar SQLite temporário vazio, sem provider. Packet `not_found` foi devolvido ao artigo de origem, sem alegação de descoberta factual. Sem LLM, fonte pública, SIWC/Plus, API paga, runtime DB, worker/scheduler de produção, publicação, deploy ou merge.
+- Handoffs publicados: Issue #28 [6404156426](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6404156426), PR #30 [6404156235](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6404156235); caixa E13 marcada após push e testes.
 - Próximo: E14, validando os contratos de evidência, brief, texto, checagem, revisão, direitos/layout/preview existentes com três casos offline.
 
 ## Bloqueios e retomada

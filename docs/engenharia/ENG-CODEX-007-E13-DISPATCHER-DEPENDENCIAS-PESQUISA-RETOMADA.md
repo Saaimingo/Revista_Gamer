@@ -25,9 +25,10 @@ Quando um resultado de papel contém `ResearchRequest` v1.1, o roteador confere 
 
 ## Commits
 
-- Código e testes: `6acb123` — `feat: route Radar research through durable agent workflow`.
-- Higiene final do módulo: `705efc1` — `style: clean research workflow module ending`.
-- Relatório, README setorial e checkpoint: registrados no commit documental desta E13.
+- Código e testes: `6acb1239fd41ff25a772b0fffe7ab40e1980340c` — `feat: route Radar research through durable agent workflow`.
+- Higiene final do módulo: `705efc17e7e714607eca0007c2812855233d4f9a` — `style: clean research workflow module ending`.
+- Relatório, README setorial e checkpoint: commit documental `55b07443be71d76c8e11132a44631ea9ec577f0c`; correção de Markdown `1d4878c683ccf31e6f5030da7f3fd8cd6fcc405c`.
+- Handoffs: [Issue #28 comment 6404156426](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6404156426), [PR #30 comment 6404156235](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6404156235).
 
 ## Limites e pendências
 
