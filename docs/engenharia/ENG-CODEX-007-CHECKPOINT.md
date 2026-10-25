@@ -1,6 +1,6 @@
 # ENG-CODEX-007 — checkpoint de continuidade
 
-Atualizado: 2026-10-25 14:51 -03:00
+Atualizado: 2026-10-25 14:52 -03:00
 Última unidade concluída: **E07 — pessoas, projetos, aliases, entrevistas e idiomas, validada localmente**
 Unidade em andamento: **E08 — ledger de alegações e rumores (análise do schema existente; sem edição E08 ainda)**
 Próxima unidade após E08: **E09 — scheduler configurável, default OFF**
@@ -16,7 +16,7 @@ Próxima unidade após E08: **E09 — scheduler configurável, default OFF**
 - E04: código/testes no commit `509a882`; relatório, índice e checkpoint inicial no commit `f5e358e0f75a8e2d1ee4c997da26716e0bf96882`; ambos enviados. PR #30 segue aberta/draft/sem merge; E04 está concluída e validada conforme o relatório abaixo.
 - E05 código/testes no commit `313baeeb1384354189c49a2a3ec206dc8a428ae1`; relatório/índice/checkpoint em `d4bbb81e2c8d0019f4d6062f42062803ab6097e4`, handoffs na Issue #28 (`6400677577`) e PR #30 (`6400677792`); checklist E01–E05 marcado com evidências.
 - E06 código/testes no commit `eddc0e904b0a220f24651209a4e4da2d27153423`; relatório/índice/checkpoint no commit `1d78eb83100b5fc3dba0c3989a0e1142c0360725`; ambos enviados e sincronizados. Handoffs publicados na Issue #28 e PR #30; checklist E01–E06 marcado com evidências. PR #30 continua draft/aberta/sem merge.
-- E07 implementação/testes e checkpoint de execução em `b63c620e39d3e4ac4fea3ebdca37a71d10cde653`, já enviado. A suíte integral final passou 147/147; relatório/índice/checkpoint final e handoffs estão sendo sincronizados nesta retomada. PR #30 segue draft/aberta/sem merge.
+- E07 implementação/testes em `b63c620e39d3e4ac4fea3ebdca37a71d10cde653`; relatório/índice/checkpoint final em `dace58c53132c6db4ef5bd21c1795cc73709a80f`; ambos enviados. Suíte integral 147/147. Handoffs Issue #28 [6401083176](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6401083176) e PR #30 [6401083777](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6401083777); checkbox E07 atualizado. PR #30 segue draft/aberta/sem merge.
 
 ## Evidências E01 executadas nesta sessão
 
@@ -99,7 +99,8 @@ Próxima unidade após E08: **E09 — scheduler configurável, default OFF**
 - Validação de pessoa/projeto/alias, cargos e idioma exige documentos e fontes `allowed`. Entrevista exige vínculo com a pessoa/documento registrado. Press release exige fonte `official` e relação explícita à organização emissora. Registro de pessoa não aceita metadata livre; contexto, aliases e títulos recusam contatos. Nenhum texto de entrevista é armazenado.
 - CPython 3.11.9, `.venv`: `& '.\.venv\Scripts\python.exe' -m unittest discover -s motor_editorial/tests -p 'test_radar*.py' -v` → **32/32 OK**, 4,563 s; suíte integral `& '.\.venv\Scripts\python.exe' -m unittest discover -s motor_editorial/tests -q` → **147/147 OK**, 73,412 s; `compileall` exit 0; `git diff --check` exit 0 (avisos não fatais de conversão LF→CRLF).
 - Relatório: `docs/engenharia/ENG-CODEX-007-E07-PESSOAS-ALIAS-ENTREVISTAS-IDIOMAS.md`; testes: `motor_editorial/tests/test_radar_entities.py` e migrações em `motor_editorial/tests/test_radar_store.py`.
-- Commit/push da implementação, testes e checkpoint inicial: `b63c620e39d3e4ac4fea3ebdca37a71d10cde653`. A documentação final e os handoffs Issue #28/PR #30 serão registrados nesta sequência.
+- Commit/push da implementação e testes: `b63c620e39d3e4ac4fea3ebdca37a71d10cde653`; relatório/índice/checkpoint final: `dace58c53132c6db4ef5bd21c1795cc73709a80f`.
+- Handoff Issue #28: [6401083176](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6401083176); handoff PR #30: [6401083777](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6401083777). Issue E07 marcada como concluída com evidências.
 - Fixtures/SQLite temporário e hosts `.invalid` somente; sem rede pública, LLM, SIWC/Plus, API paga, runtime DB, scheduler, publicação, deploy ou merge; `published=false`.
 
 ## E08 — início de análise

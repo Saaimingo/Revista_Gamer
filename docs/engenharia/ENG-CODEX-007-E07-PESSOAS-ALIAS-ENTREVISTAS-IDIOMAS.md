@@ -43,5 +43,6 @@ Sem consulta a fontes públicas, inferência, SIWC/Plus, API paga, credenciais, 
 ## Commit e próximo passo
 
 - Implementação, testes, relatório inicial e checkpoint de execução: `b63c620` (`feat: implement Radar E07 entities and interviews`), enviado para `origin/codex/eng-codex-007-factory-radar`.
-- O estado final do relatório/checkpoint e os handoffs Issue #28/PR #30 serão registrados após este fechamento documental.
+- Relatório, índice e checkpoint final: `dace58c` (`docs: record ENG-CODEX-007 E07 evidence`), enviado à mesma branch.
+- Handoffs: [Issue #28, comentário 6401083176](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6401083176) e [PR #30, comentário 6401083777](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6401083777). Checklist E07 da Issue atualizado com os commits e resultados.
 - PR draft [#30](https://github.com/Saaimingo/Revista_Gamer/pull/30) permanece aberta e sem merge. Próxima unidade: **E08 — ledger de alegações, rumores, origem e evolução/contradições**.
