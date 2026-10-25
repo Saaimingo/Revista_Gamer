@@ -5,8 +5,9 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from .db import Store, json_dumps, stable_hash
 from .editorial import (
@@ -24,7 +25,7 @@ from .editorial_handoffs import (
     build_handoff_artifact,
     validate_handoff_chain,
 )
-from .agent_contracts import load_builtin_role_catalog
+from .agent_contracts import ResearchPacket, load_builtin_role_catalog
 from .layout.contracts import (
     SCHEMA_MEDIA,
     SCHEMA_REFERENCE,
@@ -65,6 +66,14 @@ MEDIA_TASK_TYPE = "factory.media_inventory"
 STORY_PACKAGE_TASK_TYPE = "factory.story_package"
 PREVIEW_TASK_TYPE = "factory.internal_preview"
 HUMAN_GATE_TASK_TYPE = "factory.simulated_human_gate"
+FACTORY_TASK_ROUTES = {
+    EDITORIAL_TASK_TYPE: FACTORY_EXECUTOR_ID,
+    LAYOUT_TASK_TYPE: FACTORY_EXECUTOR_ID,
+    MEDIA_TASK_TYPE: FACTORY_EXECUTOR_ID,
+    STORY_PACKAGE_TASK_TYPE: FACTORY_EXECUTOR_ID,
+    PREVIEW_TASK_TYPE: FACTORY_EXECUTOR_ID,
+    HUMAN_GATE_TASK_TYPE: FACTORY_EXECUTOR_ID,
+}
 
 LAYOUT_PROFILE = AgentProfile(
     profile_id="synthetic-layout-engine",
@@ -114,6 +123,29 @@ class FactoryFixtureError(ValueError):
     """A synthetic fixture is malformed or contains a non-synthetic decision."""
 
 
+@dataclass(frozen=True)
+class FactoryStoryRun:
+    """One isolated story fixture composed into a shared multipauta run."""
+
+    run_id: str
+    fixture_path: Path
+    review_flow: str = "pass"
+    source_disagreement: bool = False
+    research_packet: ResearchPacket | Mapping[str, Any] | None = None
+    research_source_bindings: Mapping[str, str] | None = None
+
+
+def _build_factory_dispatcher(queue: AgentQueue) -> TaskDispatcher:
+    return TaskDispatcher(
+        queue,
+        executors={FACTORY_EXECUTOR_ID: SyntheticFactoryExecutor(artifact_dir=queue.store.artifact_dir)},
+        profiles={
+            (profile.profile_id, profile.version): profile
+            for profile in (EDITORIAL_PROFILE, LAYOUT_PROFILE, MEDIA_PROFILE, PACKAGE_PROFILE, GATE_PROFILE)
+        },
+    )
+
+
 def _load_fixture(path: Path | None = None) -> dict[str, Any]:
     fixture_path = path or FACTORY_FIXTURE
     with fixture_path.open("r", encoding="utf-8") as stream:
@@ -152,6 +184,12 @@ def _load_fixture(path: Path | None = None) -> dict[str, Any]:
             raise FactoryFixtureError("e14_case cita ID ausente do pacote de evidências.")
         if case.get("fact_status", "supported") not in {"supported", "uncertain", "contradicted", "unsupported"}:
             raise FactoryFixtureError("e14_case.fact_status fora do contrato de checagem.")
+        correction_body = case.get("correction_body_markdown")
+        if correction_body is not None and (
+            not isinstance(correction_body, str) or not correction_body.strip()
+            or correction_body == case.get("body_markdown")
+        ):
+            raise FactoryFixtureError("e14_case.correction_body_markdown precisa criar um texto corrigido distinto.")
         if case.get("case_type") == "attributed_rumor" and case.get("assessment") != "rumor":
             raise FactoryFixtureError("Caso de rumor precisa manter epistemic status rumor.")
         if case.get("case_type") == "attributed_rumor" and case.get("genre") != "rumor":
@@ -302,7 +340,10 @@ def _editorial_output(
         return {
             "headline": article["headline"],
             "dek": article["dek"],
-            "body_markdown": article["body_markdown"].replace(original_sentence, corrected_sentence),
+            "body_markdown": str(
+                case.get("correction_body_markdown")
+                or article["body_markdown"].replace(original_sentence, corrected_sentence)
+            ),
             "source_ids": article["source_ids"],
             "remaining_issues": [],
             "human_review_required": True,
@@ -775,8 +816,12 @@ def run_factory_demo(
     run_id: str | None = None,
     review_flow: str = "pass",
     source_disagreement: bool = False,
+    queue: AgentQueue | None = None,
+    dispatcher: TaskDispatcher | None = None,
+    research_packet: ResearchPacket | Mapping[str, Any] | None = None,
+    research_source_bindings: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Run a synthetic editorial-to-layout flow through one queue and dispatcher."""
+    """Run one synthetic story, optionally composing it into a shared E2E queue."""
     fixture = _load_fixture(fixture_path)
     if review_flow not in {"pass", "revise", "hold"}:
         raise FactoryFixtureError("review_flow deve ser pass, revise ou hold.")
@@ -784,21 +829,41 @@ def run_factory_demo(
         if not FACTORY_ID_RE.fullmatch(run_id):
             raise FactoryFixtureError("run_id informado é inválido.")
         fixture["run_id"] = run_id
+    if (queue is None) != (dispatcher is None):
+        raise FactoryFixtureError("queue e dispatcher compartilhados precisam ser fornecidos juntos.")
+    if queue is None:
+        queue = AgentQueue(store)
+        dispatcher = _build_factory_dispatcher(queue)
+    elif dispatcher is None or dispatcher.queue is not queue:
+        raise FactoryFixtureError("dispatcher compartilhado precisa usar a mesma AgentQueue.")
+    if research_packet is None:
+        validated_research_packet = None
+    elif isinstance(research_packet, ResearchPacket):
+        validated_research_packet = research_packet
+    else:
+        validated_research_packet = ResearchPacket.from_mapping(research_packet)
     packet = _packet(fixture)
+    if research_source_bindings is not None:
+        if validated_research_packet is None or not isinstance(research_source_bindings, Mapping):
+            raise FactoryFixtureError("Vínculos de fonte Radar exigem ResearchPacket validado.")
+        normalized_bindings = dict(research_source_bindings)
+        expected_refs = {item.ref for item in validated_research_packet.document_refs}
+        if (
+            set(normalized_bindings) != expected_refs
+            or any(not isinstance(source_id, str) for source_id in normalized_bindings.values())
+            or not set(normalized_bindings.values()).issubset(_source_ids(packet))
+        ):
+            raise FactoryFixtureError("ResearchPacket precisa apontar para fontes presentes no pacote editorial.")
+    elif validated_research_packet is not None:
+        raise FactoryFixtureError("ResearchPacket exige vínculo explícito para cada fonte editorial Radar.")
+    else:
+        normalized_bindings = None
     reference_index = LayoutReferenceIndex(
         Path(store.db_path).resolve().parent / "factory-reference-index.sqlite3"
     )
     _seed_reference_index(reference_index)
 
-    queue = AgentQueue(store)
-    dispatcher = TaskDispatcher(
-        queue,
-        executors={FACTORY_EXECUTOR_ID: SyntheticFactoryExecutor(artifact_dir=store.artifact_dir)},
-        profiles={
-            (profile.profile_id, profile.version): profile
-            for profile in (EDITORIAL_PROFILE, LAYOUT_PROFILE, MEDIA_PROFILE, PACKAGE_PROFILE, GATE_PROFILE)
-        },
-    )
+    assert queue is not None and dispatcher is not None
     tasks: list[AgentTask] = []
     outputs: dict[str, Mapping[str, Any]] = {}
     stage_identities: dict[str, Mapping[str, Any]] = {}
@@ -820,6 +885,14 @@ def run_factory_demo(
                 "e14_case": fixture.get("e14_case"),
                 "review_flow": review_flow,
                 "source_disagreement": source_disagreement,
+                "radar_research_packet": (
+                    validated_research_packet.to_dict()
+                    if stage == "source_analysis" and validated_research_packet is not None
+                    else None
+                ),
+                "radar_research_source_bindings": (
+                    normalized_bindings if stage == "source_analysis" else None
+                ),
             },
             profile=EDITORIAL_PROFILE,
         )
@@ -1036,6 +1109,16 @@ def run_factory_demo(
         } for task in tasks],
         "review_flow": review_flow,
         "source_disagreement": source_disagreement,
+        "radar_research_packet": (
+            {
+                "request_id": validated_research_packet.request_id,
+                "content_hash": validated_research_packet.content_hash,
+                "status": validated_research_packet.status,
+                "document_refs": [item.to_dict() for item in validated_research_packet.document_refs],
+                "source_bindings": normalized_bindings,
+            }
+            if validated_research_packet is not None else None
+        ),
         "e14_case_id": fixture.get("e14_case", {}).get("case_id") if isinstance(fixture.get("e14_case"), Mapping) else None,
         "editorial_handoffs": {
             key: {
@@ -1087,6 +1170,147 @@ def run_factory_demo(
         "paid_api_calls": 0,
     }
     report_path = store.artifact_dir / "factory-demo" / fixture["run_id"] / "factory-demo-report.json"
+    report["report_path"] = str(report_path.resolve())
+    _write_json(report_path, report)
+    return report
+
+
+def run_factory_multipauta_demo(
+    store: Store,
+    stories: Sequence[FactoryStoryRun],
+    *,
+    queue: AgentQueue | None = None,
+    dispatcher: TaskDispatcher | None = None,
+    batch_id: str = "factory-e15-multipauta",
+) -> dict[str, Any]:
+    """Run two or three synthetic stories through one durable queue/dispatcher."""
+    if not FACTORY_ID_RE.fullmatch(batch_id):
+        raise FactoryFixtureError("batch_id informado é inválido.")
+    if isinstance(stories, (str, bytes)) or not isinstance(stories, Sequence) or not 2 <= len(stories) <= 3:
+        raise FactoryFixtureError("Ensaio multipauta exige duas ou três pautas.")
+    if (queue is None) != (dispatcher is None):
+        raise FactoryFixtureError("queue e dispatcher compartilhados precisam ser fornecidos juntos.")
+    if queue is None:
+        queue = AgentQueue(store)
+        dispatcher = _build_factory_dispatcher(queue)
+    elif dispatcher is None or dispatcher.queue is not queue:
+        raise FactoryFixtureError("dispatcher compartilhado precisa usar a mesma AgentQueue.")
+    assert queue is not None and dispatcher is not None
+
+    run_ids: list[str] = []
+    for story in stories:
+        if not isinstance(story, FactoryStoryRun):
+            raise FactoryFixtureError("Cada pauta precisa ser FactoryStoryRun.")
+        if not FACTORY_ID_RE.fullmatch(story.run_id):
+            raise FactoryFixtureError("run_id de pauta multipauta é inválido.")
+        if story.run_id in run_ids:
+            raise FactoryFixtureError("run_id de pauta multipauta está duplicado.")
+        if story.review_flow not in {"pass", "revise", "hold"}:
+            raise FactoryFixtureError("review_flow deve ser pass, revise ou hold.")
+        _load_fixture(story.fixture_path)
+        if story.research_packet is not None:
+            if isinstance(story.research_packet, ResearchPacket):
+                ResearchPacket.from_mapping(story.research_packet.to_dict())
+            else:
+                ResearchPacket.from_mapping(story.research_packet)
+        run_ids.append(story.run_id)
+
+    outcomes: list[dict[str, Any]] = []
+    for story in stories:
+        if story.research_packet is None:
+            story_research_summary = None
+        else:
+            packet_value = (
+                ResearchPacket.from_mapping(story.research_packet.to_dict())
+                if isinstance(story.research_packet, ResearchPacket)
+                else ResearchPacket.from_mapping(story.research_packet)
+            )
+            story_research_summary = {
+                "request_id": packet_value.request_id,
+                "content_hash": packet_value.content_hash,
+                "status": packet_value.status,
+                "document_refs": [item.to_dict() for item in packet_value.document_refs],
+                "source_bindings": story.research_source_bindings,
+            }
+        try:
+            result = run_factory_demo(
+                store,
+                story.fixture_path,
+                run_id=story.run_id,
+                review_flow=story.review_flow,
+                source_disagreement=story.source_disagreement,
+                queue=queue,
+                dispatcher=dispatcher,
+                research_packet=story.research_packet,
+                research_source_bindings=story.research_source_bindings,
+            )
+        except TaskFailure as error:
+            story_tasks = [
+                task for task in queue.list_tasks(limit=1000)
+                if task.payload.get("run_id") == story.run_id
+            ]
+            failed_tasks = []
+            for task in story_tasks:
+                terminal_events = [event for event in queue.events(task.task_id) if event["action"] in {"failed", "blocked"}]
+                if terminal_events:
+                    failed_tasks.append({
+                        "task_id": task.task_id,
+                        "task_type": task.task_type,
+                        "stage": task.payload.get("stage"),
+                        "failure_code": terminal_events[-1]["detail"].get("error_code"),
+                    })
+            outcomes.append({
+                "run_id": story.run_id,
+                "outcome": "blocked",
+                "failure_code": error.code,
+                "summary": error.summary,
+                "radar_research_packet": story_research_summary,
+                "failed_tasks": failed_tasks,
+                "task_ids": [task.task_id for task in story_tasks],
+                "task_states": [task.state for task in story_tasks],
+                "published": False,
+            })
+            continue
+
+        if result["story_revision"] > 1:
+            outcome = "corrected"
+        elif result["status"] == "simulated_approved_internally":
+            outcome = "approved_internal_preview"
+        elif result["status"] == "simulated_on_hold":
+            outcome = "preview_held_for_human"
+        else:
+            outcome = "completed"
+        outcomes.append({
+            "run_id": story.run_id,
+            "outcome": outcome,
+            "factory_status": result["status"],
+            "review_flow": result["review_flow"],
+            "story_revision": result["story_revision"],
+            "article_revision_sha256": result["article_revision_sha256"],
+            "reviewed_revision_sha256": result["reviewed_revision_sha256"],
+            "radar_research_packet": result["radar_research_packet"],
+            "preview_sha256": result["preview_sha256"],
+            "preview_path": result["preview_path"],
+            "task_ids": result["task_ids"],
+            "published": False,
+        })
+
+    task_ids = [task_id for outcome in outcomes for task_id in outcome["task_ids"]]
+    report = {
+        "schema_version": "FactoryMultipautaRun.v1",
+        "batch_id": batch_id,
+        "status": "completed_with_blocked_stories" if any(item["outcome"] == "blocked" for item in outcomes) else "completed",
+        "synthetic_fixture_only": True,
+        "shared_task_ledger": "agent_tasks/agent_task_events",
+        "shared_dispatcher": True,
+        "story_count": len(outcomes),
+        "story_outcomes": outcomes,
+        "task_count": len(set(task_ids)),
+        "task_ids": list(dict.fromkeys(task_ids)),
+        "publication_state": "not_published",
+        "published": False,
+    }
+    report_path = store.artifact_dir / "factory-demo" / batch_id / "multipauta-report.json"
     report["report_path"] = str(report_path.resolve())
     _write_json(report_path, report)
     return report
