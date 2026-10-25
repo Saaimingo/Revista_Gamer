@@ -1,6 +1,6 @@
 # ENG-CODEX-007 — checkpoint de continuidade
 
-Atualizado: 2026-10-25 18:56 -03:00
+Atualizado: 2026-10-25 18:59 -03:00
 Ultima unidade concluida: **E12 - carteira dinamica de 10 pautas principais + 10 reservas, validada localmente e enviada a branch**
 Unidade em andamento: **E13 - integracao dos papeis ao dispatcher existente**
 Proxima unidade apos E13: **E14 - handoff editorial com evidencias e revisoes**
@@ -151,7 +151,7 @@ Proxima unidade apos E13: **E14 - handoff editorial com evidencias e revisoes**
 - Commit de codigo/testes: `6b8a2cb8f2e12f662932ca2701cd52474d17c890`. Relatorio E12: `docs/engenharia/ENG-CODEX-007-E12-CARTEIRA-DINAMICA-10-10.md`. A carteira default 10 + 10 usa prioridade numerica fornecida, unicidade por topico/edicao e nao cria `story_id` nem reportagens.
 - Radar schema v6 -> v7 aditivo: estado de avaliacao (`eligible`, `blocked`, `needs_evaluation`), trava de membro, eventos tipados append-only e reativacao automatica por eventos materiais de documento/alegacao. Troca principal/reserva exige evidencia auditavel `approved` em `edition_membership_change`; o validador registra a evidencia, sem autenticar o aprovador.
 - CPython 3.11.9 (`.venv`): foco RadarStore+carteira **26/26 OK em 15,775 s**; suite integral serial `& '.\.venv\Scripts\python.exe' -m unittest discover -s motor_editorial/tests -q` -> **185/185 OK em 117,425 s**; `compileall` e `git diff --check` exit 0. A primeira rodada focada encontrou fixture com topico repetido, campo de aprovacao vetado pelo filtro de credenciais e leitura de `sqlite3.Row`; correcoes aplicadas antes dos resultados finais.
-- Testes usam fixtures e SQLite temporario; nenhuma fonte publica, LLM, SIWC/Plus, API paga, banco runtime, scheduler de producao, publicacao, deploy ou merge. Checklist e handoffs E12 serao registrados apos o push deste relatorio/checkpoint.
+- Testes usam fixtures e SQLite temporario; nenhuma fonte publica, LLM, SIWC/Plus, API paga, banco runtime, scheduler de producao, publicacao, deploy ou merge. Checklist E12 marcado; handoffs Issue #28 [6403918979](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6403918979) e PR #30 [6403919228](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6403919228). Relatorio/index/README/checkpoint desta unidade: `0ed90ad`.
 
 ## Bloqueios e retomada
 

@@ -39,4 +39,4 @@ Nenhuma fonte pública, inferência, SIWC/Plus, API paga, banco runtime, schedul
 
 - Código/testes: `6b8a2cb8f2e12f662932ca2701cd52474d17c890`.
 - Checkpoint de retomada da validação: `3636ae4c9952b7b732d2089c90d0a9963a421e06`.
-- Checklist, comentário de Issue, comentário de PR e checkpoint final serão vinculados após a sincronização documental.
+- Checklist E12 marcado; handoffs: Issue #28 [6403918979](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6403918979) e PR #30 [6403919228](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6403919228).
