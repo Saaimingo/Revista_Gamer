@@ -13,7 +13,7 @@ import sqlite3
 import uuid
 from collections.abc import Iterable, Mapping
 from contextlib import closing
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, urlsplit
@@ -23,8 +23,9 @@ from .db import json_dumps, normalize_text, stable_hash
 from .orchestration import _assert_no_credentials
 
 
-RADAR_SCHEMA_VERSION = 2
+RADAR_SCHEMA_VERSION = 3
 _HASH_RE = re.compile(r"^[a-f0-9]{64}$")
+_LANGUAGE_TAG_RE = re.compile(r"^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$")
 _SENSITIVE_URL_KEYS = {
     "access_token", "refresh_token", "id_token", "token", "oauth_token", "api_key", "apikey", "key",
     "access_key", "client_secret", "secret", "signature", "sig", "auth", "credential", "credentials",
@@ -89,6 +90,55 @@ def _date_or_timestamp(value: Any, name: str, *, optional: bool = False) -> str 
             raise RadarStoreError(f"{name} precisa ser data ISO-8601 válida.") from error
         return text
     return _timestamp(text, name)
+
+
+def _language_tag(value: Any, name: str) -> str:
+    text = _text(value, name, maximum=32)
+    if text is None or not _LANGUAGE_TAG_RE.fullmatch(text):
+        raise RadarStoreError(f"{name} precisa ser uma etiqueta de idioma compatível com BCP 47 simplificado.")
+    subtags = text.split("-")
+    canonical = [subtags[0].lower()]
+    for subtag in subtags[1:]:
+        if len(subtag) == 4 and subtag.isalpha():
+            canonical.append(subtag.title())
+        elif (len(subtag) == 2 and subtag.isalpha()) or (len(subtag) == 3 and subtag.isdigit()):
+            canonical.append(subtag.upper())
+        else:
+            canonical.append(subtag.lower())
+    return "-".join(canonical)
+
+
+def _contains_contact_data(value: str) -> bool:
+    if re.search(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", value):
+        return True
+    for match in re.finditer(r"(?<!\w)\+?\d[\d\s().-]{6,}\d(?!\w)", value):
+        if sum(character.isdigit() for character in match.group(0)) >= 9:
+            return True
+    return False
+
+
+def _temporal_instant(value: str | None) -> datetime | None:
+    if value is None:
+        return None
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        return datetime.fromisoformat(f"{value}T00:00:00+00:00")
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        raise RadarStoreError("Intervalo de cargo exige fuso horário em timestamps.")
+    return parsed.astimezone(timezone.utc)
+
+
+def _require_public_document(connection: sqlite3.Connection, document_id: str) -> sqlite3.Row:
+    row = connection.execute(
+        """SELECT d.document_id, d.language, d.access_policy, s.access_policy AS source_access_policy,
+                  s.source_type
+           FROM radar_documents d JOIN radar_sources s ON s.source_id=d.source_id
+           WHERE d.document_id=?""",
+        (document_id,),
+    ).fetchone()
+    if row is None or row["access_policy"] != "allowed" or row["source_access_policy"] != "allowed":
+        raise RadarStoreError("Proveniência exige documento e fonte com acesso público permitido.")
+    return row
 
 
 def _sha256(value: Any, name: str, *, optional: bool = False) -> str | None:
@@ -403,6 +453,55 @@ _SCHEMA_V2_STATEMENTS = (
         BEFORE DELETE ON radar_republication_members BEGIN SELECT RAISE(ABORT, 'republication links are append-only'); END""",
 )
 
+_SCHEMA_V3_STATEMENTS = (
+    """CREATE TABLE IF NOT EXISTS radar_entity_roles (
+        role_id TEXT PRIMARY KEY,
+        entity_id TEXT NOT NULL REFERENCES radar_entities(entity_id) ON DELETE RESTRICT,
+        role_kind TEXT NOT NULL CHECK (role_kind IN ('producer','director','developer','designer','writer','artist','composer','actor','voice_actor','executive','other')),
+        role_title TEXT NOT NULL,
+        organization_entity_id TEXT REFERENCES radar_entities(entity_id) ON DELETE RESTRICT,
+        project_entity_id TEXT REFERENCES radar_entities(entity_id) ON DELETE RESTRICT,
+        valid_from TEXT,
+        valid_to TEXT,
+        source_document_id TEXT NOT NULL REFERENCES radar_documents(document_id) ON DELETE RESTRICT,
+        evidence_context TEXT NOT NULL CHECK (evidence_context IN ('interview_quote','interview_byline','company_press_release','official_bio','credits','other_public_source')),
+        recorded_at TEXT NOT NULL
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_radar_entity_roles_person_time ON radar_entity_roles(entity_id, valid_from, valid_to)",
+    "CREATE INDEX IF NOT EXISTS idx_radar_entity_roles_project ON radar_entity_roles(project_entity_id, role_kind)",
+    """CREATE TRIGGER IF NOT EXISTS radar_entity_roles_no_update
+        BEFORE UPDATE ON radar_entity_roles BEGIN SELECT RAISE(ABORT, 'role evidence is append-only'); END""",
+    """CREATE TRIGGER IF NOT EXISTS radar_entity_roles_no_delete
+        BEFORE DELETE ON radar_entity_roles BEGIN SELECT RAISE(ABORT, 'role evidence is append-only'); END""",
+    """CREATE TABLE IF NOT EXISTS radar_interviews (
+        interview_id TEXT PRIMARY KEY,
+        subject_entity_id TEXT NOT NULL REFERENCES radar_entities(entity_id) ON DELETE RESTRICT,
+        original_document_id TEXT NOT NULL REFERENCES radar_documents(document_id) ON DELETE RESTRICT,
+        original_language TEXT NOT NULL,
+        recorded_at TEXT NOT NULL,
+        UNIQUE(subject_entity_id, original_document_id)
+    )""",
+    """CREATE TABLE IF NOT EXISTS radar_interview_variants (
+        interview_id TEXT NOT NULL REFERENCES radar_interviews(interview_id) ON DELETE RESTRICT,
+        document_id TEXT NOT NULL REFERENCES radar_documents(document_id) ON DELETE RESTRICT,
+        relation_type TEXT NOT NULL CHECK (relation_type IN ('translation','transcript','republication')),
+        based_on_document_id TEXT NOT NULL REFERENCES radar_documents(document_id) ON DELETE RESTRICT,
+        language TEXT NOT NULL,
+        recorded_at TEXT NOT NULL,
+        PRIMARY KEY(interview_id, document_id),
+        CHECK (document_id <> based_on_document_id)
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_radar_interview_variants_based_on ON radar_interview_variants(based_on_document_id)",
+    """CREATE TRIGGER IF NOT EXISTS radar_interviews_no_update
+        BEFORE UPDATE ON radar_interviews BEGIN SELECT RAISE(ABORT, 'interview identity is append-only'); END""",
+    """CREATE TRIGGER IF NOT EXISTS radar_interviews_no_delete
+        BEFORE DELETE ON radar_interviews BEGIN SELECT RAISE(ABORT, 'interview identity is append-only'); END""",
+    """CREATE TRIGGER IF NOT EXISTS radar_interview_variants_no_update
+        BEFORE UPDATE ON radar_interview_variants BEGIN SELECT RAISE(ABORT, 'interview variants are append-only'); END""",
+    """CREATE TRIGGER IF NOT EXISTS radar_interview_variants_no_delete
+        BEFORE DELETE ON radar_interview_variants BEGIN SELECT RAISE(ABORT, 'interview variants are append-only'); END""",
+)
+
 
 class RadarStore:
     """Explicit-path, independently versioned SQLite store for Radar data."""
@@ -429,9 +528,14 @@ class RadarStore:
             if version == 0:
                 self._migrate_v0_to_v1(connection)
                 self._migrate_v1_to_v2(connection)
+                self._migrate_v2_to_v3(connection)
                 version = RADAR_SCHEMA_VERSION
             elif version == 1:
                 self._migrate_v1_to_v2(connection)
+                self._migrate_v2_to_v3(connection)
+                version = RADAR_SCHEMA_VERSION
+            elif version == 2:
+                self._migrate_v2_to_v3(connection)
                 version = RADAR_SCHEMA_VERSION
             if version == RADAR_SCHEMA_VERSION:
                 check = connection.execute("PRAGMA quick_check").fetchone()[0]
@@ -448,12 +552,13 @@ class RadarStore:
                     "radar_document_topics", "radar_claims", "radar_claim_sources", "radar_claim_events",
                     "radar_research_requests", "radar_research_packets", "radar_candidates", "radar_candidate_events",
                     "radar_fetch_events", "radar_fetch_cache", "radar_republication_groups", "radar_republication_members",
+                    "radar_entity_roles", "radar_interviews", "radar_interview_variants",
                 }
                 if not required.issubset(tables):
-                    raise RadarStoreError("Banco marcado como Radar v2 sem as tabelas obrigatórias.")
+                    raise RadarStoreError("Banco marcado como Radar v3 sem as tabelas obrigatórias.")
                 unrelated = {name for name in tables if not name.startswith(("radar_", "sqlite_"))}
                 if unrelated:
-                    raise RadarStoreError("Banco Radar v1 contém tabelas fora do namespace reservado.")
+                    raise RadarStoreError("Banco Radar v3 contém tabelas fora do namespace reservado.")
                 return
             raise RadarStoreError(f"Versão de schema Radar não suportada: {version}.")
 
@@ -529,6 +634,67 @@ class RadarStore:
         except Exception:
             connection.rollback()
             raise
+
+    @staticmethod
+    def _migrate_v2_to_v3(connection: sqlite3.Connection) -> None:
+        """Add sourced role/interview records and allow evidenced homonyms."""
+        connection.execute("PRAGMA foreign_keys = OFF")
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            tables = {
+                row[0] for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+            unexpected = {name for name in tables if not name.startswith(("radar_", "sqlite_"))}
+            if unexpected or "radar_entities" not in tables or "radar_documents" not in tables:
+                raise RadarStoreError("Migração v2→v3 recusada: banco não corresponde ao namespace do Radar.")
+            columns = {
+                row[1] for row in connection.execute("PRAGMA table_info(radar_entities)").fetchall()
+            }
+            expected = {
+                "entity_id", "entity_kind", "canonical_name", "normalized_name", "language",
+                "metadata_json", "created_at", "updated_at",
+            }
+            if not expected.issubset(columns):
+                raise RadarStoreError("Migração v2→v3 recusada: schema de entidades inesperado.")
+            connection.execute(
+                """CREATE TABLE radar_entities_v3 (
+                    entity_id TEXT PRIMARY KEY,
+                    entity_kind TEXT NOT NULL CHECK (entity_kind IN ('person','organization','game','hardware','project','creator','mod','company','other')),
+                    canonical_name TEXT NOT NULL,
+                    normalized_name TEXT NOT NULL,
+                    language TEXT NOT NULL,
+                    identity_source_document_id TEXT REFERENCES radar_documents(document_id) ON DELETE RESTRICT,
+                    identity_context TEXT NOT NULL DEFAULT '',
+                    metadata_json TEXT NOT NULL DEFAULT '{}',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(entity_kind, normalized_name, language, identity_context)
+                )"""
+            )
+            connection.execute(
+                """INSERT INTO radar_entities_v3
+                   (entity_id, entity_kind, canonical_name, normalized_name, language,
+                    identity_source_document_id, identity_context, metadata_json, created_at, updated_at)
+                   SELECT entity_id, entity_kind, canonical_name, normalized_name, language,
+                          NULL, '', metadata_json, created_at, updated_at
+                   FROM radar_entities"""
+            )
+            connection.execute("DROP TABLE radar_entities")
+            connection.execute("ALTER TABLE radar_entities_v3 RENAME TO radar_entities")
+            for statement in _SCHEMA_V3_STATEMENTS:
+                connection.execute(statement)
+            connection.execute("PRAGMA user_version = 3")
+            violations = connection.execute("PRAGMA foreign_key_check").fetchall()
+            if violations:
+                raise RadarStoreError("Migração Radar v2→v3 deixou referências sem destino.")
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.execute("PRAGMA foreign_keys = ON")
 
     @staticmethod
     def backup_database(source: Path, destination: Path) -> Path:
@@ -961,27 +1127,53 @@ class RadarStore:
     def register_entity(
         self, *, entity_id: str, entity_kind: str, canonical_name: str, language: str,
         metadata: Mapping[str, Any] | None = None, now: str,
+        source_document_id: str | None = None, identity_context: str | None = None,
     ) -> None:
         if entity_kind not in {"person", "organization", "game", "hardware", "project", "creator", "mod", "company", "other"}:
             raise RadarStoreError("entity_kind inválido.")
         entity_id = _text(entity_id, "entity_id", maximum=256)  # type: ignore[assignment]
         canonical_name = _text(canonical_name, "canonical_name", maximum=500)  # type: ignore[assignment]
-        language = _text(language, "language", maximum=32)  # type: ignore[assignment]
+        language = _language_tag(language, "language")
+        source_document_id = _text(source_document_id, "source_document_id", maximum=256, optional=True)
+        raw_identity_context = _text(identity_context, "identity_context", maximum=300, optional=True)
+        identity_context = normalize_text(raw_identity_context) if raw_identity_context else ""
+        if entity_kind in {"person", "project"} and source_document_id is None:
+            raise RadarStoreError("Pessoa/projeto público exige documento-fonte permitido.")
+        if entity_kind == "person" and metadata:
+            raise RadarStoreError("Perfil de pessoa aceita apenas nome, idioma, contexto profissional e documento-fonte; sem dados privados em metadata.")
+        if entity_kind == "person" and raw_identity_context and _contains_contact_data(raw_identity_context):
+            raise RadarStoreError("identity_context não pode conter contato pessoal.")
         now = _timestamp(now, "now")  # type: ignore[assignment]
         metadata_json = _json(dict(metadata or {}), "entity_metadata")
         with closing(self.connect()) as connection:
             try:
+                if source_document_id is not None:
+                    _require_public_document(connection, source_document_id)
+                if entity_kind == "person":
+                    same_name = connection.execute(
+                        """SELECT identity_context FROM radar_entities
+                           WHERE entity_kind='person' AND normalized_name=? AND language=?""",
+                        (normalize_text(canonical_name), language),
+                    ).fetchall()
+                    if same_name and not identity_context:
+                        raise RadarStoreError("Homônimo exige identity_context profissional para não fundir pessoas distintas.")
+                    if any(row["identity_context"] == identity_context for row in same_name):
+                        raise RadarStoreError("Pessoa com esse nome/contexto já existe; reutilize a entidade ou adicione alias.")
                 connection.execute(
                     """INSERT INTO radar_entities
-                       (entity_id, entity_kind, canonical_name, normalized_name, language, metadata_json, created_at, updated_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                       (entity_id, entity_kind, canonical_name, normalized_name, language,
+                        identity_source_document_id, identity_context, metadata_json, created_at, updated_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (entity_id, entity_kind, canonical_name, normalize_text(canonical_name), language,
-                     metadata_json, now, now),
+                     source_document_id, identity_context, metadata_json, now, now),
                 )
                 connection.commit()
+            except RadarStoreError:
+                connection.rollback()
+                raise
             except sqlite3.IntegrityError as error:
                 connection.rollback()
-                raise RadarStoreError("Entidade repetida ou combinação canonical_name/language já registrada.") from error
+                raise RadarStoreError("entity_id/contexto de identidade repetido ou documento-fonte inexistente.") from error
 
     def add_entity_alias(
         self, *, alias_id: str, entity_id: str, alias: str, language: str,
@@ -990,11 +1182,22 @@ class RadarStore:
         alias_id = _text(alias_id, "alias_id", maximum=256)  # type: ignore[assignment]
         entity_id = _text(entity_id, "entity_id", maximum=256)  # type: ignore[assignment]
         alias = _text(alias, "alias", maximum=500)  # type: ignore[assignment]
-        language = _text(language, "language", maximum=32)  # type: ignore[assignment]
+        language = _language_tag(language, "language")
         source_document_id = _text(source_document_id, "source_document_id", maximum=256, optional=True)
+        if _contains_contact_data(alias):
+            raise RadarStoreError("Alias não pode conter contato pessoal.")
         created_at = _timestamp(created_at, "created_at")  # type: ignore[assignment]
         with closing(self.connect()) as connection:
             try:
+                entity = connection.execute(
+                    "SELECT entity_kind FROM radar_entities WHERE entity_id=?", (entity_id,)
+                ).fetchone()
+                if entity is None:
+                    raise RadarStoreError("Alias exige entidade registrada.")
+                if entity["entity_kind"] in {"person", "project"} and source_document_id is None:
+                    raise RadarStoreError("Alias público exige documento-fonte permitido.")
+                if source_document_id is not None:
+                    _require_public_document(connection, source_document_id)
                 connection.execute(
                     """INSERT INTO radar_entity_aliases
                        (alias_id, entity_id, alias, normalized_alias, language, source_document_id, created_at)
@@ -1002,9 +1205,194 @@ class RadarStore:
                     (alias_id, entity_id, alias, normalize_text(alias), language, source_document_id, created_at),
                 )
                 connection.commit()
+            except RadarStoreError:
+                connection.rollback()
+                raise
             except sqlite3.IntegrityError as error:
                 connection.rollback()
                 raise RadarStoreError("Alias duplicado ou entidade/fonte inexistente.") from error
+
+    def add_entity_role(
+        self, *, role_id: str, entity_id: str, role_kind: str, role_title: str,
+        source_document_id: str, evidence_context: str, recorded_at: str,
+        organization_entity_id: str | None = None, project_entity_id: str | None = None,
+        valid_from: str | None = None, valid_to: str | None = None,
+    ) -> None:
+        role_id = _text(role_id, "role_id", maximum=256)  # type: ignore[assignment]
+        entity_id = _text(entity_id, "entity_id", maximum=256)  # type: ignore[assignment]
+        role_title = _text(role_title, "role_title", maximum=300)  # type: ignore[assignment]
+        if _contains_contact_data(role_title):
+            raise RadarStoreError("role_title não pode conter contato pessoal.")
+        source_document_id = _text(source_document_id, "source_document_id", maximum=256)  # type: ignore[assignment]
+        organization_entity_id = _text(organization_entity_id, "organization_entity_id", maximum=256, optional=True)
+        project_entity_id = _text(project_entity_id, "project_entity_id", maximum=256, optional=True)
+        valid_from = _date_or_timestamp(valid_from, "valid_from", optional=True)
+        valid_to = _date_or_timestamp(valid_to, "valid_to", optional=True)
+        recorded_at = _timestamp(recorded_at, "recorded_at")  # type: ignore[assignment]
+        if valid_from and valid_to and _temporal_instant(valid_to) < _temporal_instant(valid_from):
+            raise RadarStoreError("Intervalo de cargo termina antes do início.")
+        if role_kind not in {"producer", "director", "developer", "designer", "writer", "artist", "composer", "actor", "voice_actor", "executive", "other"}:
+            raise RadarStoreError("role_kind inválido.")
+        if evidence_context not in {"interview_quote", "interview_byline", "company_press_release", "official_bio", "credits", "other_public_source"}:
+            raise RadarStoreError("evidence_context inválido.")
+        with closing(self.connect()) as connection:
+            try:
+                person = connection.execute("SELECT entity_kind FROM radar_entities WHERE entity_id=?", (entity_id,)).fetchone()
+                if person is None or person["entity_kind"] != "person":
+                    raise RadarStoreError("Cargo público deve pertencer a uma entidade person.")
+                source = _require_public_document(connection, source_document_id)
+                if organization_entity_id is not None:
+                    organization = connection.execute(
+                        "SELECT entity_kind FROM radar_entities WHERE entity_id=?", (organization_entity_id,)
+                    ).fetchone()
+                    if organization is None or organization["entity_kind"] not in {"organization", "company"}:
+                        raise RadarStoreError("organization_entity_id precisa ser organização/empresa registrada.")
+                if project_entity_id is not None:
+                    project = connection.execute(
+                        "SELECT entity_kind FROM radar_entities WHERE entity_id=?", (project_entity_id,)
+                    ).fetchone()
+                    if project is None or project["entity_kind"] not in {"project", "game"}:
+                        raise RadarStoreError("project_entity_id precisa ser projeto/jogo registrado.")
+                if evidence_context in {"interview_quote", "interview_byline"}:
+                    interview_source = connection.execute(
+                        """SELECT 1 FROM radar_interviews
+                           WHERE subject_entity_id=? AND original_document_id=?
+                           UNION ALL
+                           SELECT 1 FROM radar_interview_variants v
+                           JOIN radar_interviews i ON i.interview_id=v.interview_id
+                           WHERE i.subject_entity_id=? AND v.document_id=?
+                           LIMIT 1""",
+                        (entity_id, source_document_id, entity_id, source_document_id),
+                    ).fetchone()
+                    if interview_source is None:
+                        raise RadarStoreError("Contexto de entrevista exige documento registrado para essa pessoa e entrevista.")
+                elif evidence_context == "company_press_release":
+                    if organization_entity_id is None or source["source_type"] != "official":
+                        raise RadarStoreError("Press release exige fonte oficial e organização identificada.")
+                    company_link = connection.execute(
+                        """SELECT 1 FROM radar_document_entities
+                           WHERE document_id=? AND entity_id=? AND relation_type='press_release_from'""",
+                        (source_document_id, organization_entity_id),
+                    ).fetchone()
+                    if company_link is None:
+                        raise RadarStoreError("Press release precisa estar ligado à organização emissora.")
+                duplicate = connection.execute(
+                    """SELECT role_id FROM radar_entity_roles
+                       WHERE entity_id=? AND role_kind=? AND role_title=?
+                         AND organization_entity_id IS ? AND project_entity_id IS ?
+                         AND valid_from IS ? AND valid_to IS ? AND source_document_id=?
+                         AND evidence_context=?""",
+                    (entity_id, role_kind, role_title, organization_entity_id, project_entity_id,
+                     valid_from, valid_to, source_document_id, evidence_context),
+                ).fetchone()
+                if duplicate is not None:
+                    raise RadarStoreError("Evidência de cargo já registrada; não duplicar a mesma atribuição.")
+                connection.execute(
+                    """INSERT INTO radar_entity_roles
+                       (role_id, entity_id, role_kind, role_title, organization_entity_id,
+                        project_entity_id, valid_from, valid_to, source_document_id,
+                        evidence_context, recorded_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (role_id, entity_id, role_kind, role_title, organization_entity_id,
+                     project_entity_id, valid_from, valid_to, source_document_id,
+                     evidence_context, recorded_at),
+                )
+                connection.commit()
+            except RadarStoreError:
+                connection.rollback()
+                raise
+            except sqlite3.IntegrityError as error:
+                connection.rollback()
+                raise RadarStoreError("Cargo sem pessoa, organização/projeto ou documento-fonte compatível.") from error
+
+    def list_entity_roles(self, *, entity_id: str) -> list[dict[str, Any]]:
+        entity_id = _text(entity_id, "entity_id", maximum=256)  # type: ignore[assignment]
+        return self.list_rows("radar_entity_roles", where_column="entity_id", where_value=entity_id)
+
+    def register_interview(
+        self, *, interview_id: str, subject_entity_id: str, original_document_id: str,
+        original_language: str, recorded_at: str,
+    ) -> None:
+        interview_id = _text(interview_id, "interview_id", maximum=256)  # type: ignore[assignment]
+        subject_entity_id = _text(subject_entity_id, "subject_entity_id", maximum=256)  # type: ignore[assignment]
+        original_document_id = _text(original_document_id, "original_document_id", maximum=256)  # type: ignore[assignment]
+        original_language = _language_tag(original_language, "original_language")
+        recorded_at = _timestamp(recorded_at, "recorded_at")  # type: ignore[assignment]
+        with closing(self.connect()) as connection:
+            try:
+                subject = connection.execute(
+                    "SELECT entity_kind FROM radar_entities WHERE entity_id=?", (subject_entity_id,)
+                ).fetchone()
+                if subject is None or subject["entity_kind"] != "person":
+                    raise RadarStoreError("Entrevista deve identificar uma pessoa pública registrada.")
+                original = _require_public_document(connection, original_document_id)
+                if _language_tag(original["language"], "document.language") != original_language:
+                    raise RadarStoreError("Idioma original diverge do idioma do documento-fonte.")
+                connection.execute(
+                    """INSERT INTO radar_interviews
+                       (interview_id, subject_entity_id, original_document_id, original_language, recorded_at)
+                       VALUES (?, ?, ?, ?, ?)""",
+                    (interview_id, subject_entity_id, original_document_id, original_language, recorded_at),
+                )
+                connection.commit()
+            except RadarStoreError:
+                connection.rollback()
+                raise
+            except sqlite3.IntegrityError as error:
+                connection.rollback()
+                raise RadarStoreError("Entrevista repetida ou com pessoa/documento incompatíveis.") from error
+
+    def add_interview_variant(
+        self, *, interview_id: str, document_id: str, relation_type: str,
+        based_on_document_id: str, language: str, recorded_at: str,
+    ) -> None:
+        interview_id = _text(interview_id, "interview_id", maximum=256)  # type: ignore[assignment]
+        document_id = _text(document_id, "document_id", maximum=256)  # type: ignore[assignment]
+        based_on_document_id = _text(based_on_document_id, "based_on_document_id", maximum=256)  # type: ignore[assignment]
+        language = _language_tag(language, "language")
+        recorded_at = _timestamp(recorded_at, "recorded_at")  # type: ignore[assignment]
+        if relation_type not in {"translation", "transcript", "republication"}:
+            raise RadarStoreError("relation_type de variante de entrevista inválido.")
+        with closing(self.connect()) as connection:
+            try:
+                interview = connection.execute(
+                    "SELECT original_document_id FROM radar_interviews WHERE interview_id=?", (interview_id,)
+                ).fetchone()
+                if interview is None:
+                    raise RadarStoreError("Entrevista não registrada.")
+                document = _require_public_document(connection, document_id)
+                based_on = _require_public_document(connection, based_on_document_id)
+                if _language_tag(document["language"], "document.language") != language:
+                    raise RadarStoreError("Idioma declarado diverge do documento da variante.")
+                if based_on_document_id != interview["original_document_id"]:
+                    prior_variant = connection.execute(
+                        """SELECT 1 FROM radar_interview_variants
+                           WHERE interview_id=? AND document_id=?""",
+                        (interview_id, based_on_document_id),
+                    ).fetchone()
+                    if prior_variant is None:
+                        raise RadarStoreError("Variante deve derivar do original ou de outra variante da mesma entrevista.")
+                if document_id == interview["original_document_id"]:
+                    raise RadarStoreError("Documento original não pode ser registrado como variante.")
+                if (
+                    _language_tag(document["language"], "document.language")
+                    == _language_tag(based_on["language"], "based_on.language")
+                    and relation_type == "translation"
+                ):
+                    raise RadarStoreError("Tradução precisa declarar idioma diferente da origem imediata.")
+                connection.execute(
+                    """INSERT INTO radar_interview_variants
+                       (interview_id, document_id, relation_type, based_on_document_id, language, recorded_at)
+                       VALUES (?, ?, ?, ?, ?, ?)""",
+                    (interview_id, document_id, relation_type, based_on_document_id, language, recorded_at),
+                )
+                connection.commit()
+            except RadarStoreError:
+                connection.rollback()
+                raise
+            except sqlite3.IntegrityError as error:
+                connection.rollback()
+                raise RadarStoreError("Variante de entrevista repetida ou com vínculo inválido.") from error
 
     def register_topic(self, *, topic_id: str, canonical_key: str, title: str, now: str) -> None:
         topic_id = _text(topic_id, "topic_id", maximum=256)  # type: ignore[assignment]
@@ -1300,6 +1688,8 @@ class RadarStore:
     def get_row(self, table: str, key_column: str, key_value: str) -> dict[str, Any] | None:
         allowed = {
             ("radar_sources", "source_id"), ("radar_documents", "document_id"),
+            ("radar_entities", "entity_id"), ("radar_entity_roles", "role_id"),
+            ("radar_interviews", "interview_id"),
             ("radar_claims", "claim_id"), ("radar_claim_events", "event_id"),
             ("radar_candidates", "candidate_id"), ("radar_candidate_events", "event_id"),
             ("radar_research_requests", "request_id"), ("radar_research_packets", "packet_id"),
@@ -1318,6 +1708,7 @@ class RadarStore:
             "radar_claim_sources", "radar_claim_events", "radar_research_requests", "radar_research_packets",
             "radar_candidates", "radar_candidate_events",
             "radar_fetch_events", "radar_fetch_cache", "radar_republication_groups", "radar_republication_members",
+            "radar_entity_roles", "radar_interviews", "radar_interview_variants",
         }
         if table not in allowed:
             raise RadarStoreError("Tabela de leitura não suportada.")

@@ -1,7 +1,7 @@
 # ENG-CODEX-007 — checkpoint de continuidade
 
-Atualizado: 2026-10-25 14:40 America/Sao_Paulo
-Última unidade: **E06 — coleta incremental, cache, ETag/diff e deduplicação conservadora, concluída/validada localmente**
+Atualizado: 2026-10-25 — retomada contínua America/Sao_Paulo
+Última unidade concluída: **E06 — coleta incremental, cache, ETag/diff e deduplicação conservadora, validada localmente**
 Unidade em andamento: **E07 — pessoas, projetos, aliases, entrevistas e idiomas**
 Próxima unidade após E07: **E08 — ledger de alegações e rumores**
 
@@ -93,21 +93,15 @@ Próxima unidade após E07: **E08 — ledger de alegações e rumores**
 
 ## E07 — em andamento
 
-- Critério confirmado na ordem versionada do Fundador 2: pessoas públicas de produção/direção/desenvolvimento; cargos com intervalos; entidades/aliases com idioma; origem e links de entrevistas; separar citação de entrevista de menção em press release; suportar nome japonês/romanizado, homônimos, cargos anteriores/novos e original/tradução; sem dados pessoais privados.
-- Mapeamento sem edição de código: `radar_entities` já cataloga pessoa/organização/projeto e `radar_entity_aliases` guarda idioma e documento de origem. A tabela de entidades ainda tem unicidade global por nome normalizado/idioma, que impede homônimos; não há histórico de cargo nem relação de versão original/tradução de entrevista.
-- Ainda sem alterações E07 e sem testes E07. Próximo passo: criar migração aditiva Radar v2→v3 com identidade disambiguada por contexto profissional e documento-fonte; acrescentar registros de cargo/proveniência e links de entrevistas/traduções; cobrir os critérios com SQLite e fontes sintéticas temporários.
-- Limite de conteúdo: guardar somente identidade/nome profissional, função, idioma, fonte, intervalos e relações; não armazenar contatos privados nem texto de entrevista.
-
-## E06 — em andamento
-
-- Plano: reutilizar `RadarConnectorService.fetch()` e `FetchResult` para ETag/Last-Modified; gravar observação, hashes, diffs e cache compartilhado no `RadarStore` isolado. A chave canônica preservará query params significativos; associações de republicação serão conservadoras e nunca inferidas apenas por semelhança textual ou autoria independente.
-- Critérios em execução: título/trecho alterado produz novo evento na mesma pauta; hash idêntico não gera solicitação de IA; cache é compartilhado entre perfis e invalidado por mudança material; autores distintos permanecem separados sem evidência de republicação.
-- Mapeamento inicial (sem edição de código): `rg -n` em `radar_store.py`, `radar_connectors.py` e testes existentes confirmou suporte a ETag/Last-Modified no conector e campos/eventos no store. Ainda não há alterações E06 nem testes E06 executados nesta retomada.
-- Próximo passo: inspecionar as assinaturas e validações de `register_document`, `record_observation`, `RadarConnectorService.fetch` e parsers; desenhar extensão retrocompatível e implementar testes com fixtures/transportes falsos, sem coleta pública ou LLM.
-- Gate futuro: E17 não repetirá probe nem inferência por rotina. Conferir preflight/consentimento/cota quando chegar a unidade; se o uso Plus real não estiver explicitamente autorizado/elegível, registrar E17 parcial/bloqueada e prosseguir nas tarefas offline.
+- Critério confirmado na ordem versionada do Fundador 2: registrar pessoas e projetos públicos, aliases com idioma/proveniência, histórico profissional com intervalos, entrevistas e relações original/tradução; distinguir entrevista de press release; suportar nomes japoneses/romanizados e homônimos sem mesclagem automática; não armazenar dados pessoais privados.
+- Alterações locais em `motor_editorial/radar_store.py`: Radar schema v3; migração isolada v2→v3 que preserva IDs e vínculos legados e adiciona contexto de identidade; tabelas append-only para cargos, entrevistas e variantes; validação de fonte pública, entidade, intervalo, idioma, vínculo entrevista/pessoa, press release oficial/organização emissora e rejeição de contatos em campos profissionais.
+- Testes novos em `motor_editorial/tests/test_radar_entities.py` cobrem homônimos com contexto, japonês/romanizado, cargos antigos/atuais, entrevista vs. press release, privacidade e original/tradução. `test_radar_store.py` cobre a migração v2→v3 e a preservação de vínculos.
+- CPython 3.11.9, `.venv`: `& '.\.venv\Scripts\python.exe' -m unittest discover -s motor_editorial/tests -p 'test_radar*.py' -v` → **32/32 OK**, 4,563 s. `compileall` → exit 0; `git diff --check` → exit 0 (somente avisos de conversão LF→CRLF do Git).
+- A validação integral final `& '.\.venv\Scripts\python.exe' -m unittest discover -s motor_editorial/tests -q` está em execução nesta retomada; **resultado pendente**, ainda não contabilizar como aprovado. Uma execução integral anterior passou 146/146 antes do ajuste transacional da migração e do teste de rollback. Próximo passo: coletar o resultado final e então concluir a validação/documentação E07.
+- Fixtures, SQLite temporário e hosts `.invalid` apenas; nenhum texto de entrevista persistido, contato privado, consulta pública, LLM, SIWC/Plus, API paga ou banco runtime. Sem scheduler, publicação, deploy ou merge; `published=false`.
 
 ## Bloqueios e retomada
 
 Não há bloqueio técnico atual para E07 offline. Não retomar ou reexecutar C2–D2; eles foram entregues na PR #26 e receberam parecer favorável de encerramento com ressalvas. E01–E06 foram validadas, commitadas e enviadas. Os gates futuros de E16/E17 continuam: origem pública só com perfil/termos/robots aprovados; SIWC/Plus apenas após preflight e elegibilidade/consentimento, sem chamadas faturáveis.
 
-Se houver interrupção, conferir primeiro `git status --short --branch`, upstream e HEAD remoto; depois verificar PR/Issue #28 e iniciar E07. E06 está implementada e validada conforme o relatório vinculado acima. Não editar a branch/documentação da PR #29, não reconstruir o motor/OAuth/DNAs e não acessar o banco runtime real.
+Se houver interrupção antes do encerramento E07, conferir primeiro `git status --short --branch`, upstream, HEAD remoto, PR #30, Issue #28 e resultado integral ainda pendente desta retomada. Continuar E07, documentar e commitar/pushar apenas após validar; depois avançar para E08. E06 está implementada e validada conforme o relatório vinculado acima. Não editar a branch/documentação da PR #29, não reconstruir o motor/OAuth/DNAs e não acessar o banco runtime real.

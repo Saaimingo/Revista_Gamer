@@ -92,7 +92,7 @@ class RadarStoreTests(unittest.TestCase):
         self.store.register_topic(topic_id=topic_id, canonical_key=f"key-{topic_id}", title="Pauta sintética", now=NOW)
 
     def test_schema_is_separate_versioned_and_runtime_path_is_refused(self) -> None:
-        self.assertEqual(RADAR_SCHEMA_VERSION, 2)
+        self.assertEqual(RADAR_SCHEMA_VERSION, 3)
         self.assertEqual(db.SCHEMA_VERSION, 5)
         names = self.store.table_names()
         self.assertGreaterEqual(
@@ -101,7 +101,7 @@ class RadarStoreTests(unittest.TestCase):
         )
         self.assertTrue(all(name.startswith("radar_") for name in names))
         with closing(self.store.connect()) as connection:
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 2)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 3)
             self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
         with self.assertRaisesRegex(RadarStoreError, "não pode abrir"):
             RadarStore(RUNTIME_DB_PATH)
@@ -213,7 +213,7 @@ class RadarStoreTests(unittest.TestCase):
             with self.assertRaises(sqlite3.IntegrityError):
                 connection.execute("DELETE FROM radar_observation_events WHERE event_id='obs-1'")
 
-    def test_v1_schema_migrates_additively_to_v2(self) -> None:
+    def test_v1_schema_migrates_additively_through_v3(self) -> None:
         from motor_editorial.radar_store import _SCHEMA_V1_STATEMENTS
 
         fixture_path = self.root / "radar-v1.sqlite3"
@@ -224,12 +224,92 @@ class RadarStoreTests(unittest.TestCase):
             connection.commit()
         migrated = RadarStore(fixture_path)
         with closing(migrated.connect()) as connection:
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 2)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 3)
             columns = {row[1] for row in connection.execute("PRAGMA table_info(radar_documents)")}
             self.assertTrue({"body_sha256", "body_segment_hashes_json", "body_char_count", "origin_url"} <= columns)
+            entity_columns = {row[1] for row in connection.execute("PRAGMA table_info(radar_entities)")}
+            self.assertTrue({"identity_source_document_id", "identity_context"} <= entity_columns)
             tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-            self.assertTrue({"radar_fetch_events", "radar_fetch_cache", "radar_republication_groups", "radar_republication_members"} <= tables)
+            self.assertTrue({"radar_fetch_events", "radar_fetch_cache", "radar_republication_groups", "radar_republication_members", "radar_entity_roles", "radar_interviews", "radar_interview_variants"} <= tables)
             self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
+
+    def test_v2_homonym_migration_preserves_entity_links_and_adds_disambiguation(self) -> None:
+        from motor_editorial.radar_store import RadarStore as Store
+
+        fixture_path = self.root / "radar-v2-homonyms.sqlite3"
+        with closing(sqlite3.connect(fixture_path)) as connection:
+            Store._migrate_v0_to_v1(connection)
+            Store._migrate_v1_to_v2(connection)
+            connection.execute(
+                """INSERT INTO radar_sources
+                   (source_id, display_name, canonical_url, domain, source_type, access_policy,
+                    rights_status, metadata_json, created_at, updated_at)
+                   VALUES ('public-source', 'Fonte pública', 'https://public.example.invalid/',
+                           'public.example.invalid', 'publisher', 'allowed', 'unknown', '{}', ?, ?)""",
+                (NOW, NOW),
+            )
+            connection.execute(
+                """INSERT INTO radar_documents
+                   (document_id, source_id, canonical_url, publisher, language, fetched_at,
+                    content_sha256, normalized_sha256, title, access_policy, fetch_status)
+                   VALUES ('public-doc', 'public-source', 'https://public.example.invalid/interview',
+                           'Fonte pública', 'en', ?, ?, ?, 'Interview', 'allowed', 'observed')""",
+                (NOW, sha256("body"), sha256("normalized")),
+            )
+            connection.execute(
+                """INSERT INTO radar_entities
+                   (entity_id, entity_kind, canonical_name, normalized_name, language, metadata_json, created_at, updated_at)
+                   VALUES ('legacy-person', 'person', 'Alex Lee', 'alex lee', 'en', '{}', ?, ?)""",
+                (NOW, NOW),
+            )
+            connection.execute(
+                """INSERT INTO radar_entity_aliases
+                   (alias_id, entity_id, alias, normalized_alias, language, source_document_id, created_at)
+                   VALUES ('legacy-alias', 'legacy-person', 'A. Lee', 'a lee', 'en', 'public-doc', ?)""",
+                (NOW,),
+            )
+            connection.execute(
+                "INSERT INTO radar_document_entities(document_id, entity_id, relation_type) VALUES ('public-doc', 'legacy-person', 'interview_subject')"
+            )
+            connection.commit()
+        migrated = Store(fixture_path)
+        self.assertEqual(migrated.get_row("radar_entities", "entity_id", "legacy-person")["identity_context"], "")  # type: ignore[index]
+        self.assertEqual(len(migrated.list_rows("radar_entity_aliases", where_column="entity_id", where_value="legacy-person")), 1)
+        self.assertEqual(len(migrated.list_rows("radar_document_entities", where_column="entity_id", where_value="legacy-person")), 1)
+        migrated.register_entity(
+            entity_id="alex-studio-b", entity_kind="person", canonical_name="Alex Lee", language="en",
+            source_document_id="public-doc", identity_context="Game director at Studio B", now=NOW,
+        )
+        self.assertEqual(len(migrated.list_rows("radar_entities", where_column="normalized_name", where_value="alex lee")), 2)
+        self.assertEqual(migrated.table_names(), {name for name in migrated.table_names() if name.startswith("radar_")})
+
+    def test_v2_to_v3_migration_rolls_back_when_legacy_foreign_key_is_orphaned(self) -> None:
+        from motor_editorial.radar_store import RadarStore as Store
+
+        fixture_path = self.root / "radar-v2-orphan.sqlite3"
+        with closing(sqlite3.connect(fixture_path)) as connection:
+            Store._migrate_v0_to_v1(connection)
+            Store._migrate_v1_to_v2(connection)
+            connection.execute("PRAGMA foreign_keys = OFF")
+            connection.execute(
+                """INSERT INTO radar_document_entities(document_id, entity_id, relation_type)
+                   VALUES ('missing-document', 'missing-person', 'interview_subject')"""
+            )
+            connection.commit()
+
+        with self.assertRaisesRegex(RadarStoreError, "referências sem destino"):
+            Store(fixture_path)
+
+        with closing(sqlite3.connect(fixture_path)) as connection:
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 2)
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(radar_entities)")}
+            self.assertNotIn("identity_context", columns)
+            self.assertEqual(
+                connection.execute(
+                    "SELECT document_id, entity_id FROM radar_document_entities"
+                ).fetchone(),
+                ("missing-document", "missing-person"),
+            )
 
     def test_fetch_cache_is_shared_by_source_url_and_fetch_events_are_append_only(self) -> None:
         self.add_source()
@@ -252,9 +332,10 @@ class RadarStoreTests(unittest.TestCase):
 
     def test_entities_aliases_topics_and_claim_history_are_linked(self) -> None:
         self.add_source()
-        self.add_document()
+        self.add_document(access_policy="allowed")
         self.store.register_entity(
-            entity_id="person-1", entity_kind="person", canonical_name="Pessoa Exemplo", language="pt-BR", now=NOW
+            entity_id="person-1", entity_kind="person", canonical_name="Pessoa Exemplo", language="pt-BR",
+            source_document_id="doc-1", now=NOW,
         )
         self.store.add_entity_alias(
             alias_id="alias-1", entity_id="person-1", alias="P. Exemplo", language="pt-BR",
