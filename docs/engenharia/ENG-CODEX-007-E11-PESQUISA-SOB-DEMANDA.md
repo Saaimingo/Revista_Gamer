@@ -40,6 +40,6 @@ Código e testes: commit `3ed30ca` (`feat: add shared Radar research service`), 
 
 E11 não coleta fontes novas e não inicia tarefas no dispatcher. Antes da E13, os executores continuam desacoplados. A coleta externa permitida permanece para E16.
 
-Para a E17, a instrução atual do usuário exclui SIWC/Plus real. O usuário informou que a tela mostrava 10% da franquia disponível e retorno a 100% às 18:12; não houve consumo de franquia nesta unidade. O piloto real E17 deve ficar registrado como `BLOCKED` neste escopo, com validações offline independentes onde couber.
+Para a E17, a instrução atual do usuário exclui SIWC/Plus real. Nenhuma chamada real foi feita nesta unidade; o piloto real E17 deve ficar registrado como `BLOCKED` neste escopo, com validações offline independentes onde couber.
 
 Próxima unidade autorizada: **E12 — carteira dinâmica de 10 pautas principais e 10 reservas**, sem gerar vinte reportagens completas.

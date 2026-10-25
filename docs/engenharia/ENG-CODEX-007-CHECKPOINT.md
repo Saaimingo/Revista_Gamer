@@ -144,7 +144,7 @@ Proxima unidade apos E12: **E13 - integracao dos papeis ao dispatcher existente*
 - `& '.\.venv\Scripts\python.exe' -m unittest motor_editorial.tests.test_research_service -q` -> **9/9 OK em 3,423 s**; `& '.\.venv\Scripts\python.exe' -m unittest motor_editorial.tests.test_research_service motor_editorial.tests.test_agent_contracts motor_editorial.tests.test_radar_store -q` -> **38/38 OK em 14,433 s**.
 - Suite integral serial final: `& '.\.venv\Scripts\python.exe' -m unittest discover -s motor_editorial/tests -q` -> **176/176 OK em 128,493 s**. CPython 3.11.9 (`.venv`); `compileall` e `git diff --check` passaram. Fixtures SQLite e provider falso; sem fonte publica, LLM, SIWC/Plus, API paga, banco runtime, worker, publicacao, deploy ou merge.
 - Codigo/testes: `3ed30ca442b031cf26f0cb8b6b0eb69a8116ba18`. Relatorio: `docs/engenharia/ENG-CODEX-007-E11-PESQUISA-SOB-DEMANDA.md`. O relatorio, indice, README setorial, checkbox e handoffs serao sincronizados neste ciclo.
-- Limite para E17: a instrucao vigente do usuario exclui SIWC/Plus real. O usuario reportou que a tela mostrava 10% da franquia disponivel e retorno a 100% as 18:12 (fuso nao informado); nenhuma chamada real foi feita. O piloto real E17 fica `BLOCKED` neste escopo; seguir com validacao offline independente.
+- Limite para E17: a instrucao vigente exclui SIWC/Plus real neste escopo. Nenhuma chamada real foi feita; o piloto real E17 fica `BLOCKED`, enquanto validacoes offline independentes continuam.
 
 ## Bloqueios e retomada
 
