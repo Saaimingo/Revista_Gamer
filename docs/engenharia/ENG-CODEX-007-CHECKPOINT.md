@@ -1,9 +1,9 @@
 # ENG-CODEX-007 — checkpoint de continuidade
 
-Atualizado: 2026-10-25 19:18 -03:00
-Ultima unidade concluida: **E13 - dispatcher, dependencias e pesquisa retomavel, validada localmente e enviada a branch**
-Unidade em andamento: **E14 - handoff editorial com evidencias e revisoes**
-Proxima unidade apos E14: **E15 - ensaio integrado offline multipauta e regressões**
+Atualizado: 2026-10-25 19:35 -03:00
+Ultima unidade concluida: **E14 - handoffs editoriais, direitos, layout e previa interna, validada localmente**
+Unidade em andamento: **E15 - ensaio integrado offline multipauta e regressoes**
+Proxima unidade apos E15: **E16 - ensaio de conectores em fontes publicas permitidas**
 
 ## Estado do trabalho
 
@@ -163,8 +163,20 @@ Proxima unidade apos E14: **E15 - ensaio integrado offline multipauta e regress�
 - Handoffs publicados: Issue #28 [6404156426](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6404156426), PR #30 [6404156235](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6404156235); caixa E13 marcada após push e testes.
 - Próximo: E14, validando os contratos de evidência, brief, texto, checagem, revisão, direitos/layout/preview existentes com três casos offline.
 
+## E14 - concluida/validada localmente
+
+- Implementacao: `motor_editorial/editorial_handoffs.py`; integracao no `SyntheticFactoryExecutor` e `run_factory_demo()` da mesma fila/dispatcher; fixtures `motor_editorial/fixtures/factory-e14-cases.json`; regressao em `motor_editorial/tests/test_factory.py`.
+- Cinco artefatos `EditorialHandoff.v1` (`EvidenceDossier`, `EditorialBrief`, `StoryDraft`, `FactCheckVerdict`, `EditorialReview`) validam tipo, campos, hashes, IDs de evidencia, filiacao de fonte e revisao. A resolucao funcional confere papel, versao e hash do catalogo existente. As tarefas continuam sinteticas e deterministicas; nenhum modelo foi chamado.
+- A cadeia vincula investigator -> editor -> writer -> checker -> reviewer e so cria StoryPackage quando os cinco artefatos pertencem a mesma pauta/revisao, checagem e revisao estao em `pass`, e o parecer humano segue pendente. O StoryPackage registra os cinco hashes e estado epistemico das alegacoes; os contratos existentes de direitos, layout e renderizacao da previa continuam sendo a ponte.
+- Casos offline: rumor atribuido preservado como rumor sem confirmacao; hardware apenas como declaracao do fabricante sem medicao; jogo/mod sem alegacao de instalacao ou teste. Instrucao hostil em texto de fonte fica marcada como dado nao confiavel e nao altera a saida deterministica. `hold`, hash de review/checagem antigo e direitos pendentes/negados interrompem a esteira antes da previa. `published=false`.
+- CPython 3.11.9 (`.venv`): `& '.\\.venv\\Scripts\\python.exe' -m unittest motor_editorial.tests.test_factory -q` -> **10/10 OK em 27,855 s**; suite integral serial `& '.\\.venv\\Scripts\\python.exe' -m unittest discover -s motor_editorial/tests -q` -> **194/194 OK em 125,683 s**; `compileall -q motor_editorial` e `git diff --check` passaram. O diff-check apontou apenas avisos de normalizacao LF/CRLF do Windows.
+- Testes usam fixtures `.invalid`, SQLite temporario e placeholder textual. Sem rede, fonte real, LLM, SIWC/Plus, API paga, banco runtime, publicacao, deploy ou merge. O estado `simulated_approved_internally` e teste local, nao aprovacao humana ou editorial.
+- Relatorio: [E14 - handoffs editoriais, direitos e previa](ENG-CODEX-007-E14-HANDOFFS-EDITORIAIS-DIREITOS-PREVIA.md). Commit de codigo/testes: 8dcc1e6 (
+eat: add revision-bound editorial handoffs for E14). IDs dos handoffs GitHub serao registrados apos push/comentarios.
+- Proximo: E15, ensaio integrado offline multipauta com uma pauta bloqueada, uma corrigida, uma elegivel a previa interna e replay apos reinicio.
+
 ## Bloqueios e retomada
 
-Nao ha bloqueio tecnico atual para E14 offline. Nao retomar ou reexecutar C2-D2; eles foram entregues na PR #26. Para E16, manter fontes, termos/robots e quotas revisados por origem antes de qualquer coleta real. E17 permanece bloqueada para chamadas SIWC/Plus reais pela instrucao vigente; nao inferir autorizacao da janela de franquia.
+Nao ha bloqueio tecnico atual para E15 offline. Nao retomar ou reexecutar C2-D2; eles foram entregues na PR #26. Para E16, manter fontes, termos/robots e quotas revisados por origem antes de qualquer coleta real. E17 permanece bloqueada para chamadas SIWC/Plus reais pela instrucao vigente; nao inferir autorizacao da janela de franquia.
 
-Proximo passo: continuar E14 pelas interfaces existentes e fixtures de direitos/layout/preview; se houver interrupcao, conferir `git status --short --branch`, upstream, HEAD remoto, PR #30, Issue #28 e este checkpoint. Nao editar a branch/documentacao da PR #29, nao reconstruir OAuth/DNAs e nao acessar o banco runtime real. O scheduler E09 segue default OFF e `dry_run=true`; E10 enfileira `triage.pending` por padrão, sem executor editorial habilitado.
+Proximo passo: continuar E15 em SQLite temporario, reutilizando o dispatcher E13 e os contratos E14. Em interrupcao, conferir branch/upstream/HEAD remoto, PR #30, Issue #28 e este checkpoint. Manter branch de implementacao e limites de E17 sem SIWC/Plus real.

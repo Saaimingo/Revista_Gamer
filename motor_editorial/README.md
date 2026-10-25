@@ -121,6 +121,12 @@ O Motor mantém um `AgentQueue`/`TaskDispatcher`; a migração SQLite v6→v7 ac
 
 `ResearchResultRouter` encaminha `ResearchRequest` v1.1 para tarefa durável dependente da origem e devolve o `ResearchPacket` como dado não confiável à continuação do mesmo papel, artigo e revisão. `resume_completed_routes()` reexecuta handoffs idempotentemente após restart. Validação E13: três testes de workflow, suite focada 60/60 e suite integral serial 192/192; todos usam fixtures/SQLite temporário, sem LLM, SIWC/Plus, API paga ou rede. Ver [relatório E13](../docs/engenharia/ENG-CODEX-007-E13-DISPATCHER-DEPENDENCIAS-PESQUISA-RETOMADA.md).
 
+### Handoffs editoriais tipados e prévia interna (ENG-CODEX-007 E14)
+
+A fábrica persiste no ledger existente `EvidenceDossier`, `EditorialBrief`, `StoryDraft`, `FactCheckVerdict` e `EditorialReview` com hashes de conteúdo e vínculos à pauta/revisão. `evidence_investigator`, `assignment_editor`, `persona_writer`, `fact_checker` e `editorial_reviewer` são resolvidos pela versão/hash do catálogo; neste circuito E14 suas saídas são determinísticas e sintéticas, sem inferência LLM. Evidência de fonte permanece dado não confiável, e texto com instrução detectável é marcado sem execução.
+
+Um `hold`, parecer obsoleto ou evidência sem vínculo bloqueia `StoryPackage`, layout e prévia. Uma correção exige nova checagem e revisão para o hash vigente. Apenas fixtures `.invalid`, SQLite temporário, placeholder textual e prévia HTML interna são usados; `published=false`. A suíte E14 validou rumor atribuído, especificação fictícia de hardware e jogo/mod fictício, mais ataque de fonte e direitos pendentes/negados; foco de fábrica 10/10 e suíte integral 194/194. Veja [relatório E14](../docs/engenharia/ENG-CODEX-007-E14-HANDOFFS-EDITORIAIS-DIREITOS-PREVIA.md).
+
 ### Prova técnica opcional com o plano ChatGPT
 
 O acesso oficial é via Sign in with ChatGPT (SIWC), autorização explícita no navegador e escopo de uso do plano. Não use nem configure `OPENAI_API_KEY`. Para instalar a dependência OIDC opcional em ambiente isolado:
