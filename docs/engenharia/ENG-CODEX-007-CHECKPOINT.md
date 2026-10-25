@@ -1,9 +1,9 @@
 # ENG-CODEX-007 — checkpoint de continuidade
 
-Atualizado: 2026-10-25 18:59 -03:00
-Ultima unidade concluida: **E12 - carteira dinamica de 10 pautas principais + 10 reservas, validada localmente e enviada a branch**
-Unidade em andamento: **E13 - integracao dos papeis ao dispatcher existente**
-Proxima unidade apos E13: **E14 - handoff editorial com evidencias e revisoes**
+Atualizado: 2026-10-25 19:14 -03:00
+Ultima unidade concluida: **E13 - dispatcher, dependencias e pesquisa retomavel, validada localmente e enviada a branch**
+Unidade em andamento: **E14 - handoff editorial com evidencias e revisoes**
+Proxima unidade apos E14: **E15 - ensaio integrado offline multipauta e regressões**
 
 ## Estado do trabalho
 
@@ -153,8 +153,17 @@ Proxima unidade apos E13: **E14 - handoff editorial com evidencias e revisoes**
 - CPython 3.11.9 (`.venv`): foco RadarStore+carteira **26/26 OK em 15,775 s**; suite integral serial `& '.\.venv\Scripts\python.exe' -m unittest discover -s motor_editorial/tests -q` -> **185/185 OK em 117,425 s**; `compileall` e `git diff --check` exit 0. A primeira rodada focada encontrou fixture com topico repetido, campo de aprovacao vetado pelo filtro de credenciais e leitura de `sqlite3.Row`; correcoes aplicadas antes dos resultados finais.
 - Testes usam fixtures e SQLite temporario; nenhuma fonte publica, LLM, SIWC/Plus, API paga, banco runtime, scheduler de producao, publicacao, deploy ou merge. Checklist E12 marcado; handoffs Issue #28 [6403918979](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6403918979) e PR #30 [6403919228](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6403919228). Relatorio/index/README/checkpoint desta unidade: `0ed90ad`.
 
+## E13 - concluida/validada localmente
+
+- Código/testes: `6acb123` (`feat: route Radar research through durable agent workflow`) e `705efc1` (higiene final). Relatório: [E13 — dispatcher, dependências e pesquisa retomável](ENG-CODEX-007-E13-DISPATCHER-DEPENDENCIAS-PESQUISA-RETOMADA.md).
+- Motor SQLite v6→v7 aditivo cria `agent_task_dependencies` no ledger existente. A fila valida dependências/idempotência/ciclos, aguarda todas as predecessoras, bloqueia dependentes de predecessora terminal sem sucesso e mantém tarefas independentes aptas.
+- `TaskDispatcher` valida papéis no catálogo e usa rota determinística explícita para pesquisa. `ResearchResultRouter` persiste pesquisa derivada de resultado versionado e devolve packet hash-validado como evidência não confiável ao mesmo papel/artigo/revisão. Replay idempotente cobre reinício após conclusão da tarefa de papel ou da pesquisa.
+- CPython 3.11.9 (`.venv`): `test_orchestration`, `test_agent_contracts` e `test_agent_workflow` **60/60 OK em 31,121 s**; suíte integral serial **192/192 OK em 140,515 s**; `compileall` e `git diff --check` exit 0. Uma falha inicial do fixture revelou ausência de acesso público à fila no contexto do executor; a API foi ajustada. A regressão que esperava schema futuro v7 foi atualizada para v8. Todas as rodadas finais passaram.
+- Fluxo E13 totalmente sintético, duas pautas e dois papéis; Radar SQLite temporário vazio, sem provider. Packet `not_found` foi devolvido ao artigo de origem, sem alegação de descoberta factual. Sem LLM, fonte pública, SIWC/Plus, API paga, runtime DB, worker/scheduler de produção, publicação, deploy ou merge.
+- Próximo: E14, validando os contratos de evidência, brief, texto, checagem, revisão, direitos/layout/preview existentes com três casos offline.
+
 ## Bloqueios e retomada
 
-Nao ha bloqueio tecnico atual para E13 offline. Nao retomar ou reexecutar C2-D2; eles foram entregues na PR #26. Para E16, manter fontes, termos/robots e quotas revisados por origem antes de qualquer coleta real. E17 permanece bloqueada para chamadas SIWC/Plus reais pela instrucao vigente; nao inferir autorizacao da janela de franquia.
+Nao ha bloqueio tecnico atual para E14 offline. Nao retomar ou reexecutar C2-D2; eles foram entregues na PR #26. Para E16, manter fontes, termos/robots e quotas revisados por origem antes de qualquer coleta real. E17 permanece bloqueada para chamadas SIWC/Plus reais pela instrucao vigente; nao inferir autorizacao da janela de franquia.
 
-Proximo passo: iniciar E13 lendo seus criterios completos no contrato versionado e mapear o `AgentQueue`/`TaskDispatcher` atual antes de adaptar tarefas. Se houver interrupcao, conferir `git status --short --branch`, upstream, HEAD remoto, PR #30, Issue #28 e este checkpoint; retomar E13 sem reconstruir o motor. Nao editar a branch/documentacao da PR #29, nao reconstruir OAuth/DNAs e nao acessar o banco runtime real. O scheduler E09 segue default OFF e `dry_run=true`; E10 so enfileira tarefa `triage.pending`, sem despacho.
+Proximo passo: continuar E14 pelas interfaces existentes e fixtures de direitos/layout/preview; se houver interrupcao, conferir `git status --short --branch`, upstream, HEAD remoto, PR #30, Issue #28 e este checkpoint. Nao editar a branch/documentacao da PR #29, nao reconstruir OAuth/DNAs e nao acessar o banco runtime real. O scheduler E09 segue default OFF e `dry_run=true`; E10 enfileira `triage.pending` por padrão, sem executor editorial habilitado.

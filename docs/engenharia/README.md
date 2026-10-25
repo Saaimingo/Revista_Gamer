@@ -1,6 +1,6 @@
 # Setor: engenharia e Codex
 
-Status: **Motor Editorial v0.2 integrado à `main`; PRs #8, #10 e #18 continuam abertas e não mescladas; ENG-CODEX-007 E01–E12 validadas na branch `codex/eng-codex-007-factory-radar`, PR draft #30 sem merge; E13 é a próxima unidade. ENG-CODEX-006 permanece registrado abaixo como trilha histórica.**
+Status: **Motor Editorial v0.2 integrado à `main`; PRs #8, #10 e #18 continuam abertas e não mescladas; ENG-CODEX-007 E01–E13 validadas na branch `codex/eng-codex-007-factory-radar`, PR draft #30 sem merge; E14 está em andamento. ENG-CODEX-006 permanece registrado abaixo como trilha histórica.**
 
 ## Arquitetura operacional dos futuros agentes — 20/10/2026
 
@@ -80,7 +80,7 @@ Uma pauta real -> investigação com fonte -> texto com persona -> revisão -> e
 
 ## ENG-CODEX-007 — fábrica editorial e Radar (2026-10-25)
 
-**Estado atual:** E01–E12 validadas localmente em branch/PR draft de implementação, sem merge. E13 é a próxima unidade. PR #29 continua sendo somente pacote documental; os papéis registrados não são sessões LLM permanentes nem agentes avaliados por inferência real.
+**Estado atual:** E01–E13 validadas localmente em branch/PR draft de implementação, sem merge. E14 é a próxima unidade em andamento. PR #29 continua sendo somente pacote documental; os papéis registrados não são sessões LLM permanentes nem agentes avaliados por inferência real.
 
 - [E01 — baseline e plano de integração](ENG-CODEX-007-E01-BASELINE-PLANO-INTEGRACAO.md).
 - [E02 — contratos versionados e carregamento do regimento](ENG-CODEX-007-E02-CONTRATOS-VERSIONADOS.md).
@@ -94,4 +94,5 @@ Uma pauta real -> investigação com fonte -> texto com persona -> revisão -> e
 - [E10 — Radar geral, DiscoveryBatch e fila de triagem](ENG-CODEX-007-E10-RADAR-GERAL-DISCOVERY-TRIAGEM.md): novidade incremental e prioridade determinística configurável, agrupamento de republicações/rumores com proveniência e tarefa `triage_analyst` versionada na mesma fila, sem despacho LLM; suíte integral 166/166.
 - [E11 — pesquisa sob demanda com perfis compartilhados](ENG-CODEX-007-E11-PESQUISA-SOB-DEMANDA.md): `ResearchService` cache-first sobre o mesmo índice de documentos/entidades/tópicos/alegações, request v1.1 ligado à revisão, budgets, escopos e packet persistente; suíte integral 176/176.
 - [E12 — carteira dinâmica 10 + 10](ENG-CODEX-007-E12-CARTEIRA-DINAMICA-10-10.md): seleção determinística por prioridade fornecida, sem gerar reportagens; reavaliação por evento material, proteção auditável de membros e migração Radar v6→v7; suíte integral 185/185.
+- [E13 — dispatcher, dependências e pesquisa retomável](ENG-CODEX-007-E13-DISPATCHER-DEPENDENCIAS-PESQUISA-RETOMADA.md): dependências persistentes no ledger existente, rotas determinísticas registradas, pesquisa cache-first e handoff idempotente de retorno ao artigo; suite integral 192/192.
 - [Checkpoint ENG-CODEX-007](ENG-CODEX-007-CHECKPOINT.md), [Issue #28](https://github.com/Saaimingo/Revista_Gamer/issues/28) e [PR draft #30](https://github.com/Saaimingo/Revista_Gamer/pull/30).

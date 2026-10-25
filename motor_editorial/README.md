@@ -74,7 +74,7 @@ py -3.11 -m motor_editorial agents list
 
 O perfil `internal-validation-chronicler@1.0.0` é somente uma fixture técnica. Ele não representa persona pública nem conteúdo editorial. Falhas recuperáveis aguardam backoff; lease vencido antes de iniciar uma chamada pode ser retomado; lease vencido depois do início de chamada externa vira `uncertain` e não é repetido automaticamente.
 
-O lease tem proprietário interno e geração de fencing persistidos no esquema SQLite v6. A migração adiciona metadados de janelas locais ao `agent_schedules` existente, sem alterar a fila nem abrir o banco runtime nesta entrega. O dispatcher envia heartbeat enquanto o executor síncrono está ativo; apenas o proprietário atual, com lease válido, pode marcar a chamada externa, renovar, concluir ou falhar a tarefa. O token de propriedade não é incluído em eventos nem na representação da tarefa. Se o heartbeat deixa de confirmar ownership, o dispatcher interrompe as mutações finais e reconcilia o estado durável. A renovação não torna seguro repetir uma chamada externa ambígua: nesses casos a tarefa permanece `uncertain`.
+O lease tem proprietário interno e geração de fencing persistidos no esquema SQLite v7. A migração v6→v7 acrescenta `agent_task_dependencies` ao mesmo ledger; o dispatcher só libera tarefas cujas predecessoras tiveram sucesso e bloqueia dependentes de estados terminais sem sucesso. As migrações de agenda permanecem aditivas em `agent_schedules`; nenhum banco runtime é aberto. O dispatcher envia heartbeat enquanto o executor síncrono está ativo; apenas o proprietário atual, com lease válido, pode marcar a chamada externa, renovar, concluir ou falhar a tarefa. O token de propriedade não é incluído em eventos nem na representação da tarefa. Se o heartbeat deixa de confirmar ownership, o dispatcher interrompe as mutações finais e reconcilia o estado durável. A renovação não torna seguro repetir uma chamada externa ambígua: nesses casos a tarefa permanece `uncertain`.
 
 Agendas usam intervalo em segundos e política de atraso `skip` ou `run_once`. O fuso é guardado como metadado e os instantes são UTC; não há sintaxe cron nesta etapa. Uma agenda nova fica desativada:
 
@@ -99,7 +99,7 @@ O configurador sempre cria janelas `enabled=false` e `dry_run=true`; não inicia
 
 `RadarGeneralService` combina perfis `SourceProfile` explicitamente fornecidos com o `IncrementalRadarService` e o `RadarStore` existentes. Só snapshots novos ou mudanças materiais acima do `relevance_threshold` formam `DiscoveryBatch`; `304`, repetição e polling sem mudança não criam tarefa. Grupos de republicação e grupos de origem de alegações viram um item, com documentos, fontes, relações e estado epistêmico preservados.
 
-`RadarTriagePolicy` permite configurar threshold e pesos de prioridade por tipo de evento. O score é um filtro determinístico de fila, não uma avaliação editorial nem sinal de confirmação. Um batch não vazio cria uma tarefa contratual `agent.role.triage_analyst` na mesma `AgentQueue`, com gate humano preservado. O executor desta etapa é `triage.pending`; a tarefa fica enfileirada e não chama modelo nem cria promoção à carteira. A integração de papéis ao dispatcher continua prevista na E13.
+`RadarTriagePolicy` permite configurar threshold e pesos de prioridade por tipo de evento. O score é um filtro determinístico de fila, não uma avaliação editorial nem sinal de confirmação. Um batch não vazio cria uma tarefa contratual `agent.role.triage_analyst` na mesma `AgentQueue`, com gate humano preservado. O executor deste etapa continua `triage.pending` por padrão; a tarefa não chama modelo nem cria promoção à carteira. A E13 conecta tarefas versionadas ao dispatcher existente, mas um executor de papel só roda quando fornecido explicitamente; não há fallback silencioso.
 
 ### Pesquisa sob demanda com perfis compartilhados (ENG-CODEX-007 E11)
 
@@ -107,13 +107,19 @@ O configurador sempre cria janelas `enabled=false` e `dry_run=true`; não inicia
 
 O pedido v1.1 exige `story_revision_id`; a migração Radar v5→v6 acrescenta o vínculo indexado aos pedidos persistidos. O serviço procura primeiro no cache/índice, aplica filtros de fonte, domínio, idioma, período, exclusões e evidências conhecidas, e retorna packet versionado com hash, referências, linhagem, mudanças materiais e categorias faltantes. Só estados epistemológicos registrados satisfazem um tipo de evidência; texto semelhante não é tratado como confirmação.
 
-O `ResearchService` não configura conector externo por padrão. Um adaptador injetado só pode rodar com `read:registered_public_sources`, budget restante e evidência pendente; seus IDs precisam existir no Radar e obedecer aos limites de fontes, chamadas, bytes e duração. Retentativas rate-limited respeitam `retry_at`. A integração ao dispatcher permanece na E13; pesquisa real em fontes públicas, na E16.
+O `ResearchService` não configura conector externo por padrão. Um adaptador injetado só pode rodar com `read:registered_public_sources`, budget restante e evidência pendente; seus IDs precisam existir no Radar e obedecer aos limites de fontes, chamadas, bytes e duração. Retentativas rate-limited respeitam `retry_at`. A E13 persiste o `ResearchRequest` como tarefa na fila existente e entrega o packet de volta ao mesmo artigo/papel; pesquisa real em fontes públicas segue para a E16.
 
 ### Carteira editorial dinâmica 10 + 10 (ENG-CODEX-007 E12)
 
 `RadarPortfolioService` mantém, por edição, até dez candidatas principais e dez reservas por prioridade numérica fornecida, com data de criação e ID como desempates determinísticos. O mesmo tópico não duplica na edição. Candidatas excedentes ficam em monitoramento; nenhuma reportagem ou `story_id` é criada pela carteira. `RadarPortfolioPolicy` versiona os limites e o padrão é 10 + 10.
 
-Observações materiais de documentos e eventos de alegação reabrem a avaliação no Radar e gravam a referência ao evento sem apagar a história. Uma candidata bloqueada sem vínculo de membro não ocupa os espaços nem interrompe outras. Candidatas com história/membro vinculados ficam protegidas contra troca automática. `authorize_swap` exige um registro explícito de aprovação no escopo `edition_membership_change`, audita as duas transições e fixa as posições; a validação do objeto de aprovação não autentica a identidade de quem aprovou. O despacho das funções continua para E13.
+Observações materiais de documentos e eventos de alegação reabrem a avaliação no Radar e gravam a referência ao evento sem apagar a história. Uma candidata bloqueada sem vínculo de membro não ocupa os espaços nem interrompe outras. Candidatas com história/membro vinculados ficam protegidas contra troca automática. `authorize_swap` exige um registro explícito de aprovação no escopo `edition_membership_change`, audita as duas transições e fixa as posições; a validação do objeto de aprovação não autentica a identidade de quem aprovou.
+
+### Dispatcher e pesquisa retomável (ENG-CODEX-007 E13)
+
+O Motor mantém um `AgentQueue`/`TaskDispatcher`; a migração SQLite v6→v7 acrescenta arestas de dependência, com ciclo/idempotência conferidos e liberação após sucesso. Papéis `agent.role.*` passam pelo `AgentRoleCatalog`; tarefas determinísticas exigem rota explícita por tipo e executor. O `ResearchTaskExecutor` chama o `ResearchService` compartilhado sem provider por padrão.
+
+`ResearchResultRouter` encaminha `ResearchRequest` v1.1 para tarefa durável dependente da origem e devolve o `ResearchPacket` como dado não confiável à continuação do mesmo papel, artigo e revisão. `resume_completed_routes()` reexecuta handoffs idempotentemente após restart. Validação E13: três testes de workflow, suite focada 60/60 e suite integral serial 192/192; todos usam fixtures/SQLite temporário, sem LLM, SIWC/Plus, API paga ou rede. Ver [relatório E13](../docs/engenharia/ENG-CODEX-007-E13-DISPATCHER-DEPENDENCIAS-PESQUISA-RETOMADA.md).
 
 ### Prova técnica opcional com o plano ChatGPT
 
