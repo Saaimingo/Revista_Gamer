@@ -1,9 +1,10 @@
 # ENG-CODEX-007 — checkpoint de continuidade
 
-Atualizado: 2026-10-25 19:58 -03:00
+Atualizado: 2026-10-25 19:59 -03:00
 Ultima unidade concluida: **E16 - leitura manual, unica e sanitizada da API publica do GitHub, validada**
-Unidade em andamento: **E17 - bloqueada por limite explicito do usuario contra SIWC/Plus real**
-Proxima unidade: **E18 - testes isolados em modo offline, com execucao real marcada not_executed**
+Estado E17: **BLOCKED_BY_SCOPE - proibicao atual do usuario contra SIWC/Plus real; nenhuma consulta/login/probe foi feito**
+Unidade em andamento: **E18 - testes isolados em modo offline, sem inferencia real**
+Proxima unidade apos E18: **E19 - testes na fabrica em modo offline, sem inferencia real**
 
 ## Estado do trabalho
 
@@ -197,8 +198,14 @@ Proxima unidade: **E18 - testes isolados em modo offline, com execucao real marc
 - SHA-256 do corpo recebido (corpo não persistido): `a3ada3c2c833631fcdd9221c4a86807886c95c994bbfc89abd87f1f369d0baad`. Somente metadados sanitizados foram registrados; sem notas de release/assets republicados. `published=false`.
 - Relatório: `docs/engenharia/ENG-CODEX-007-E16-LEITURA-PUBLICA-CONTROLADA.md`. Sem alteração de código nesta unidade; o teste real foi a chamada única e o resultado sanitizado. CPython 3.11.9: `& '.\\.venv\\Scripts\\python.exe' -m unittest motor_editorial.tests.test_radar_connectors -q` -> **13/13 OK em 0,701 s**; `compileall -q motor_editorial` e `git diff --check` exit 0.
 
+## E17 — bloqueada por escopo
+
+- A instrução vigente do usuário proíbe SIWC/Plus real. Embora a franquia tenha voltado a 100%, nenhuma consulta de status/modelos, login, probe ou inferência foi iniciada; não houve uso de credenciais persistidas.
+- Estado registrado como `BLOCKED_BY_SCOPE`, sem chamadas, consumo ou custo. Não há fallback para API paga ou outra conta.
+- Relatório: `docs/engenharia/ENG-CODEX-007-E17-BLOQUEIO-SIWC-PLUS.md`. E18/E19 continuam autorizadas em modo offline; inferências reais são `not_executed`, revisão humana fica pendente.
+
 ## Bloqueios e retomada
 
-Nao retomar ou reexecutar C2-D2; eles foram entregues na PR #26. E17 permanece bloqueada: a instrucao atual do usuario proibe chamadas reais SIWC/Plus, mesmo com a franquia em 100%. Registrar `BLOCKED` sem login, preflight de conta/modelo ou chamada. E18/E19 devem concluir somente comparacoes e validações mock/offline, com inferências reais como `not_executed` e revisão humana como pendente; não alegar fidelidade de DNA ou qualidade jornalística real a partir de mocks.
+Nao retomar ou reexecutar C2-D2; eles foram entregues na PR #26. E17 permanece `BLOCKED_BY_SCOPE`: sem status/models, login ou chamadas SIWC/Plus reais. E18/E19 concluem somente comparacoes e validacoes mock/offline, com inferencias reais `not_executed` e revisao humana pendente; nao alegar fidelidade de DNA ou qualidade jornalistica real a partir de mocks.
 
-Proximo passo: registrar E17 como bloqueada e iniciar E18 em modo offline. Em interrupcao, conferir branch/upstream/HEAD remoto, PR #30, Issue #28 e este checkpoint. Manter branch de implementacao, PR draft e `published=false`.
+Proximo passo: revisar os HEADs e os DNAs aprovados nas PRs #13/#14/#19/#27, preparar E18 isolada offline e executar suas fixtures. Em interrupcao, conferir branch/upstream/HEAD remoto, PR #30, Issue #28 e este checkpoint. Manter branch de implementacao, PR draft e `published=false`.
