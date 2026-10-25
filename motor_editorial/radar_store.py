@@ -8,6 +8,7 @@ agent tasks remain in the existing AgentQueue/TaskDispatcher ledger.
 from __future__ import annotations
 
 import json
+import math
 import re
 import sqlite3
 import uuid
@@ -27,7 +28,7 @@ from .db import json_dumps, normalize_text, stable_hash
 from .orchestration import _assert_no_credentials
 
 
-RADAR_SCHEMA_VERSION = 6
+RADAR_SCHEMA_VERSION = 7
 _HASH_RE = re.compile(r"^[a-f0-9]{64}$")
 _LANGUAGE_TAG_RE = re.compile(r"^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$")
 _SENSITIVE_URL_KEYS = {
@@ -52,6 +53,11 @@ _CLAIM_EVENT_TYPES = {
 }
 _CONTENT_STATUSES = {"confirmed", "partially_confirmed", "contradicted", "withdrawn"}
 _QUEUE_LANES = {"principal", "reserva", "monitoramento", "descartada"}
+_CANDIDATE_EVALUATION_STATES = {"eligible", "blocked", "needs_evaluation"}
+_CANDIDATE_EVENT_KINDS = {
+    "candidate_created", "candidate_updated", "lane_changed", "evaluation_reactivated",
+    "evaluation_resolved", "manual_swap",
+}
 
 RUNTIME_DB_PATH = (Path(__file__).parent / "runtime" / "motor.sqlite3").resolve()
 
@@ -592,6 +598,9 @@ class RadarStore:
             if version == 5:
                 self._migrate_v5_to_v6(connection)
                 version = 6
+            if version == 6:
+                self._migrate_v6_to_v7(connection)
+                version = 7
             if version == RADAR_SCHEMA_VERSION:
                 check = connection.execute("PRAGMA quick_check").fetchone()[0]
                 if check != "ok":
@@ -611,7 +620,7 @@ class RadarStore:
                     "radar_domain_quota_events",
                 }
                 if not required.issubset(tables):
-                    raise RadarStoreError("Banco marcado como Radar v6 sem as tabelas obrigatórias.")
+                    raise RadarStoreError("Banco marcado como Radar v7 sem as tabelas obrigatórias.")
                 unrelated = {name for name in tables if not name.startswith(("radar_", "sqlite_"))}
                 if unrelated:
                     raise RadarStoreError("Banco Radar v4 contém tabelas fora do namespace reservado.")
@@ -619,12 +628,32 @@ class RadarStore:
                     row["name"] for row in connection.execute("PRAGMA table_info(radar_claim_sources)").fetchall()
                 }
                 if "based_on_source_id" not in claim_source_columns:
-                    raise RadarStoreError("Banco marcado como Radar v6 sem a coluna de linhagem de alegações.")
+                    raise RadarStoreError("Banco marcado como Radar v7 sem a coluna de linhagem de alegações.")
                 request_columns = {
                     row["name"] for row in connection.execute("PRAGMA table_info(radar_research_requests)").fetchall()
                 }
                 if "story_revision_id" not in request_columns:
-                    raise RadarStoreError("Banco marcado como Radar v6 sem vínculo de revisão da pauta.")
+                    raise RadarStoreError("Banco marcado como Radar v7 sem vínculo de revisão da pauta.")
+                candidate_columns = {
+                    row["name"] for row in connection.execute("PRAGMA table_info(radar_candidates)").fetchall()
+                }
+                candidate_event_columns = {
+                    row["name"] for row in connection.execute("PRAGMA table_info(radar_candidate_events)").fetchall()
+                }
+                if not {"evaluation_state", "membership_locked"}.issubset(candidate_columns) or not {
+                    "event_kind", "from_evaluation_state", "to_evaluation_state",
+                }.issubset(candidate_event_columns):
+                    raise RadarStoreError("Banco marcado como Radar v7 sem estados/eventos da carteira.")
+                portfolio_triggers = {
+                    row["name"] for row in connection.execute(
+                        "SELECT name FROM sqlite_master WHERE type='trigger'"
+                    ).fetchall()
+                }
+                if not {
+                    "radar_candidates_reactivate_on_observation",
+                    "radar_candidates_reactivate_on_claim_event",
+                }.issubset(portfolio_triggers):
+                    raise RadarStoreError("Banco Radar v7 sem gatilhos de reavaliação de carteira.")
                 return
             raise RadarStoreError(f"Versão de schema Radar não suportada: {version}.")
 
@@ -851,6 +880,112 @@ class RadarStore:
             violations = connection.execute("PRAGMA foreign_key_check").fetchall()
             if violations:
                 raise RadarStoreError("Migração Radar v5→v6 deixou referências sem destino.")
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+
+    @staticmethod
+    def _migrate_v6_to_v7(connection: sqlite3.Connection) -> None:
+        """Add explicit candidate evaluation states and typed audit events."""
+        connection.execute("BEGIN IMMEDIATE")
+        try:
+            tables = {
+                row[0] for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+            unexpected = {name for name in tables if not name.startswith(("radar_", "sqlite_"))}
+            if unexpected or not {"radar_candidates", "radar_candidate_events"}.issubset(tables):
+                raise RadarStoreError("Migração v6→v7 recusada: banco não corresponde ao namespace do Radar.")
+            candidate_columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(radar_candidates)").fetchall()
+            }
+            if "evaluation_state" not in candidate_columns:
+                connection.execute(
+                    "ALTER TABLE radar_candidates ADD COLUMN evaluation_state TEXT NOT NULL "
+                    "DEFAULT 'eligible' CHECK (evaluation_state IN ('eligible','blocked','needs_evaluation'))"
+                )
+            if "membership_locked" not in candidate_columns:
+                connection.execute(
+                    "ALTER TABLE radar_candidates ADD COLUMN membership_locked INTEGER NOT NULL "
+                    "DEFAULT 0 CHECK (membership_locked IN (0,1))"
+                )
+            event_columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(radar_candidate_events)").fetchall()
+            }
+            if "event_kind" not in event_columns:
+                connection.execute(
+                    "ALTER TABLE radar_candidate_events ADD COLUMN event_kind TEXT NOT NULL "
+                    "DEFAULT 'lane_changed' CHECK (event_kind IN "
+                    "('candidate_created','candidate_updated','lane_changed','evaluation_reactivated',"
+                    "'evaluation_resolved','manual_swap'))"
+                )
+            if "from_evaluation_state" not in event_columns:
+                connection.execute("ALTER TABLE radar_candidate_events ADD COLUMN from_evaluation_state TEXT")
+            if "to_evaluation_state" not in event_columns:
+                connection.execute("ALTER TABLE radar_candidate_events ADD COLUMN to_evaluation_state TEXT")
+            connection.execute(
+                """CREATE TRIGGER IF NOT EXISTS radar_candidates_reactivate_on_observation
+                   AFTER INSERT ON radar_observation_events
+                   WHEN NEW.event_type IN ('first_seen','title_changed','body_changed','corrected','removed','url_changed','origin_linked')
+                   BEGIN
+                     INSERT INTO radar_candidate_events
+                       (event_id,candidate_id,from_lane,to_lane,actor,reason,occurred_at,evidence_json,event_kind,
+                        from_evaluation_state,to_evaluation_state)
+                     SELECT lower(hex(randomblob(16))), c.candidate_id, c.queue_lane,
+                       CASE WHEN c.membership_locked=0 AND c.story_id IS NULL
+                                  AND c.queue_lane IN ('principal','reserva')
+                            THEN 'monitoramento' ELSE c.queue_lane END,
+                       'radar.observation', 'Mudança material de documento reabre avaliação.', NEW.observed_at,
+                       json_object('topic_id',c.topic_id,'evidence_kind','observation_event',
+                                   'evidence_event_id',NEW.event_id,'evidence_event_type',NEW.event_type),
+                       'evaluation_reactivated', c.evaluation_state, 'needs_evaluation'
+                     FROM radar_candidates c
+                     JOIN radar_document_topics dt ON dt.topic_id=c.topic_id
+                     WHERE dt.document_id=NEW.document_id;
+                     UPDATE radar_candidates
+                       SET evaluation_state='needs_evaluation',
+                           queue_lane=CASE WHEN membership_locked=0 AND story_id IS NULL
+                                                  AND queue_lane IN ('principal','reserva')
+                                           THEN 'monitoramento' ELSE queue_lane END,
+                           last_material_change=NEW.observed_at, updated_at=NEW.observed_at
+                       WHERE topic_id IN (SELECT topic_id FROM radar_document_topics WHERE document_id=NEW.document_id);
+                   END"""
+            )
+            connection.execute(
+                """CREATE TRIGGER IF NOT EXISTS radar_candidates_reactivate_on_claim_event
+                   AFTER INSERT ON radar_claim_events
+                   WHEN NEW.event_type IN ('evidence_added','origin_traced','content_confirmed','content_partially_confirmed',
+                     'content_contradicted','content_withdrawn','correction_recorded','dispute_recorded','superseded')
+                   BEGIN
+                     INSERT INTO radar_candidate_events
+                       (event_id,candidate_id,from_lane,to_lane,actor,reason,occurred_at,evidence_json,event_kind,
+                        from_evaluation_state,to_evaluation_state)
+                     SELECT lower(hex(randomblob(16))), c.candidate_id, c.queue_lane,
+                       CASE WHEN c.membership_locked=0 AND c.story_id IS NULL
+                                  AND c.queue_lane IN ('principal','reserva')
+                            THEN 'monitoramento' ELSE c.queue_lane END,
+                       'radar.claim', 'Mudança material de alegação reabre avaliação.', NEW.occurred_at,
+                       json_object('topic_id',c.topic_id,'evidence_kind','claim_event',
+                                   'evidence_event_id',NEW.event_id,'evidence_event_type',NEW.event_type),
+                       'evaluation_reactivated', c.evaluation_state, 'needs_evaluation'
+                     FROM radar_candidates c
+                     JOIN radar_claims cl ON cl.topic_id=c.topic_id
+                     WHERE cl.claim_id=NEW.claim_id;
+                     UPDATE radar_candidates
+                       SET evaluation_state='needs_evaluation',
+                           queue_lane=CASE WHEN membership_locked=0 AND story_id IS NULL
+                                                  AND queue_lane IN ('principal','reserva')
+                                           THEN 'monitoramento' ELSE queue_lane END,
+                           last_material_change=NEW.occurred_at, updated_at=NEW.occurred_at
+                       WHERE topic_id IN (SELECT topic_id FROM radar_claims WHERE claim_id=NEW.claim_id);
+                   END"""
+            )
+            connection.execute("PRAGMA user_version = 7")
+            violations = connection.execute("PRAGMA foreign_key_check").fetchall()
+            if violations:
+                raise RadarStoreError("Migração Radar v6→v7 deixou referências sem destino.")
             connection.commit()
         except Exception:
             connection.rollback()
@@ -1970,8 +2105,8 @@ class RadarStore:
     ) -> None:
         if queue_lane not in _QUEUE_LANES:
             raise RadarStoreError("queue_lane inválido.")
-        if isinstance(priority, bool) or not isinstance(priority, (int, float)):
-            raise RadarStoreError("priority precisa ser numérica.")
+        if isinstance(priority, bool) or not isinstance(priority, (int, float)) or not math.isfinite(float(priority)):
+            raise RadarStoreError("priority precisa ser numérica e finita.")
         candidate_id = _text(candidate_id, "candidate_id", maximum=256)  # type: ignore[assignment]
         topic_id = _text(topic_id, "topic_id", maximum=256)  # type: ignore[assignment]
         reason = _text(reason, "reason", maximum=2_000)  # type: ignore[assignment]
@@ -2002,9 +2137,17 @@ class RadarStore:
     def record_candidate_event(
         self, *, event_id: str, candidate_id: str, from_lane: str | None, to_lane: str,
         actor: str, reason: str, occurred_at: str, evidence: Mapping[str, Any] | None = None,
+        event_kind: str = "lane_changed", from_evaluation_state: str | None = None,
+        to_evaluation_state: str | None = None,
     ) -> None:
         if from_lane is not None and from_lane not in _QUEUE_LANES or to_lane not in _QUEUE_LANES:
             raise RadarStoreError("Lane de CandidateEvent inválida.")
+        if event_kind not in _CANDIDATE_EVENT_KINDS:
+            raise RadarStoreError("event_kind de CandidateEvent inválido.")
+        if from_evaluation_state is not None and from_evaluation_state not in _CANDIDATE_EVALUATION_STATES:
+            raise RadarStoreError("from_evaluation_state inválido.")
+        if to_evaluation_state is not None and to_evaluation_state not in _CANDIDATE_EVALUATION_STATES:
+            raise RadarStoreError("to_evaluation_state inválido.")
         event_id = _text(event_id, "event_id", maximum=256)  # type: ignore[assignment]
         candidate_id = _text(candidate_id, "candidate_id", maximum=256)  # type: ignore[assignment]
         actor = _text(actor, "actor", maximum=256)  # type: ignore[assignment]
@@ -2015,9 +2158,11 @@ class RadarStore:
             try:
                 connection.execute(
                     """INSERT INTO radar_candidate_events
-                       (event_id, candidate_id, from_lane, to_lane, actor, reason, occurred_at, evidence_json)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (event_id, candidate_id, from_lane, to_lane, actor, reason, occurred_at, evidence_json),
+                       (event_id, candidate_id, from_lane, to_lane, actor, reason, occurred_at, evidence_json,
+                        event_kind, from_evaluation_state, to_evaluation_state)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (event_id, candidate_id, from_lane, to_lane, actor, reason, occurred_at, evidence_json,
+                     event_kind, from_evaluation_state, to_evaluation_state),
                 )
                 connection.commit()
             except sqlite3.IntegrityError as error:

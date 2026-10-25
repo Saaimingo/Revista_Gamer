@@ -98,7 +98,7 @@ class RadarStoreTests(unittest.TestCase):
         self.store.register_topic(topic_id=topic_id, canonical_key=f"key-{topic_id}", title="Pauta sintética", now=NOW)
 
     def test_schema_is_separate_versioned_and_runtime_path_is_refused(self) -> None:
-        self.assertEqual(RADAR_SCHEMA_VERSION, 6)
+        self.assertEqual(RADAR_SCHEMA_VERSION, 7)
         self.assertEqual(db.SCHEMA_VERSION, 6)
         names = self.store.table_names()
         self.assertGreaterEqual(
@@ -107,7 +107,7 @@ class RadarStoreTests(unittest.TestCase):
         )
         self.assertTrue(all(name.startswith("radar_") for name in names))
         with closing(self.store.connect()) as connection:
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 6)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 7)
             self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
         with self.assertRaisesRegex(RadarStoreError, "não pode abrir"):
             RadarStore(RUNTIME_DB_PATH)
@@ -230,7 +230,7 @@ class RadarStoreTests(unittest.TestCase):
             connection.commit()
         migrated = RadarStore(fixture_path)
         with closing(migrated.connect()) as connection:
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 6)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 7)
             columns = {row[1] for row in connection.execute("PRAGMA table_info(radar_documents)")}
             self.assertTrue({"body_sha256", "body_segment_hashes_json", "body_char_count", "origin_url"} <= columns)
             entity_columns = {row[1] for row in connection.execute("PRAGMA table_info(radar_entities)")}
@@ -253,7 +253,7 @@ class RadarStoreTests(unittest.TestCase):
 
         migrated = RadarStore(fixture_path)
         with closing(migrated.connect()) as connection:
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 6)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 7)
             table = connection.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name='radar_domain_quota_events'"
             ).fetchone()
@@ -605,7 +605,42 @@ class RadarStoreTests(unittest.TestCase):
         self.assertEqual(saved_request["schema_version"], "1.0")
         self.assertNotIn("story_revision_id", saved_request)
         with closing(migrated.connect()) as connection:
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 6)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 7)
+            self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
+
+    def test_v6_fixture_migrates_candidate_evaluation_state_and_typed_events(self) -> None:
+        fixture_path = self.root / "radar-v6-portfolio.sqlite3"
+        legacy = RadarStore(fixture_path)
+        legacy.register_topic(topic_id="topic-v6", canonical_key="key-v6", title="Topico de fixture", now=NOW)
+        legacy.create_candidate(
+            candidate_id="candidate-v6", topic_id="topic-v6", queue_lane="principal", reason="fixture",
+            depth_available="moderada", evidence_risk="baixo", now=NOW, edition_id="edition-v6", priority=0.7,
+        )
+        legacy.record_candidate_event(
+            event_id="event-v6", candidate_id="candidate-v6", from_lane=None, to_lane="principal",
+            actor="fixture", reason="Entrada legada", occurred_at=NOW,
+        )
+        with closing(sqlite3.connect(fixture_path)) as connection:
+            connection.execute("DROP TRIGGER radar_candidates_reactivate_on_observation")
+            connection.execute("DROP TRIGGER radar_candidates_reactivate_on_claim_event")
+            connection.execute("ALTER TABLE radar_candidates DROP COLUMN evaluation_state")
+            connection.execute("ALTER TABLE radar_candidates DROP COLUMN membership_locked")
+            connection.execute("ALTER TABLE radar_candidate_events DROP COLUMN to_evaluation_state")
+            connection.execute("ALTER TABLE radar_candidate_events DROP COLUMN from_evaluation_state")
+            connection.execute("ALTER TABLE radar_candidate_events DROP COLUMN event_kind")
+            connection.execute("PRAGMA user_version = 6")
+            connection.commit()
+
+        migrated = RadarStore(fixture_path)
+        candidate = migrated.get_row("radar_candidates", "candidate_id", "candidate-v6")
+        event = migrated.get_row("radar_candidate_events", "event_id", "event-v6")
+        self.assertEqual(candidate["evaluation_state"], "eligible")  # type: ignore[index]
+        self.assertEqual(candidate["membership_locked"], 0)  # type: ignore[index]
+        self.assertEqual(event["event_kind"], "lane_changed")  # type: ignore[index]
+        self.assertIsNone(event["from_evaluation_state"])  # type: ignore[index]
+        self.assertIsNone(event["to_evaluation_state"])  # type: ignore[index]
+        with closing(migrated.connect()) as connection:
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 7)
             self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
 
     def test_portfolio_candidate_lane_history_is_append_only(self) -> None:
