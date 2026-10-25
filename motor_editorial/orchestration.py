@@ -1116,6 +1116,7 @@ class TaskDispatcher:
         profiles: Mapping[tuple[str, str], AgentProfile],
         lease_seconds: int = 120,
         role_catalog: Any | None = None,
+        persona_instruction_resolver: Callable[[Any], str | None] | None = None,
         deterministic_task_routes: Mapping[str, str] | None = None,
         result_router: Callable[[AgentTask], None] | None = None,
     ):
@@ -1124,6 +1125,7 @@ class TaskDispatcher:
         self.profiles = dict(profiles)
         self.lease_seconds = lease_seconds
         self.role_catalog = role_catalog
+        self.persona_instruction_resolver = persona_instruction_resolver
         self.deterministic_task_routes = dict(deterministic_task_routes or {})
         self.result_router = result_router
 
@@ -1182,10 +1184,20 @@ class TaskDispatcher:
                     raise ValueError("task_id do envelope diverge da fila")
                 if task.task_type != f"agent.role.{task_envelope.role_id}":
                     raise ValueError("tipo da fila diverge do role_id")
+                persona_instructions = None
+                if (
+                    task_envelope.role_id == "persona_writer"
+                    and self.persona_instruction_resolver is not None
+                ):
+                    try:
+                        persona_instructions = self.persona_instruction_resolver(task_envelope)
+                    except Exception as error:
+                        raise ValueError("resolvedor de instruções de persona indisponível") from error
                 invocation_context = self.role_catalog.prepare_invocation(
                     task_envelope,
                     input_payload=task.payload.get("input"),
                     research_packet=task.payload.get("research_packet"),
+                    persona_instructions=persona_instructions,
                 )
             except (ValueError, TypeError) as error:
                 return report_failure(TaskFailure(
