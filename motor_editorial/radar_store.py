@@ -23,7 +23,7 @@ from .db import json_dumps, normalize_text, stable_hash
 from .orchestration import _assert_no_credentials
 
 
-RADAR_SCHEMA_VERSION = 3
+RADAR_SCHEMA_VERSION = 4
 _HASH_RE = re.compile(r"^[a-f0-9]{64}$")
 _LANGUAGE_TAG_RE = re.compile(r"^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$")
 _SENSITIVE_URL_KEYS = {
@@ -130,14 +130,24 @@ def _temporal_instant(value: str | None) -> datetime | None:
 
 def _require_public_document(connection: sqlite3.Connection, document_id: str) -> sqlite3.Row:
     row = connection.execute(
-        """SELECT d.document_id, d.language, d.access_policy, s.access_policy AS source_access_policy,
-                  s.source_type
+        """SELECT d.document_id, d.source_id AS document_source_id, d.language, d.access_policy,
+                  s.access_policy AS source_access_policy, s.source_type
            FROM radar_documents d JOIN radar_sources s ON s.source_id=d.source_id
            WHERE d.document_id=?""",
         (document_id,),
     ).fetchone()
     if row is None or row["access_policy"] != "allowed" or row["source_access_policy"] != "allowed":
         raise RadarStoreError("Proveniência exige documento e fonte com acesso público permitido.")
+    return row
+
+
+def _require_public_source(connection: sqlite3.Connection, source_id: str) -> sqlite3.Row:
+    row = connection.execute(
+        "SELECT source_id, source_type, access_policy FROM radar_sources WHERE source_id=?",
+        (source_id,),
+    ).fetchone()
+    if row is None or row["access_policy"] != "allowed":
+        raise RadarStoreError("Proveniência de alegação exige uma fonte pública permitida.")
     return row
 
 
@@ -502,6 +512,18 @@ _SCHEMA_V3_STATEMENTS = (
         BEFORE DELETE ON radar_interview_variants BEGIN SELECT RAISE(ABORT, 'interview variants are append-only'); END""",
 )
 
+_SCHEMA_V4_STATEMENTS = (
+    "CREATE INDEX IF NOT EXISTS idx_radar_claim_sources_lineage ON radar_claim_sources(claim_id, origin_group_id, based_on_source_id)",
+    """CREATE TRIGGER IF NOT EXISTS radar_claims_no_update
+        BEFORE UPDATE ON radar_claims BEGIN SELECT RAISE(ABORT, 'claims are append-only; record a claim event'); END""",
+    """CREATE TRIGGER IF NOT EXISTS radar_claims_no_delete
+        BEFORE DELETE ON radar_claims BEGIN SELECT RAISE(ABORT, 'claims are append-only'); END""",
+    """CREATE TRIGGER IF NOT EXISTS radar_claim_sources_no_update
+        BEFORE UPDATE ON radar_claim_sources BEGIN SELECT RAISE(ABORT, 'claim source links are append-only'); END""",
+    """CREATE TRIGGER IF NOT EXISTS radar_claim_sources_no_delete
+        BEFORE DELETE ON radar_claim_sources BEGIN SELECT RAISE(ABORT, 'claim source links are append-only'); END""",
+)
+
 
 class RadarStore:
     """Explicit-path, independently versioned SQLite store for Radar data."""
@@ -529,13 +551,19 @@ class RadarStore:
                 self._migrate_v0_to_v1(connection)
                 self._migrate_v1_to_v2(connection)
                 self._migrate_v2_to_v3(connection)
+                self._migrate_v3_to_v4(connection)
                 version = RADAR_SCHEMA_VERSION
             elif version == 1:
                 self._migrate_v1_to_v2(connection)
                 self._migrate_v2_to_v3(connection)
+                self._migrate_v3_to_v4(connection)
                 version = RADAR_SCHEMA_VERSION
             elif version == 2:
                 self._migrate_v2_to_v3(connection)
+                self._migrate_v3_to_v4(connection)
+                version = RADAR_SCHEMA_VERSION
+            elif version == 3:
+                self._migrate_v3_to_v4(connection)
                 version = RADAR_SCHEMA_VERSION
             if version == RADAR_SCHEMA_VERSION:
                 check = connection.execute("PRAGMA quick_check").fetchone()[0]
@@ -555,10 +583,15 @@ class RadarStore:
                     "radar_entity_roles", "radar_interviews", "radar_interview_variants",
                 }
                 if not required.issubset(tables):
-                    raise RadarStoreError("Banco marcado como Radar v3 sem as tabelas obrigatórias.")
+                    raise RadarStoreError("Banco marcado como Radar v4 sem as tabelas obrigatórias.")
                 unrelated = {name for name in tables if not name.startswith(("radar_", "sqlite_"))}
                 if unrelated:
-                    raise RadarStoreError("Banco Radar v3 contém tabelas fora do namespace reservado.")
+                    raise RadarStoreError("Banco Radar v4 contém tabelas fora do namespace reservado.")
+                claim_source_columns = {
+                    row["name"] for row in connection.execute("PRAGMA table_info(radar_claim_sources)").fetchall()
+                }
+                if "based_on_source_id" not in claim_source_columns:
+                    raise RadarStoreError("Banco marcado como Radar v4 sem a coluna de linhagem de alegações.")
                 return
             raise RadarStoreError(f"Versão de schema Radar não suportada: {version}.")
 
@@ -695,6 +728,40 @@ class RadarStore:
             raise
         finally:
             connection.execute("PRAGMA foreign_keys = ON")
+
+    @staticmethod
+    def _migrate_v3_to_v4(connection: sqlite3.Connection) -> None:
+        """Add explicit source lineage and immutable claim records."""
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            tables = {
+                row[0] for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+            unexpected = {name for name in tables if not name.startswith(("radar_", "sqlite_"))}
+            if unexpected or not {"radar_claims", "radar_claim_sources", "radar_claim_events"}.issubset(tables):
+                raise RadarStoreError("Migração v3→v4 recusada: banco não corresponde ao namespace do Radar.")
+            columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(radar_claim_sources)").fetchall()
+            }
+            expected = {"claim_id", "source_id", "document_id", "relation_type", "origin_group_id", "linked_at"}
+            if not expected.issubset(columns) or "based_on_source_id" in columns:
+                raise RadarStoreError("Migração v3→v4 recusada: schema de linhagem de alegações inesperado.")
+            connection.execute(
+                """ALTER TABLE radar_claim_sources
+                   ADD COLUMN based_on_source_id TEXT REFERENCES radar_sources(source_id) ON DELETE RESTRICT"""
+            )
+            for statement in _SCHEMA_V4_STATEMENTS:
+                connection.execute(statement)
+            connection.execute("PRAGMA user_version = 4")
+            violations = connection.execute("PRAGMA foreign_key_check").fetchall()
+            if violations:
+                raise RadarStoreError("Migração Radar v3→v4 deixou referências sem destino.")
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
 
     @staticmethod
     def backup_database(source: Path, destination: Path) -> Path:
@@ -1492,6 +1559,32 @@ class RadarStore:
         editorial_review_status = _text(editorial_review_status, "editorial_review_status", maximum=64)  # type: ignore[assignment]
         with closing(self.connect()) as connection:
             try:
+                _require_public_source(connection, reported_by_source_id)
+                if earliest_traceable_source_id is not None:
+                    _require_public_source(connection, earliest_traceable_source_id)
+                if source_document_id is not None:
+                    document = _require_public_document(connection, source_document_id)
+                    if document["document_source_id"] != reported_by_source_id:
+                        raise RadarStoreError("Documento da alegação não pertence à fonte que a reportou.")
+                if epistemic_status in {"official_statement", "named_person_statement"}:
+                    if asserted_by_entity_id is None or source_document_id is None:
+                        raise RadarStoreError("Declaração oficial/pessoal exige entidade declaradora e documento público.")
+                    asserted_entity = connection.execute(
+                        "SELECT entity_kind FROM radar_entities WHERE entity_id=?", (asserted_by_entity_id,)
+                    ).fetchone()
+                    expected_kind = "person" if epistemic_status == "named_person_statement" else None
+                    if epistemic_status == "official_statement":
+                        if asserted_entity is None or asserted_entity["entity_kind"] not in {"organization", "company"}:
+                            raise RadarStoreError("Declaração oficial exige organização/empresa declaradora registrada.")
+                    elif asserted_entity is None or asserted_entity["entity_kind"] != expected_kind:
+                        raise RadarStoreError("Declaração pessoal exige pessoa declaradora registrada.")
+                    statement_link = connection.execute(
+                        """SELECT 1 FROM radar_document_entities
+                           WHERE document_id=? AND entity_id=? AND relation_type='statement_by'""",
+                        (source_document_id, asserted_by_entity_id),
+                    ).fetchone()
+                    if statement_link is None:
+                        raise RadarStoreError("Documento público precisa atribuir a declaração à entidade declaradora.")
                 connection.execute(
                     """INSERT INTO radar_claims
                        (claim_id, topic_id, statement, epistemic_status, asserted_by_entity_id,
@@ -1514,22 +1607,72 @@ class RadarStore:
 
     def link_claim_source(
         self, *, claim_id: str, source_id: str, relation_type: str, origin_group_id: str,
-        linked_at: str, document_id: str | None = None,
+        linked_at: str, document_id: str | None = None, based_on_source_id: str | None = None,
     ) -> None:
         if relation_type not in {"origin", "republished", "independent", "supports", "disputes", "statement"}:
             raise RadarStoreError("relation_type de claim/source inválido.")
+        claim_id = _text(claim_id, "claim_id", maximum=256)  # type: ignore[assignment]
+        source_id = _text(source_id, "source_id", maximum=256)  # type: ignore[assignment]
         linked_at = _timestamp(linked_at, "linked_at")  # type: ignore[assignment]
         origin_group_id = _text(origin_group_id, "origin_group_id", maximum=256)  # type: ignore[assignment]
-        document_id = _text(document_id, "document_id", maximum=256, optional=True)
+        document_id = _text(document_id, "document_id", maximum=256)  # type: ignore[assignment]
+        based_on_source_id = _text(based_on_source_id, "based_on_source_id", maximum=256, optional=True)
         with closing(self.connect()) as connection:
             try:
+                claim = connection.execute(
+                    "SELECT reported_by_source_id, earliest_traceable_source_id FROM radar_claims WHERE claim_id=?",
+                    (claim_id,),
+                ).fetchone()
+                if claim is None:
+                    raise RadarStoreError("Claim/source exige uma alegação registrada.")
+                _require_public_source(connection, source_id)
+                document = _require_public_document(connection, document_id)
+                if document["document_source_id"] != source_id:
+                    raise RadarStoreError("Documento de proveniência não pertence à fonte vinculada.")
+                if relation_type == "origin":
+                    expected_origin = claim["earliest_traceable_source_id"] or claim["reported_by_source_id"]
+                    if source_id != expected_origin:
+                        raise RadarStoreError("Fonte origin precisa ser a origem rastreável ou a fonte reportadora.")
+                if relation_type in {"origin", "independent"}:
+                    if based_on_source_id is not None:
+                        raise RadarStoreError("Origem independente não pode derivar de outra fonte.")
+                    group_exists = connection.execute(
+                        "SELECT 1 FROM radar_claim_sources WHERE claim_id=? AND origin_group_id=? LIMIT 1",
+                        (claim_id, origin_group_id),
+                    ).fetchone()
+                    if group_exists is not None:
+                        raise RadarStoreError("Cada nova origem independente precisa de grupo de origem próprio.")
+                elif relation_type == "republished" and based_on_source_id is None:
+                    raise RadarStoreError("Republicação exige vínculo explícito com a fonte de origem/intermediária.")
+                if based_on_source_id is not None:
+                    if based_on_source_id == source_id:
+                        raise RadarStoreError("Fonte não pode ser sua própria origem intermediária.")
+                    parent = connection.execute(
+                        """SELECT 1 FROM radar_claim_sources
+                           WHERE claim_id=? AND source_id=? AND origin_group_id=? LIMIT 1""",
+                        (claim_id, based_on_source_id, origin_group_id),
+                    ).fetchone()
+                    if parent is None:
+                        raise RadarStoreError("Fonte-base precisa estar registrada na mesma linhagem de alegação.")
+                elif relation_type not in {"origin", "independent"}:
+                    group_exists = connection.execute(
+                        "SELECT 1 FROM radar_claim_sources WHERE claim_id=? AND origin_group_id=? LIMIT 1",
+                        (claim_id, origin_group_id),
+                    ).fetchone()
+                    if group_exists is not None:
+                        raise RadarStoreError("Fonte derivada exige base explícita; nova origem exige grupo próprio.")
                 connection.execute(
                     """INSERT INTO radar_claim_sources
-                       (claim_id, source_id, document_id, relation_type, origin_group_id, linked_at)
-                       VALUES (?, ?, ?, ?, ?, ?)""",
-                    (claim_id, source_id, document_id, relation_type, origin_group_id, linked_at),
+                       (claim_id, source_id, document_id, relation_type, origin_group_id, linked_at,
+                        based_on_source_id)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                    (claim_id, source_id, document_id, relation_type, origin_group_id, linked_at,
+                     based_on_source_id),
                 )
                 connection.commit()
+            except RadarStoreError:
+                connection.rollback()
+                raise
             except sqlite3.IntegrityError as error:
                 connection.rollback()
                 raise RadarStoreError("Vínculo de origem inválido ou já registrado.") from error
@@ -1543,6 +1686,16 @@ class RadarStore:
             raise RadarStoreError("event_type de alegação inválido.")
         if content_status is not None and content_status not in _CONTENT_STATUSES:
             raise RadarStoreError("content_status inválido.")
+        expected_content_status = {
+            "content_confirmed": "confirmed",
+            "content_partially_confirmed": "partially_confirmed",
+            "content_contradicted": "contradicted",
+            "content_withdrawn": "withdrawn",
+        }.get(event_type)
+        if expected_content_status is not None and content_status != expected_content_status:
+            raise RadarStoreError(f"{event_type} exige content_status={expected_content_status}.")
+        if event_type in {"evidence_added", "origin_traced", "republication_linked", "superseded"} and content_status is not None:
+            raise RadarStoreError(f"{event_type} não altera content_status.")
         event_id = _text(event_id, "event_id", maximum=256)  # type: ignore[assignment]
         claim_id = _text(claim_id, "claim_id", maximum=256)  # type: ignore[assignment]
         occurred_at = _timestamp(occurred_at, "occurred_at")  # type: ignore[assignment]
@@ -1551,8 +1704,21 @@ class RadarStore:
         event_document_id = _text(event_document_id, "event_document_id", maximum=256, optional=True)
         evidence_json = _json(list(evidence_refs), "evidence_refs")
         details_json = _json(dict(details or {}), "claim_event_details")
+        evidence_event = event_type != "superseded"
+        if evidence_event and (event_source_id is None or event_document_id is None):
+            raise RadarStoreError("Evento de alegação exige fonte, documento público e razão.")
+        if (event_source_id is None) != (event_document_id is None):
+            raise RadarStoreError("Fonte e documento do evento devem ser informados juntos.")
         with closing(self.connect()) as connection:
             try:
+                claim = connection.execute("SELECT claim_id FROM radar_claims WHERE claim_id=?", (claim_id,)).fetchone()
+                if claim is None:
+                    raise RadarStoreError("Evento exige alegação registrada.")
+                if event_source_id is not None and event_document_id is not None:
+                    _require_public_source(connection, event_source_id)
+                    document = _require_public_document(connection, event_document_id)
+                    if document["document_source_id"] != event_source_id:
+                        raise RadarStoreError("Documento do evento não pertence à fonte declarada.")
                 connection.execute(
                     """INSERT INTO radar_claim_events
                        (event_id, claim_id, event_type, content_status, event_source_id, event_document_id,
@@ -1562,6 +1728,9 @@ class RadarStore:
                      occurred_at, reason, evidence_json, details_json),
                 )
                 connection.commit()
+            except RadarStoreError:
+                connection.rollback()
+                raise
             except sqlite3.IntegrityError as error:
                 connection.rollback()
                 raise RadarStoreError("ClaimEvent inválido ou duplicado.") from error

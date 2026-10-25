@@ -92,7 +92,7 @@ class RadarStoreTests(unittest.TestCase):
         self.store.register_topic(topic_id=topic_id, canonical_key=f"key-{topic_id}", title="Pauta sintética", now=NOW)
 
     def test_schema_is_separate_versioned_and_runtime_path_is_refused(self) -> None:
-        self.assertEqual(RADAR_SCHEMA_VERSION, 3)
+        self.assertEqual(RADAR_SCHEMA_VERSION, 4)
         self.assertEqual(db.SCHEMA_VERSION, 5)
         names = self.store.table_names()
         self.assertGreaterEqual(
@@ -101,7 +101,7 @@ class RadarStoreTests(unittest.TestCase):
         )
         self.assertTrue(all(name.startswith("radar_") for name in names))
         with closing(self.store.connect()) as connection:
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 3)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 4)
             self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
         with self.assertRaisesRegex(RadarStoreError, "não pode abrir"):
             RadarStore(RUNTIME_DB_PATH)
@@ -213,7 +213,7 @@ class RadarStoreTests(unittest.TestCase):
             with self.assertRaises(sqlite3.IntegrityError):
                 connection.execute("DELETE FROM radar_observation_events WHERE event_id='obs-1'")
 
-    def test_v1_schema_migrates_additively_through_v3(self) -> None:
+    def test_v1_schema_migrates_additively_through_v4(self) -> None:
         from motor_editorial.radar_store import _SCHEMA_V1_STATEMENTS
 
         fixture_path = self.root / "radar-v1.sqlite3"
@@ -224,11 +224,13 @@ class RadarStoreTests(unittest.TestCase):
             connection.commit()
         migrated = RadarStore(fixture_path)
         with closing(migrated.connect()) as connection:
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 3)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 4)
             columns = {row[1] for row in connection.execute("PRAGMA table_info(radar_documents)")}
             self.assertTrue({"body_sha256", "body_segment_hashes_json", "body_char_count", "origin_url"} <= columns)
             entity_columns = {row[1] for row in connection.execute("PRAGMA table_info(radar_entities)")}
             self.assertTrue({"identity_source_document_id", "identity_context"} <= entity_columns)
+            claim_source_columns = {row[1] for row in connection.execute("PRAGMA table_info(radar_claim_sources)")}
+            self.assertIn("based_on_source_id", claim_source_columns)
             tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             self.assertTrue({"radar_fetch_events", "radar_fetch_cache", "radar_republication_groups", "radar_republication_members", "radar_entity_roles", "radar_interviews", "radar_interview_variants"} <= tables)
             self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
@@ -349,35 +351,124 @@ class RadarStoreTests(unittest.TestCase):
             claim_id="claim-1", topic_id="topic-1", statement="A pessoa teria anunciado um projeto.",
             epistemic_status="attributed_rumor", reported_by_source_id="source-1", first_seen_at=NOW,
             confidence_in_attribution=0.8, confidence_in_content=0.25, asserted_by_entity_id="person-1",
-            source_document_id="doc-1", independent_origin_groups=["origin-1"],
+            source_document_id="doc-1", earliest_traceable_source_id="source-1",
+            independent_origin_groups=["origin-1"],
+        )
+        self.store.link_claim_source(
+            claim_id="claim-1", source_id="source-1", relation_type="origin", origin_group_id="origin-1",
+            document_id="doc-1", linked_at=NOW,
         )
         for number in range(10):
             source_id = f"repost-{number}"
             self.add_source(source_id)
+            document_id = f"doc-{source_id}"
+            self.add_document(document_id=document_id, source_id=source_id, access_policy="allowed")
             self.store.link_claim_source(
                 claim_id="claim-1", source_id=source_id, relation_type="republished", origin_group_id="origin-1",
-                linked_at=NOW,
+                document_id=document_id, based_on_source_id="source-1", linked_at=NOW,
+            )
+        self.add_source("independent-origin")
+        self.add_document(document_id="independent-doc", source_id="independent-origin", access_policy="allowed")
+        self.store.link_claim_source(
+            claim_id="claim-1", source_id="independent-origin", relation_type="independent",
+            origin_group_id="origin-2", document_id="independent-doc", linked_at=NOW,
+        )
+        self.add_source("untraced-repost")
+        self.add_document(document_id="untraced-repost-doc", source_id="untraced-repost", access_policy="allowed")
+        with self.assertRaisesRegex(RadarStoreError, "Republicação exige"):
+            self.store.link_claim_source(
+                claim_id="claim-1", source_id="untraced-repost", relation_type="republished",
+                origin_group_id="origin-3", document_id="untraced-repost-doc", linked_at=NOW,
+            )
+        with self.assertRaisesRegex(RadarStoreError, "mesma linhagem"):
+            self.store.link_claim_source(
+                claim_id="claim-1", source_id="untraced-repost", relation_type="republished",
+                origin_group_id="origin-3", document_id="untraced-repost-doc",
+                based_on_source_id="source-1", linked_at=NOW,
             )
         self.store.record_claim_event(
-            event_id="claim-event-1", claim_id="claim-1", event_type="content_confirmed", content_status="confirmed",
-            occurred_at="2026-10-26T10:00:00+00:00", reason="Confirmação registrada como evento posterior.",
+            event_id="claim-event-contradiction", claim_id="claim-1", event_type="content_contradicted",
+            content_status="contradicted", occurred_at="2026-10-26T10:00:00+00:00",
+            reason="A evidência independente contradiz a alegação sintética.",
+            event_source_id="independent-origin", event_document_id="independent-doc",
+        )
+        self.store.record_claim_event(
+            event_id="claim-event-correction", claim_id="claim-1", event_type="correction_recorded",
+            occurred_at="2026-10-27T10:00:00+00:00", reason="Correção posterior preservada como evento separado.",
             event_source_id="source-1", event_document_id="doc-1",
         )
         claim = self.store.get_row("radar_claims", "claim_id", "claim-1")
         self.assertEqual(claim["epistemic_status"], "attributed_rumor")  # type: ignore[index]
         self.assertEqual(claim["confidence_in_content"], 0.25)  # type: ignore[index]
-        event = self.store.get_row("radar_claim_events", "event_id", "claim-event-1")
-        self.assertEqual(event["content_status"], "confirmed")  # type: ignore[index]
+        event = self.store.get_row("radar_claim_events", "event_id", "claim-event-contradiction")
+        self.assertEqual(event["content_status"], "contradicted")  # type: ignore[index]
+        self.assertEqual(event["event_type"], "content_contradicted")  # type: ignore[index]
         history = self.store.list_rows("radar_claim_events", where_column="claim_id", where_value="claim-1")
-        self.assertEqual(history[0]["content_status"], "confirmed")
+        self.assertEqual(len(history), 2)
+        self.assertEqual({row["event_type"] for row in history}, {"content_contradicted", "correction_recorded"})
         with closing(self.store.connect()) as connection:
             groups = connection.execute(
                 "SELECT COUNT(DISTINCT origin_group_id) FROM radar_claim_sources WHERE claim_id='claim-1'"
             ).fetchone()[0]
-        self.assertEqual(groups, 1)
+            copied_sources = connection.execute(
+                "SELECT COUNT(*) FROM radar_claim_sources WHERE claim_id='claim-1' AND origin_group_id='origin-1'"
+            ).fetchone()[0]
+        self.assertEqual(groups, 2)
+        self.assertEqual(copied_sources, 11)
+        with self.assertRaisesRegex(RadarStoreError, "content_status=confirmed"):
+            self.store.record_claim_event(
+                event_id="claim-event-invalid-status", claim_id="claim-1", event_type="content_confirmed",
+                content_status="contradicted", occurred_at="2026-10-28T10:00:00+00:00",
+                reason="Estado intencionalmente inconsistente.", event_source_id="source-1", event_document_id="doc-1",
+            )
+        with self.assertRaisesRegex(RadarStoreError, "exige fonte"):
+            self.store.record_claim_event(
+                event_id="claim-event-no-source", claim_id="claim-1", event_type="content_confirmed",
+                content_status="confirmed", occurred_at="2026-10-28T10:00:00+00:00",
+                reason="Evento sem evidência.",
+            )
         with closing(self.store.connect()) as connection:
             with self.assertRaises(sqlite3.IntegrityError):
-                connection.execute("UPDATE radar_claim_events SET reason='overwrite' WHERE event_id='claim-event-1'")
+                connection.execute("UPDATE radar_claim_events SET reason='overwrite' WHERE event_id='claim-event-contradiction'")
+            with self.assertRaises(sqlite3.IntegrityError):
+                connection.execute("UPDATE radar_claims SET statement='overwrite' WHERE claim_id='claim-1'")
+            with self.assertRaises(sqlite3.IntegrityError):
+                connection.execute("DELETE FROM radar_claim_sources WHERE claim_id='claim-1' AND source_id='source-1'")
+
+    def test_personal_and_official_statements_require_public_matching_attribution(self) -> None:
+        self.add_source("official-source")
+        self.add_source("interview-source")
+        self.add_document(document_id="official-doc", source_id="official-source", access_policy="allowed")
+        self.add_document(document_id="interview-statement", source_id="interview-source", access_policy="allowed")
+        self.store.register_entity(
+            entity_id="company-1", entity_kind="company", canonical_name="Studio Público", language="pt-BR",
+            source_document_id="official-doc", now=NOW,
+        )
+        self.store.register_entity(
+            entity_id="person-statement", entity_kind="person", canonical_name="Diretora Exemplo", language="pt-BR",
+            source_document_id="interview-statement", now=NOW,
+        )
+        self.add_topic()
+        self.store.link_document_entity(document_id="official-doc", entity_id="company-1", relation_type="statement_by")
+        self.store.link_document_entity(document_id="interview-statement", entity_id="person-statement", relation_type="statement_by")
+        for claim_id, source_id, document_id, entity_id, status in (
+            ("official-claim", "official-source", "official-doc", "company-1", "official_statement"),
+            ("personal-claim", "interview-source", "interview-statement", "person-statement", "named_person_statement"),
+        ):
+            self.store.register_claim(
+                claim_id=claim_id, topic_id="topic-1", statement=f"Declaração sintética {claim_id}.",
+                epistemic_status=status, reported_by_source_id=source_id, source_document_id=document_id,
+                asserted_by_entity_id=entity_id, first_seen_at=NOW, confidence_in_attribution=0.99,
+            )
+        self.assertEqual(self.store.get_row("radar_claims", "claim_id", "official-claim")["epistemic_status"], "official_statement")  # type: ignore[index]
+        self.assertEqual(self.store.get_row("radar_claims", "claim_id", "personal-claim")["epistemic_status"], "named_person_statement")  # type: ignore[index]
+        with self.assertRaisesRegex(RadarStoreError, "Declaração pessoal exige pessoa"):
+            self.store.register_claim(
+                claim_id="misattributed-claim", topic_id="topic-1", statement="Declaração atribuída incorretamente.",
+                epistemic_status="named_person_statement", reported_by_source_id="official-source",
+                source_document_id="official-doc", asserted_by_entity_id="company-1", first_seen_at=NOW,
+                confidence_in_attribution=0.9,
+            )
 
     def test_research_request_packet_hashes_versions_and_idempotency(self) -> None:
         request = make_request()
