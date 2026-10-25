@@ -38,4 +38,4 @@ Reprodução focada:
 & '.\.venv\Scripts\python.exe' -m unittest motor_editorial.tests.test_factory_multipauta -v
 ```
 
-Código e teste: commit `25003e5557cda08af2012a9d629730982a4f0124`. Handoffs E15 em Issue #28 e PR #30 e a confirmação de seus IDs serão registrados no checkpoint após o push deste relatório.
+Código e teste: commit `25003e5557cda08af2012a9d629730982a4f0124`; documentação/checkpoint: `cd64d937643773607c08b798b9037b143442c420`. Handoffs: [Issue #28 comment 6404538607](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6404538607) e [PR #30 comment 6404538785](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6404538785). Checklist E15 marcado.

@@ -1,6 +1,6 @@
 # ENG-CODEX-007 — checkpoint de continuidade
 
-Atualizado: 2026-10-25 19:52 -03:00
+Atualizado: 2026-10-25 19:54 -03:00
 Ultima unidade concluida: **E15 - E2E integrado offline multipauta Radar + fabrica, validado localmente**
 Unidade em andamento: **E16 - ensaio minimo de conector publico permitido, somente leitura**
 Proxima unidade apos E16: **E17 - piloto real SIWC/Plus bloqueado pelas fronteiras atuais do usuario**
@@ -184,7 +184,8 @@ Proxima unidade apos E16: **E17 - piloto real SIWC/Plus bloqueado pelas fronteir
 - Replay fecha/reabre os stores, executa `resume_completed_routes()` duas vezes e repete o lote: mesmos IDs/resultados, sem tarefas duplicadas e sem nova chamada de transporte. O transporte falso recebeu uma fixture; nenhum socket externo foi aberto. `published=false`.
 - CPython 3.11.9 (`.venv`): foco `test_factory`, `test_factory_multipauta`, `test_agent_workflow` e `test_radar_triage` **18/18 OK em 41,767 s**; suite integral serial `& '.\\.venv\\Scripts\\python.exe' -m unittest discover -s motor_editorial/tests -q` **195/195 OK em 132,041 s**; `compileall -q motor_editorial`, `git diff --check` e staged diff-check passaram.
 - Regressao anterior: no commit base `4de1664`, o inventario tinha 95 metodos; 94 nomes seguem iguais. O teste de migracao v5 foi evoluido para o teste de migracao v3 que tambem confere filas, eventos, scheduler e colunas de lease no schema atual. A suite integral executou e passou em todos os testes mantidos/atualizados.
-- Codigo/testes e push: `25003e5557cda08af2012a9d629730982a4f0124`. Report/checkpoint/indices e IDs dos handoffs serao completados apos a publicacao do relatorio na branch.
+- Codigo/testes e push: `25003e5557cda08af2012a9d629730982a4f0124`; relatorio/README/primeiro checkpoint E15: `cd64d937643773607c08b798b9037b143442c420`.
+- Handoffs E15: Issue #28 comment [6404538607](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6404538607); PR #30 comment [6404538785](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6404538785). Caixa E15 marcada; corpo da Issue preserva as 59 quebras de linha. PR #30 continua aberta/draft, sem reviews ou merge.
 - Proximo: E16, uma leitura manual de fonte publica permitida e sem custo, apos conferir termos, robots e quotas por origem.
 
 ## Bloqueios e retomada
