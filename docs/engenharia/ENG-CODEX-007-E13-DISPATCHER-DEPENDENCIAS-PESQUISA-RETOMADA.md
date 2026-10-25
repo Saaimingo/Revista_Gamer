@@ -1,8 +1,8 @@
 # ENG-CODEX-007 E13 — Dispatcher, dependências e pesquisa retomável
 
-**Status:** implementada e validada localmente em 25/10/2026.  
-**Branch/PR:** `codex/eng-codex-007-factory-radar`, PR draft #30 aberta, sem merge.  
-**Issue:** [#28](https://github.com/Saaimingo/Revista_Gamer/issues/28).  
+**Status:** implementada e validada localmente em 25/10/2026.
+**Branch/PR:** `codex/eng-codex-007-factory-radar`, PR draft #30 aberta, sem merge.
+**Issue:** [#28](https://github.com/Saaimingo/Revista_Gamer/issues/28).
 **Próxima unidade:** E14 — handoff editorial com evidências e revisões.
 
 ## Entrega
