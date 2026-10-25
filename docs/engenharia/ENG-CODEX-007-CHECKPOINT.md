@@ -1,6 +1,6 @@
 # ENG-CODEX-007 — checkpoint de continuidade
 
-Atualizado: 2026-10-25 14:37 America/Sao_Paulo
+Atualizado: 2026-10-25 14:38 America/Sao_Paulo
 Última unidade: **E06 — coleta incremental, cache, ETag/diff e deduplicação conservadora, concluída/validada localmente**
 Próxima unidade: **E07 — pessoas, projetos, aliases, entrevistas e idiomas**
 
@@ -14,7 +14,7 @@ Próxima unidade: **E07 — pessoas, projetos, aliases, entrevistas e idiomas**
 - E03: PR #30 aberta/draft/sem merge; commit de implementação e push confirmados em `e161e084cb5fbe99ed1f06751079b8de795182bb`, mesmo HEAD local/remoto no `ls-remote`; antes das alterações E03, HEAD era `747dfa841e1b47aee7dd0244b6f091df029abb80`.
 - E04: código/testes no commit `509a882`; relatório, índice e checkpoint inicial no commit `f5e358e0f75a8e2d1ee4c997da26716e0bf96882`; ambos enviados. PR #30 segue aberta/draft/sem merge; E04 está concluída e validada conforme o relatório abaixo.
 - E05 código/testes no commit `313baeeb1384354189c49a2a3ec206dc8a428ae1`; relatório/índice/checkpoint em `d4bbb81e2c8d0019f4d6062f42062803ab6097e4`, handoffs na Issue #28 (`6400677577`) e PR #30 (`6400677792`); checklist E01–E05 marcado com evidências.
-- E06 código/testes no commit `eddc0e904b0a220f24651209a4e4da2d27153423`, enviado e sincronizado; este registro inclui relatório/índice e prepara os handoffs da unidade. PR #30 continua draft/aberta/sem merge; E01–E06 estão validadas localmente.
+- E06 código/testes no commit `eddc0e904b0a220f24651209a4e4da2d27153423`; relatório/índice/checkpoint no commit `1d78eb83100b5fc3dba0c3989a0e1142c0360725`; ambos enviados e sincronizados. Handoffs publicados na Issue #28 e PR #30; checklist E01–E06 marcado com evidências. PR #30 continua draft/aberta/sem merge.
 
 ## Evidências E01 executadas nesta sessão
 
@@ -83,10 +83,11 @@ Próxima unidade: **E07 — pessoas, projetos, aliases, entrevistas e idiomas**
 - E03 commit `e161e084cb5fbe99ed1f06751079b8de795182bb` (`feat: register ENG-CODEX-007 agent roles`), push confirmado; este checkpoint registra a confirmação e os handoffs.
 - E04 commit `509a882` (`feat: add isolated ENG-CODEX-007 Radar store`), push confirmado; relatório/índice e checkpoint inicial em `f5e358e0f75a8e2d1ee4c997da26716e0bf96882` (`docs: record ENG-CODEX-007 E04 evidence`), push confirmado.
 - E05 commit `313baeeb1384354189c49a2a3ec206dc8a428ae1` (`feat: add policy-gated Radar connectors`), push confirmado; relatório/índice/checkpoint final em `d4bbb81e2c8d0019f4d6062f42062803ab6097e4` (`docs: record ENG-CODEX-007 E05 evidence`), push confirmado.
-- E06 commit `eddc0e904b0a220f24651209a4e4da2d27153423` (`feat: add incremental Radar collection and dedupe`), push confirmado; o commit seguinte registra relatório, índice, handoffs e checkpoint final.
+- E06 commit `eddc0e904b0a220f24651209a4e4da2d27153423` (`feat: add incremental Radar collection and dedupe`), push confirmado; relatório/índice/checkpoint em `1d78eb83100b5fc3dba0c3989a0e1142c0360725` (`docs: record ENG-CODEX-007 E06 evidence`), push confirmado.
 - Handoff E01: Issue #28 [6400102493](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400102493); PR #30 [6400102870](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6400102870). Handoff E02: Issue #28 [6400254111](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400254111); PR #30 [6400254420](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6400254420). Handoff E03: Issue #28 [6400348282](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400348282); PR #30 [6400348695](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6400348695).
 - Handoff E04: Issue #28 [6400474759](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400474759); PR #30 [6400475907](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6400475907).
 - Handoff E05: Issue #28 [6400677577](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400677577); PR #30 [6400677792](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6400677792). Comentário da direção sobre eficiência de contexto: Issue #28 [6400571458](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400571458).
+- Handoff E06: Issue #28 [6400926282](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400926282); PR #30 [6400926504](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6400926504). A direção acrescentou roteamento futuro independente de provedor em Issue #28 [6400791472](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400791472); essa diretriz não autoriza gastos/credenciais e não altera as unidades concluídas.
 - Complemento da direção sobre roteamento futuro entre provedores: Issue #28 [6400791472](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400791472). E06 não altera `fallback=none`, não chama provedores e não reabre E01–E05; E13/E17 deverão respeitar adaptadores, mocks e os gates financeiros/autorização deste comentário.
 
 ## E06 — em andamento
