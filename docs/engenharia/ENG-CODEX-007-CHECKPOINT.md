@@ -1,9 +1,9 @@
 # ENG-CODEX-007 — checkpoint de continuidade
 
-Atualizado: 2026-10-25 18:53 -03:00
-Ultima unidade concluida: **E11 - ResearchService sob demanda com perfis compartilhados, validada localmente e enviada a branch**
-Unidade em andamento: **E12 - carteira dinamica de 10 pautas principais + 10 reservas**
-Proxima unidade apos E12: **E13 - integracao dos papeis ao dispatcher existente**
+Atualizado: 2026-10-25 18:56 -03:00
+Ultima unidade concluida: **E12 - carteira dinamica de 10 pautas principais + 10 reservas, validada localmente e enviada a branch**
+Unidade em andamento: **E13 - integracao dos papeis ao dispatcher existente**
+Proxima unidade apos E13: **E14 - handoff editorial com evidencias e revisoes**
 
 ## Estado do trabalho
 
@@ -146,15 +146,15 @@ Proxima unidade apos E12: **E13 - integracao dos papeis ao dispatcher existente*
 - Codigo/testes: `3ed30ca442b031cf26f0cb8b6b0eb69a8116ba18`; relatorio/indice/README setorial: `11dec4a81bc81b6a62f36b11260233fb4a0505b1`; remocao de dados pessoais da franquia: `62981f7`. Checklist E11 marcado; handoffs: Issue #28 [6402026654](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6402026654) e PR #30 [6402026876](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6402026876).
 - Limite para E17: a instrucao vigente exclui SIWC/Plus real neste escopo. Nenhuma chamada real foi feita; o piloto real E17 fica `BLOCKED`, enquanto validacoes offline independentes continuam.
 
-## E12 - implementacao em validacao
+## E12 - concluida/validada localmente
 
-- Commit de codigo/testes: `6b8a2cb8f2e12f662932ca2701cd52474d17c890`, ja enviado a branch. `radar_portfolio.py` mantem 10 principais + 10 reservas por edicao (limites versionados e ajustaveis para fixtures), sem criar `story_id` nem reportagens; desempate deterministico por prioridade informada, criacao e ID.
-- Radar schema v6 -> v7 aditivo: estado de avaliacao (`eligible`, `blocked`, `needs_evaluation`), trava de membro/override e eventos tipados. Eventos materiais de documento/alegacao reabrem avaliacao com referencia ao evento; lanes e CandidateEvents preservam historico. Troca principal/reserva exige evidencia auditavel de decisao `approved` no escopo `edition_membership_change`; o validador registra essa evidencia, sem ser autenticador.
-- Foco final apos correcoes: `& '.\.venv\Scripts\python.exe' -m unittest motor_editorial.tests.test_radar_store motor_editorial.tests.test_radar_portfolio -q` -> **26/26 OK em 15,775 s**. A primeira rodada encontrou fixture com topico repetido, campo de aprovacao vetado pelo filtro de credenciais e leitura de `sqlite3.Row`; as correcoes foram aplicadas e a rodada final passou.
-- Suite integral serial, `compileall` final e `git diff --check` ainda pendentes. Testes usam apenas SQLite temporario e fixtures; sem fontes publicas, LLM, SIWC/Plus, API paga, banco runtime, publicacao, deploy ou merge.
+- Commit de codigo/testes: `6b8a2cb8f2e12f662932ca2701cd52474d17c890`. Relatorio E12: `docs/engenharia/ENG-CODEX-007-E12-CARTEIRA-DINAMICA-10-10.md`. A carteira default 10 + 10 usa prioridade numerica fornecida, unicidade por topico/edicao e nao cria `story_id` nem reportagens.
+- Radar schema v6 -> v7 aditivo: estado de avaliacao (`eligible`, `blocked`, `needs_evaluation`), trava de membro, eventos tipados append-only e reativacao automatica por eventos materiais de documento/alegacao. Troca principal/reserva exige evidencia auditavel `approved` em `edition_membership_change`; o validador registra a evidencia, sem autenticar o aprovador.
+- CPython 3.11.9 (`.venv`): foco RadarStore+carteira **26/26 OK em 15,775 s**; suite integral serial `& '.\.venv\Scripts\python.exe' -m unittest discover -s motor_editorial/tests -q` -> **185/185 OK em 117,425 s**; `compileall` e `git diff --check` exit 0. A primeira rodada focada encontrou fixture com topico repetido, campo de aprovacao vetado pelo filtro de credenciais e leitura de `sqlite3.Row`; correcoes aplicadas antes dos resultados finais.
+- Testes usam fixtures e SQLite temporario; nenhuma fonte publica, LLM, SIWC/Plus, API paga, banco runtime, scheduler de producao, publicacao, deploy ou merge. Checklist e handoffs E12 serao registrados apos o push deste relatorio/checkpoint.
 
 ## Bloqueios e retomada
 
-Nao ha bloqueio tecnico atual para E12 offline. Nao retomar ou reexecutar C2-D2; eles foram entregues na PR #26. Para E16, manter fontes, termos/robots e quotas revisados por origem antes de qualquer coleta real. E17 permanece bloqueada para chamadas SIWC/Plus reais pela instrucao vigente; nao inferir autorizacao da janela de franquia.
+Nao ha bloqueio tecnico atual para E13 offline. Nao retomar ou reexecutar C2-D2; eles foram entregues na PR #26. Para E16, manter fontes, termos/robots e quotas revisados por origem antes de qualquer coleta real. E17 permanece bloqueada para chamadas SIWC/Plus reais pela instrucao vigente; nao inferir autorizacao da janela de franquia.
 
-Se houver interrupcao durante E12, conferir primeiro `git status --short --branch`, upstream, HEAD remoto, PR #30, Issue #28 e este checkpoint; seguir o contrato E12 na ordem versionada. Nao editar a branch/documentacao da PR #29, nao reconstruir motor/OAuth/DNAs e nao acessar o banco runtime real. O scheduler E09 segue default OFF e `dry_run=true`; E10 so enfileira tarefa `triage.pending`, sem despacho.
+Proximo passo: iniciar E13 lendo seus criterios completos no contrato versionado e mapear o `AgentQueue`/`TaskDispatcher` atual antes de adaptar tarefas. Se houver interrupcao, conferir `git status --short --branch`, upstream, HEAD remoto, PR #30, Issue #28 e este checkpoint; retomar E13 sem reconstruir o motor. Nao editar a branch/documentacao da PR #29, nao reconstruir OAuth/DNAs e nao acessar o banco runtime real. O scheduler E09 segue default OFF e `dry_run=true`; E10 so enfileira tarefa `triage.pending`, sem despacho.

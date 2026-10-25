@@ -109,6 +109,12 @@ O pedido v1.1 exige `story_revision_id`; a migração Radar v5→v6 acrescenta o
 
 O `ResearchService` não configura conector externo por padrão. Um adaptador injetado só pode rodar com `read:registered_public_sources`, budget restante e evidência pendente; seus IDs precisam existir no Radar e obedecer aos limites de fontes, chamadas, bytes e duração. Retentativas rate-limited respeitam `retry_at`. A integração ao dispatcher permanece na E13; pesquisa real em fontes públicas, na E16.
 
+### Carteira editorial dinâmica 10 + 10 (ENG-CODEX-007 E12)
+
+`RadarPortfolioService` mantém, por edição, até dez candidatas principais e dez reservas por prioridade numérica fornecida, com data de criação e ID como desempates determinísticos. O mesmo tópico não duplica na edição. Candidatas excedentes ficam em monitoramento; nenhuma reportagem ou `story_id` é criada pela carteira. `RadarPortfolioPolicy` versiona os limites e o padrão é 10 + 10.
+
+Observações materiais de documentos e eventos de alegação reabrem a avaliação no Radar e gravam a referência ao evento sem apagar a história. Uma candidata bloqueada sem vínculo de membro não ocupa os espaços nem interrompe outras. Candidatas com história/membro vinculados ficam protegidas contra troca automática. `authorize_swap` exige um registro explícito de aprovação no escopo `edition_membership_change`, audita as duas transições e fixa as posições; a validação do objeto de aprovação não autentica a identidade de quem aprovou. O despacho das funções continua para E13.
+
 ### Prova técnica opcional com o plano ChatGPT
 
 O acesso oficial é via Sign in with ChatGPT (SIWC), autorização explícita no navegador e escopo de uso do plano. Não use nem configure `OPENAI_API_KEY`. Para instalar a dependência OIDC opcional em ambiente isolado:
