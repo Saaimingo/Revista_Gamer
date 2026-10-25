@@ -171,8 +171,9 @@ Proxima unidade apos E15: **E16 - ensaio de conectores em fontes publicas permit
 - Casos offline: rumor atribuido preservado como rumor sem confirmacao; hardware apenas como declaracao do fabricante sem medicao; jogo/mod sem alegacao de instalacao ou teste. Instrucao hostil em texto de fonte fica marcada como dado nao confiavel e nao altera a saida deterministica. `hold`, hash de review/checagem antigo e direitos pendentes/negados interrompem a esteira antes da previa. `published=false`.
 - CPython 3.11.9 (`.venv`): `& '.\\.venv\\Scripts\\python.exe' -m unittest motor_editorial.tests.test_factory -q` -> **10/10 OK em 27,855 s**; suite integral serial `& '.\\.venv\\Scripts\\python.exe' -m unittest discover -s motor_editorial/tests -q` -> **194/194 OK em 125,683 s**; `compileall -q motor_editorial` e `git diff --check` passaram. O diff-check apontou apenas avisos de normalizacao LF/CRLF do Windows.
 - Testes usam fixtures `.invalid`, SQLite temporario e placeholder textual. Sem rede, fonte real, LLM, SIWC/Plus, API paga, banco runtime, publicacao, deploy ou merge. O estado `simulated_approved_internally` e teste local, nao aprovacao humana ou editorial.
-- Relatorio: [E14 - handoffs editoriais, direitos e previa](ENG-CODEX-007-E14-HANDOFFS-EDITORIAIS-DIREITOS-PREVIA.md). Commit de codigo/testes: 8dcc1e6 (
-eat: add revision-bound editorial handoffs for E14). IDs dos handoffs GitHub serao registrados apos push/comentarios.
+- Relatorio: [E14 - handoffs editoriais, direitos e previa](ENG-CODEX-007-E14-HANDOFFS-EDITORIAIS-DIREITOS-PREVIA.md).
+- Commits: codigo/testes 8dcc1e6edd8c7b1476d144cd4d369e8b1d59a3a9; relatorio/README/checkpoint 21b024db9d16c168908da8e32bb66f29fcfde90a.
+- Handoffs: Issue #28 comment 6404354949; PR #30 comment 6404355183. Caixa E14 marcada; a formatação do corpo da Issue foi restaurada com conteúdo preservado. PR #30 segue aberta, draft e sem decisao de review/merge.
 - Proximo: E15, ensaio integrado offline multipauta com uma pauta bloqueada, uma corrigida, uma elegivel a previa interna e replay apos reinicio.
 
 ## Bloqueios e retomada
