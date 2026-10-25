@@ -189,6 +189,7 @@ class AgentQueue:
         executor_id: str,
         idempotency_key: str,
         max_attempts: int,
+        task_id: str | None = None,
         available_at: datetime | str | None = None,
         schedule_id: str | None = None,
     ) -> tuple[str, bool]:
@@ -213,9 +214,11 @@ class AgentQueue:
             )
             if actual != expected:
                 raise ValueError("Chave idempotente já usada com conteúdo diferente.")
+            if task_id is not None and existing["id"] != task_id:
+                raise ValueError("Chave idempotente já vinculada a outro task_id.")
             return existing["id"], False
 
-        task_id = str(uuid.uuid4())
+        task_id = task_id or str(uuid.uuid4())
         now = utc_now()
         connection.execute(
             """INSERT INTO agent_tasks
@@ -242,9 +245,10 @@ class AgentQueue:
         executor_id: str,
         idempotency_key: str,
         max_attempts: int = 3,
+        task_id: str | None = None,
         available_at: datetime | str | None = None,
     ) -> str:
-        if not task_type.strip() or not executor_id.strip() or not idempotency_key.strip():
+        if not task_type.strip() or not executor_id.strip() or not idempotency_key.strip() or (task_id is not None and not task_id.strip()):
             raise ValueError("Tipo, executor e chave idempotente são obrigatórios.")
         if max_attempts < 1:
             raise ValueError("O limite de tentativas deve ser positivo.")
@@ -254,6 +258,7 @@ class AgentQueue:
                 profile_id=profile.profile_id, profile_version=profile.version,
                 profile_hash=profile.content_hash, executor_id=executor_id,
                 idempotency_key=idempotency_key, max_attempts=max_attempts,
+                task_id=task_id,
                 available_at=available_at,
             )
             return task_id
@@ -701,6 +706,9 @@ class TaskExecutionContext:
         self._lease_generation = task.lease_generation
         self._lease_seconds = max(1, lease_seconds)
         self.external_request_started = False
+        self.agent_role_profile: Any | None = None
+        self.agent_task_envelope: Any | None = None
+        self.agent_invocation_context: Any | None = None
         self._heartbeat_stop = threading.Event()
         self._ownership_lost = threading.Event()
         self._heartbeat_thread: threading.Thread | None = None
@@ -768,11 +776,13 @@ class TaskDispatcher:
         executors: Mapping[str, TaskExecutor],
         profiles: Mapping[tuple[str, str], AgentProfile],
         lease_seconds: int = 120,
+        role_catalog: Any | None = None,
     ):
         self.queue = queue
         self.executors = dict(executors)
         self.profiles = dict(profiles)
         self.lease_seconds = lease_seconds
+        self.role_catalog = role_catalog
 
     def dispatch_one(
         self,
@@ -809,7 +819,33 @@ class TaskDispatcher:
                 blocked=True,
             )
             return report_failure(failure)
+        invocation_context = None
+        task_envelope = None
+        if self.role_catalog is not None:
+            try:
+                from .agent_contracts import envelope_from_payload
+
+                task_envelope = envelope_from_payload(task.payload)
+                if task_envelope.task_id != task.task_id:
+                    raise ValueError("task_id do envelope diverge da fila")
+                if task.task_type != f"agent.role.{task_envelope.role_id}":
+                    raise ValueError("tipo da fila diverge do role_id")
+                invocation_context = self.role_catalog.prepare_invocation(
+                    task_envelope,
+                    input_payload=task.payload.get("input"),
+                    research_packet=task.payload.get("research_packet"),
+                )
+            except (ValueError, TypeError) as error:
+                return report_failure(TaskFailure(
+                    "agent_contract_invalid",
+                    f"Contrato funcional bloqueado ({type(error).__name__}).",
+                    blocked=True,
+                ))
         context = TaskExecutionContext(self.queue, task, self.lease_seconds)
+        if invocation_context is not None:
+            context.agent_role_profile = invocation_context.role_profile
+            context.agent_task_envelope = task_envelope
+            context.agent_invocation_context = invocation_context
         try:
             context.start_heartbeat()
             try:
@@ -819,6 +855,17 @@ class TaskDispatcher:
             context.assert_lease_owned()
             if not isinstance(result, Mapping):
                 raise TaskFailure("invalid_result", "Executor não retornou um objeto estruturado.")
+            if invocation_context is not None:
+                try:
+                    result = self.role_catalog.validate_result(
+                        task_envelope, result, invocation_context.role_profile
+                    ).to_dict()
+                except (ValueError, TypeError) as error:
+                    raise TaskFailure(
+                        "invalid_agent_result",
+                        f"AgentResultEnvelope inválido ({type(error).__name__}).",
+                        blocked=True,
+                    ) from error
             completed = self.queue.complete(
                 task.task_id, task.lease_owner, task.lease_generation, result
             )
