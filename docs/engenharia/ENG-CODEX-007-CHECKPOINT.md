@@ -1,6 +1,6 @@
 # ENG-CODEX-007 — checkpoint de continuidade
 
-Atualizado: 2026-10-25 13:35 America/Sao_Paulo
+Atualizado: 2026-10-25 13:36 America/Sao_Paulo
 Última unidade: **E02 — contratos versionados e regimento no carregamento, concluída/validada localmente**
 Próxima unidade: **E03 — perfis funcionais e fixtures iniciais**
 
@@ -10,7 +10,7 @@ Próxima unidade: **E03 — perfis funcionais e fixtures iniciais**
 - Branch de produto: `codex/eng-codex-007-factory-radar`, upstream `origin/codex/eng-codex-007-factory-radar`; base HEAD #26 `4de16640e67bd16c61468955e96e4ffa850d4cab`. PR de implementação [#30](https://github.com/Saaimingo/Revista_Gamer/pull/30), aberta/draft/sem merge, baseada na branch da #26.
 - PRs #24 → #25 → #26 continuam abertas/draft/sem merge. #26 recebeu review `COMMENTED` favorável ao handoff A0–D2 com ressalvas; não é aprovação de merge. `origin/main=ce8f6a7b65c2050d5da851491c9c89835f82c3a2`; a cadeia acumulada está 53 commits à frente e `merge-tree` local não detectou conflitos.
 - PRs #8/#10/#18 e #13/#14/#19/#27 continuam independentes e sem merge. Consultar E01 para os HEADs e responsabilidades por componente.
-- Revalidação E02: PR #30 continua draft/aberta/sem merge; antes do push, HEAD local `8eda0e905a40afeb97da90cd5f8a858de807ec84`, remoto `83ad1aa53e9117bd81396ea4bc35ec8488e74cb7`, dois commits E02 locais. `origin/main` segue em `ce8f6a7b65c2050d5da851491c9c89835f82c3a2`.
+- Revalidação E02: PR #30 continua draft/aberta/sem merge; push confirmado em `10532233fe5a50a349c8440002ec3ca4a8dfcdcc`, mesmo HEAD local/remoto no último `ls-remote`; `origin/main=ce8f6a7b65c2050d5da851491c9c89835f82c3a2`.
 
 ## Evidências E01 executadas nesta sessão
 
@@ -34,11 +34,11 @@ Próxima unidade: **E03 — perfis funcionais e fixtures iniciais**
 - Relatório E01: `docs/engenharia/ENG-CODEX-007-E01-BASELINE-PLANO-INTEGRACAO.md`.
 - Checkpoint: `docs/engenharia/ENG-CODEX-007-CHECKPOINT.md`.
 - Commit E01: `aeb7b5cdd132aed041a9fe7301c656f810389a31` (`docs: record ENG-CODEX-007 E01 baseline`), push confirmado.
-- E02: `b590bc11a2ce3ea9bdbe5608ca6e13ab94d1d0ad` (`feat: add versioned agent contracts`) e correção de higiene `8eda0e905a40afeb97da90cd5f8a858de807ec84` (`fix: trim contract module EOF`); push pendente neste checkpoint.
-- Handoff: Issue #28 [6400102493](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400102493); PR #30 [6400102870](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6400102870).
+- E02: `b590bc11a2ce3ea9bdbe5608ca6e13ab94d1d0ad` (`feat: add versioned agent contracts`), correção `8eda0e905a40afeb97da90cd5f8a858de807ec84` e checkpoint `10532233fe5a50a349c8440002ec3ca4a8dfcdcc`; os três enviados.
+- Handoff E01: Issue #28 [6400102493](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400102493); PR #30 [6400102870](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6400102870). Handoff E02: Issue #28 [6400254111](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6400254111); PR #30 [6400254420](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6400254420).
 
 ## Bloqueios e retomada
 
-Não há bloqueio atual. Não retomar ou reexecutar C2–D2; eles foram entregues na PR #26 e receberam parecer favorável de encerramento com ressalvas. E02 foi validada. Próxima ação exata: push dos commits E02, confirmar HEAD remoto e PR #30, comentar Issue #28 e PR #30 com os resultados, então iniciar E03.
+Não há bloqueio atual. Não retomar ou reexecutar C2–D2; eles foram entregues na PR #26 e receberam parecer favorável de encerramento com ressalvas. E02 foi validada, enviada e relatada. Próxima ação: iniciar E03.
 
 Se houver interrupção após o push, conferir primeiro `git status --short --branch`, upstream e HEAD remoto; depois verificar PR/Issue #28 e seguir para E03. Não editar a branch/documentação da PR #29, não reconstruir o motor/OAuth/DNAs e não acessar o banco runtime real.
