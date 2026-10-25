@@ -1,6 +1,6 @@
 # ENG-CODEX-007 — checkpoint de continuidade
 
-Atualizado: 2026-10-25 20:18 -03:00
+Atualizado: 2026-10-25 20:19 -03:00
 Ultima unidade completamente concluida: **E16 - leitura manual, unica e sanitizada da API publica do GitHub, validada**
 Estado E17: **BLOCKED_BY_SCOPE - proibicao atual do usuario contra SIWC/Plus real; nenhuma consulta/login/probe foi feito**
 Estado E18: **PARTIAL_OFFLINE_ONLY - contrato de identidade validado; 48 casos T01-T16 nao executados, P/J nao avaliados, parecer humano pendente**
@@ -212,7 +212,7 @@ Proxima acao: **auditoria final ao vivo de branch/PR/Issue, registrar handoff E0
 - Código/testes enviados em `9349194`: `AgentRoleCatalog.prepare_invocation` agora exige instruções de DNA para `persona_writer` e confere seu SHA-256 com `persona_hash` do envelope; falta ou troca de instrução bloqueia antes de formar o contexto.
 - CPython 3.11.9: contratos + catálogo + E18 offline **23/23 OK em 1,424 s**; `compileall -q motor_editorial` exit 0; `git diff --check` exit 0. Os testes usam marcadores sintéticos, sem carregar DNAs ou gerar conteúdo. O hash do bloco de instrução se aplica ao texto normalizado após trim externo; hashes de arquivos-fonte são registrados separadamente.
 - Matriz de cada jornalista contém T01–T16 como inventário, **nenhum dos 48 casos foi executado**; P/J=`not_evaluated`, revisão humana=`pending_direction`. Sem SIWC/Plus, mesmo com cota a 100%, sem provider/API, credencial ou conteúdo de persona utilizado.
-- Relatório: `docs/engenharia/ENG-CODEX-007-E18-JORNALISTAS-ISOLADOS-OFFLINE.md`. Estado E18 `PARTIAL_OFFLINE_ONLY`; a caixa da Issue permanece desmarcada. E19 offline e regressão integral estão registradas abaixo.
+- Relatório/checkpoint enviado em `e365042`; Issue #28 [comentário 6404687699](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6404687699), PR #30 [comentário 6404687959](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6404687959). Estado E18 `PARTIAL_OFFLINE_ONLY`; caixa permanece desmarcada. E19 offline e regressão integral estão registradas abaixo.
 
 ## E19 — vínculo offline integrado ao ledger compartilhado; avaliação real não executada
 
@@ -220,7 +220,7 @@ Proxima acao: **auditoria final ao vivo de branch/PR/Issue, registrar handoff E0
 - O E2E multipauta E15 usa a mesma `AgentQueue`/`TaskDispatcher` e store SQLite temporário. Três tarefas sintéticas de persona compartilharam brief, dossier, pauta, edição e o mesmo `ResearchPacket` local; seus `input_payload_hash` foram iguais, com IDs/hash/seção confiável isolados. Nenhum `StoryDraft` ou conteúdo editorial foi produzido.
 - Casos negativos (sem resolvedor, identidade cruzada, exceção do resolvedor) ficaram bloqueados e não incrementaram chamadas do executor. Replay do ledger não criou tarefas novas.
 - CPython 3.11.9: foco E18/E19 **24/24 OK em 7,620 s**; regressão integral serial `unittest discover -s motor_editorial/tests -q` **198/198 OK em 141,677 s**; `compileall -q motor_editorial` e `git diff --check` exit 0.
-- Código/teste integrado enviado em `d804e7c`. Relatório: `docs/engenharia/ENG-CODEX-007-E19-TRIO-NA-FABRICA-OFFLINE.md`. Pesquisa usa fixtures/transporte falso `.invalid`; sem fonte externa, LLM, SIWC/Plus, API paga, banco runtime, publicação, deploy ou merge.
+- Código/teste integrado enviado em `d804e7c`; relatório, índice e checkpoint em `ea7f0f2`. Issue #28 [comentário 6404796492](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6404796492), PR #30 [comentário 6404796757](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6404796757). Pesquisa usa fixtures/transporte falso `.invalid`; sem fonte externa, LLM, SIWC/Plus, API paga, banco runtime, publicação, deploy ou merge.
 - E19 é `PARTIAL_OFFLINE_ONLY`: 0/48 casos T01–T16 executados; P/J `not_evaluated`; revisão humana `pending_direction`. A etapa testa apenas contrato/roteamento no ledger já compartilhado, não a execução real de `StoryDraft` com o DNA.
 
 ## Bloqueios e retomada
