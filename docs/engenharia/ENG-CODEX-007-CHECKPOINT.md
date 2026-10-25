@@ -1,9 +1,9 @@
 # ENG-CODEX-007 — checkpoint de continuidade
 
-Atualizado: 2026-10-25 19:35 -03:00
-Ultima unidade concluida: **E14 - handoffs editoriais, direitos, layout e previa interna, validada localmente**
-Unidade em andamento: **E15 - ensaio integrado offline multipauta e regressoes**
-Proxima unidade apos E15: **E16 - ensaio de conectores em fontes publicas permitidas**
+Atualizado: 2026-10-25 19:52 -03:00
+Ultima unidade concluida: **E15 - E2E integrado offline multipauta Radar + fabrica, validado localmente**
+Unidade em andamento: **E16 - ensaio minimo de conector publico permitido, somente leitura**
+Proxima unidade apos E16: **E17 - piloto real SIWC/Plus bloqueado pelas fronteiras atuais do usuario**
 
 ## Estado do trabalho
 
@@ -176,8 +176,19 @@ Proxima unidade apos E15: **E16 - ensaio de conectores em fontes publicas permit
 - Handoffs: Issue #28 comment 6404354949; PR #30 comment 6404355183. Caixa E14 marcada; a formatação do corpo da Issue foi restaurada com conteúdo preservado. PR #30 segue aberta, draft e sem decisao de review/merge.
 - Proximo: E15, ensaio integrado offline multipauta com uma pauta bloqueada, uma corrigida, uma elegivel a previa interna e replay apos reinicio.
 
+## E15 - concluida/validada localmente
+
+- Implementacao: `run_factory_multipauta_demo()` e `FactoryStoryRun` em `motor_editorial/factory.py`; rotas deterministicas `FACTORY_TASK_ROUTES`; teste integrado em `motor_editorial/tests/test_factory_multipauta.py`; relatorio `ENG-CODEX-007-E15-E2E-MULTIPAUTA-RADAR-FABRICA.md`.
+- Duas ou tres pautas usam a mesma `AgentQueue`/`TaskDispatcher`. Um `ResearchPacket.v1` validado por hash e cada referencia a documento Radar exigem vinculo explicito a uma fonte presente no pacote editorial; o packet segue como dado de pesquisa no handoff de investigacao.
+- Ensaio E2E: RSS fixture entregue por transporte falso gera `DiscoveryBatch`/triagem; fluxo E13 faz pesquisa local, roteamento e retomada; fluxo E14 leva rumor, hardware e mod por fontes, edicao, redacao, checagem, revisao, direitos, layout e previa. Casos finais: `factory_editorial_hold`; hardware corrigido para revisao 2 e previa retida no gate simulado; mod com previa interna aprovada apenas pelo gate sintetico.
+- Replay fecha/reabre os stores, executa `resume_completed_routes()` duas vezes e repete o lote: mesmos IDs/resultados, sem tarefas duplicadas e sem nova chamada de transporte. O transporte falso recebeu uma fixture; nenhum socket externo foi aberto. `published=false`.
+- CPython 3.11.9 (`.venv`): foco `test_factory`, `test_factory_multipauta`, `test_agent_workflow` e `test_radar_triage` **18/18 OK em 41,767 s**; suite integral serial `& '.\\.venv\\Scripts\\python.exe' -m unittest discover -s motor_editorial/tests -q` **195/195 OK em 132,041 s**; `compileall -q motor_editorial`, `git diff --check` e staged diff-check passaram.
+- Regressao anterior: no commit base `4de1664`, o inventario tinha 95 metodos; 94 nomes seguem iguais. O teste de migracao v5 foi evoluido para o teste de migracao v3 que tambem confere filas, eventos, scheduler e colunas de lease no schema atual. A suite integral executou e passou em todos os testes mantidos/atualizados.
+- Codigo/testes e push: `25003e5557cda08af2012a9d629730982a4f0124`. Report/checkpoint/indices e IDs dos handoffs serao completados apos a publicacao do relatorio na branch.
+- Proximo: E16, uma leitura manual de fonte publica permitida e sem custo, apos conferir termos, robots e quotas por origem.
+
 ## Bloqueios e retomada
 
-Nao ha bloqueio tecnico atual para E15 offline. Nao retomar ou reexecutar C2-D2; eles foram entregues na PR #26. Para E16, manter fontes, termos/robots e quotas revisados por origem antes de qualquer coleta real. E17 permanece bloqueada para chamadas SIWC/Plus reais pela instrucao vigente; nao inferir autorizacao da janela de franquia.
+Nao retomar ou reexecutar C2-D2; eles foram entregues na PR #26. E16 deve usar transporte/escopo aprovado e uma unica leitura manual, registrando o resultado real e qualquer 403/429; se a origem nao for elegivel, marcar `blocked_external_access` e seguir. E17 permanece bloqueada: a ordem do usuario proibe chamadas reais SIWC/Plus mesmo com a franquia em 100%. E18/E19 podem avancar somente em documentacao e testes offline, sem alegar execucao de persona/modelo real.
 
-Proximo passo: continuar E15 em SQLite temporario, reutilizando o dispatcher E13 e os contratos E14. Em interrupcao, conferir branch/upstream/HEAD remoto, PR #30, Issue #28 e este checkpoint. Manter branch de implementacao e limites de E17 sem SIWC/Plus real.
+Proximo passo: iniciar E16 somente apos selecionar e validar uma origem publica permitida, usando uma unica leitura manual sem custo. Em interrupcao, conferir branch/upstream/HEAD remoto, PR #30, Issue #28 e este checkpoint. Manter branch de implementacao e limites de E17 sem SIWC/Plus real.

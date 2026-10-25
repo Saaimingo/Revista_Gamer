@@ -127,6 +127,20 @@ A fábrica persiste no ledger existente `EvidenceDossier`, `EditorialBrief`, `St
 
 Um `hold`, parecer obsoleto ou evidência sem vínculo bloqueia `StoryPackage`, layout e prévia. Uma correção exige nova checagem e revisão para o hash vigente. Apenas fixtures `.invalid`, SQLite temporário, placeholder textual e prévia HTML interna são usados; `published=false`. A suíte E14 validou rumor atribuído, especificação fictícia de hardware e jogo/mod fictício, mais ataque de fonte e direitos pendentes/negados; foco de fábrica 10/10 e suíte integral 194/194. Veja [relatório E14](../docs/engenharia/ENG-CODEX-007-E14-HANDOFFS-EDITORIAIS-DIREITOS-PREVIA.md).
 
+### Ensaio integrado multipauta Radar + fábrica (ENG-CODEX-007 E15)
+
+`run_factory_multipauta_demo()` executa duas ou três `FactoryStoryRun` com a mesma `AgentQueue` e `TaskDispatcher`, mantendo a fronteira de uma única fila. `FACTORY_TASK_ROUTES` registra as rotas determinísticas quando o dispatcher também valida o catálogo de papéis. Um `ResearchPacket.v1.0` precisa ter hash válido e vínculo explícito entre cada `radar://document/...` e uma fonte presente no pacote editorial.
+
+O teste E2E conecta `RadarGeneralService`/`DiscoveryBatch`, triagem sintética, `ResearchTaskExecutor` e `ResearchResultRouter` à fábrica E14. Com RSS e transporte falsos, SQLite temporário e pesquisa somente no índice local, cobre uma pauta em `hold`, uma corrigida com nova revisão/checagem/revisão e uma prévia interna aprovada somente pelo gate simulado. O replay após reiniciar os stores e repetir os handoffs preserva IDs e não duplica tarefas. Não abre socket externo, chama modelo ou publica.
+
+Validação CPython 3.11.9: foco relacionado E15 **18/18 OK**; suíte integral **195/195 OK**; `compileall` e diff-check passaram. Reproduza com:
+
+```powershell
+& '.\.venv\Scripts\python.exe' -m unittest motor_editorial.tests.test_factory_multipauta -v
+```
+
+Veja [relatório E15](../docs/engenharia/ENG-CODEX-007-E15-E2E-MULTIPAUTA-RADAR-FABRICA.md) e [checkpoint](../docs/engenharia/ENG-CODEX-007-CHECKPOINT.md). `published=false`.
+
 ### Prova técnica opcional com o plano ChatGPT
 
 O acesso oficial é via Sign in with ChatGPT (SIWC), autorização explícita no navegador e escopo de uso do plano. Não use nem configure `OPENAI_API_KEY`. Para instalar a dependência OIDC opcional em ambiente isolado:

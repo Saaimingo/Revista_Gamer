@@ -80,7 +80,7 @@ Uma pauta real -> investigação com fonte -> texto com persona -> revisão -> e
 
 ## ENG-CODEX-007 — fábrica editorial e Radar (2026-10-25)
 
-**Estado atual:** E01–E14 validadas localmente em branch/PR draft de implementação, sem merge. E15 é a unidade em andamento. PR #29 continua sendo somente pacote documental; os papéis registrados não são sessões LLM permanentes nem agentes avaliados por inferência real.
+**Estado atual:** E01–E15 validadas localmente em branch/PR draft de implementação, sem merge. E16 é a unidade em andamento. PR #29 continua sendo somente pacote documental; os papéis registrados não são sessões LLM permanentes nem agentes avaliados por inferência real.
 
 - [E01 — baseline e plano de integração](ENG-CODEX-007-E01-BASELINE-PLANO-INTEGRACAO.md).
 - [E02 — contratos versionados e carregamento do regimento](ENG-CODEX-007-E02-CONTRATOS-VERSIONADOS.md).
@@ -96,4 +96,5 @@ Uma pauta real -> investigação com fonte -> texto com persona -> revisão -> e
 - [E12 — carteira dinâmica 10 + 10](ENG-CODEX-007-E12-CARTEIRA-DINAMICA-10-10.md): seleção determinística por prioridade fornecida, sem gerar reportagens; reavaliação por evento material, proteção auditável de membros e migração Radar v6→v7; suíte integral 185/185.
 - [E13 — dispatcher, dependências e pesquisa retomável](ENG-CODEX-007-E13-DISPATCHER-DEPENDENCIAS-PESQUISA-RETOMADA.md): dependências persistentes no ledger existente, rotas determinísticas registradas, pesquisa cache-first e handoff idempotente de retorno ao artigo; suite integral 192/192.
 - [E14 — handoffs editoriais, direitos e prévia](ENG-CODEX-007-E14-HANDOFFS-EDITORIAIS-DIREITOS-PREVIA.md): cinco artefatos tipados e presos por hash à revisão, papéis resolvidos no catálogo, rumores atribuídos e casos hardware/jogo-mod em fixtures, gate de direitos e prévia interna; suite integral 194/194.
+- [E15 — E2E multipauta Radar + fábrica](ENG-CODEX-007-E15-E2E-MULTIPAUTA-RADAR-FABRICA.md): duas ou três pautas no mesmo ledger/dispatcher, triagem e pesquisa local acopladas aos handoffs E14, bloqueio/correção/prévia interna e replay após restart; suíte integral 195/195.
 - [Checkpoint ENG-CODEX-007](ENG-CODEX-007-CHECKPOINT.md), [Issue #28](https://github.com/Saaimingo/Revista_Gamer/issues/28) e [PR draft #30](https://github.com/Saaimingo/Revista_Gamer/pull/30).
