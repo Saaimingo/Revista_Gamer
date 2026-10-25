@@ -1,10 +1,11 @@
 # ENG-CODEX-007 — checkpoint de continuidade
 
-Atualizado: 2026-10-25 19:59 -03:00
-Ultima unidade concluida: **E16 - leitura manual, unica e sanitizada da API publica do GitHub, validada**
+Atualizado: 2026-10-25 20:07 -03:00
+Ultima unidade completamente concluida: **E16 - leitura manual, unica e sanitizada da API publica do GitHub, validada**
 Estado E17: **BLOCKED_BY_SCOPE - proibicao atual do usuario contra SIWC/Plus real; nenhuma consulta/login/probe foi feito**
-Unidade em andamento: **E18 - testes isolados em modo offline, sem inferencia real**
-Proxima unidade apos E18: **E19 - testes na fabrica em modo offline, sem inferencia real**
+Estado E18: **PARTIAL_OFFLINE_ONLY - contrato de identidade validado; 48 casos T01-T16 nao executados, P/J nao avaliados, parecer humano pendente**
+Unidade em andamento: **E19 - integracao offline das tres referencias de persona na fabrica existente**
+Proxima acao: **concluir E19 offline, rodar regressao integral serial e registrar evidencias finais**
 
 ## Estado do trabalho
 
@@ -204,8 +205,17 @@ Proxima unidade apos E18: **E19 - testes na fabrica em modo offline, sem inferen
 - Estado registrado como `BLOCKED_BY_SCOPE`, sem chamadas, consumo ou custo. Não há fallback para API paga ou outra conta.
 - Relatório: `docs/engenharia/ENG-CODEX-007-E17-BLOQUEIO-SIWC-PLUS.md`. E18/E19 continuam autorizadas em modo offline; inferências reais são `not_executed`, revisão humana fica pendente.
 
+## E18 — validação técnica offline parcial; avaliação real não executada
+
+- Rechecagem ao vivo: PR #13 head `3d651fe1951818767b4a6b935732857f08cb7849`, PR #19 head `21381c0975bef1da048d7887cbdfbd0dd97bed96` e PR #27 head `d38c5da92ba76739d9234942f7bf0bd087949e5f`; as três abertas/draft, sem reviews. Os comentários confirmam fechamento criativo/documental e testes operacionais/LLM pendentes.
+- Manifesto `motor_editorial/tests/fixtures/persona_trials_offline_v1.json` fixa commits, caminhos e SHA-256 de arquivos Markdown de identidade/contratos/matrizes. Hashes são dos arquivos-fonte exatos, não hashes canônicos de DNA. PR #14/ativos visuais não foram alterados.
+- Código/testes enviados em `9349194`: `AgentRoleCatalog.prepare_invocation` agora exige instruções de DNA para `persona_writer` e confere seu SHA-256 com `persona_hash` do envelope; falta ou troca de instrução bloqueia antes de formar o contexto.
+- CPython 3.11.9: contratos + catálogo + E18 offline **23/23 OK em 1,424 s**; `compileall -q motor_editorial` exit 0; `git diff --check` exit 0. Os testes usam marcadores sintéticos, sem carregar DNAs ou gerar conteúdo. O hash do bloco de instrução se aplica ao texto normalizado após trim externo; hashes de arquivos-fonte são registrados separadamente.
+- Matriz de cada jornalista contém T01–T16 como inventário, **nenhum dos 48 casos foi executado**; P/J=`not_evaluated`, revisão humana=`pending_direction`. Sem SIWC/Plus, mesmo com cota a 100%, sem provider/API, credencial ou conteúdo de persona utilizado.
+- Relatório: `docs/engenharia/ENG-CODEX-007-E18-JORNALISTAS-ISOLADOS-OFFLINE.md`. Estado E18 `PARTIAL_OFFLINE_ONLY`; a caixa da Issue permanece desmarcada. Próxima: E19 integrada, exclusivamente offline, seguida da regressão integral.
+
 ## Bloqueios e retomada
 
-Nao retomar ou reexecutar C2-D2; eles foram entregues na PR #26. E17 permanece `BLOCKED_BY_SCOPE`: sem status/models, login ou chamadas SIWC/Plus reais. E18/E19 concluem somente comparacoes e validacoes mock/offline, com inferencias reais `not_executed` e revisao humana pendente; nao alegar fidelidade de DNA ou qualidade jornalistica real a partir de mocks.
+Nao retomar ou reexecutar C2-D2; eles foram entregues na PR #26. E17 permanece `BLOCKED_BY_SCOPE`: sem status/models, login ou chamadas SIWC/Plus reais. E18 fica parcial por escopo; E19 pode validar somente o acoplamento mock/offline. Inferencias reais ficam `not_executed`, P/J `not_evaluated` e revisao humana pendente; nao alegar fidelidade de DNA ou qualidade jornalistica real a partir de mocks.
 
-Proximo passo: revisar os HEADs e os DNAs aprovados nas PRs #13/#14/#19/#27, preparar E18 isolada offline e executar suas fixtures. Em interrupcao, conferir branch/upstream/HEAD remoto, PR #30, Issue #28 e este checkpoint. Manter branch de implementacao, PR draft e `published=false`.
+Proximo passo: executar E19 na fabrica existente com envelopes de persona isolados e marcadores sinteticos, adicionar teste de regressao com o mesmo `AgentQueue`/`TaskDispatcher`, rodar a suite integral serial e atualizar Issue/PR/checkpoint. Em interrupcao, conferir branch/upstream/HEAD remoto, PR #30, Issue #28 e este checkpoint. Manter branch de implementacao, PR draft e `published=false`.

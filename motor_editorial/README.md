@@ -145,6 +145,10 @@ Veja [relatório E15](../docs/engenharia/ENG-CODEX-007-E15-E2E-MULTIPAUTA-RADAR-
 
 O conector foi executado uma única vez contra um endpoint público documentado do GitHub REST API, sem autenticação. O resultado persistido é somente uma projeção de metadados e o SHA-256 da resposta; nenhum corpo integral, nota de release ou asset foi guardado. Este ensaio não configura polling ou scheduler; veja [relatório E16](../docs/engenharia/ENG-CODEX-007-E16-LEITURA-PUBLICA-CONTROLADA.md) para origem, robots, termos, limite e resultado.
 
+### Vínculo imutável do DNA no papel de redator (ENG-CODEX-007 E18)
+
+`AgentRoleCatalog.prepare_invocation()` exige que `persona_writer` receba instruções de DNA e que o SHA-256 do texto normalizado (após trim externo) corresponda a `persona_hash` no envelope. DNA ausente ou instrução de outra identidade falha antes da montagem do contexto. A regressão E18 usa apenas marcadores sintéticos e hashes/documentos-fonte versionados; não executa as matrizes T01–T16, não gera texto jornalístico e não avalia P/J. Veja [relatório E18](../docs/engenharia/ENG-CODEX-007-E18-JORNALISTAS-ISOLADOS-OFFLINE.md).
+
 ### Prova técnica opcional com o plano ChatGPT
 
 O acesso oficial é via Sign in with ChatGPT (SIWC), autorização explícita no navegador e escopo de uso do plano. Não use nem configure `OPENAI_API_KEY`. Para instalar a dependência OIDC opcional em ambiente isolado:

@@ -70,6 +70,10 @@ class PersonaTrialsOfflineTests(unittest.TestCase):
     def test_all_three_isolated_matrices_are_explicitly_not_executed(self) -> None:
         self.assertEqual(self.manifest["fixture_version"], "1.0")
         self.assertEqual(self.manifest["execution_mode"], "offline_contract_binding_only")
+        self.assertIn("outer whitespace trimming", self.manifest["persona_instruction_hash_scope"])
+        directive = self.manifest["shared_reporting_directive"]
+        self.assertEqual(directive["source_pr"], 27)
+        self.assertRegex(directive["sha256"], r"^[0-9a-f]{64}$")
         personas = self.manifest["personas"]
         self.assertEqual({item["persona_id"] for item in personas}, CANONICAL_PERSONA_IDS)
         self.assertEqual(len(personas), 3)
@@ -80,14 +84,18 @@ class PersonaTrialsOfflineTests(unittest.TestCase):
                 self.assertEqual(persona["persona_axis_status"], "not_evaluated")
                 self.assertEqual(persona["journalism_axis_status"], "not_evaluated")
                 self.assertEqual(persona["human_review_status"], "pending_direction")
-                self.assertRegex(persona["documentation_bundle_sha256"], r"^[0-9a-f]{64}$")
                 self.assertRegex(persona["source_commit"], r"^[0-9a-f]{40}$")
+                source_documents = persona["source_documents"]
+                self.assertGreaterEqual(len(source_documents), 3)
+                self.assertIn(persona["matrix_path"], {item["path"] for item in source_documents})
+                for document in source_documents:
+                    self.assertRegex(document["sha256"], r"^[0-9a-f]{64}$")
 
     def test_persona_instruction_hash_binds_only_the_referenced_isolated_identity(self) -> None:
         personas = self.manifest["personas"]
         for persona in personas:
             persona_id = persona["persona_id"]
-            marker = f"OFFLINE_BINDING_SENTINEL::{persona_id}::{persona['documentation_bundle_sha256']}"
+            marker = f"OFFLINE_BINDING_SENTINEL::{persona_id}::{persona['source_commit']}"
             envelope = make_persona_envelope(
                 self.profile, self.input_value,
                 persona_id=persona_id,
@@ -108,7 +116,7 @@ class PersonaTrialsOfflineTests(unittest.TestCase):
             self.assertEqual(context.task_envelope.persona_hash, stable_hash(marker))
 
             other = next(item for item in personas if item["persona_id"] != persona_id)
-            foreign_marker = f"OFFLINE_BINDING_SENTINEL::{other['persona_id']}::{other['documentation_bundle_sha256']}"
+            foreign_marker = f"OFFLINE_BINDING_SENTINEL::{other['persona_id']}::{other['source_commit']}"
             with self.assertRaisesRegex(ContractValidationError, "Hash do DNA fornecido"):
                 self.catalog.prepare_invocation(
                     envelope, input_payload=self.input_value, persona_instructions=foreign_marker,
