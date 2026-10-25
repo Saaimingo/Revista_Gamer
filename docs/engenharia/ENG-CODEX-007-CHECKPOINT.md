@@ -1,6 +1,6 @@
 # ENG-CODEX-007 — checkpoint de continuidade
 
-Atualizado: 2026-10-25 15:28 -03:00
+Atualizado: 2026-10-25 15:35 -03:00
 Última unidade concluída: **E09 — scheduler configurável, validada localmente e enviada à branch**
 Unidade em andamento: **E10 — Radar geral → DiscoveryBatch → triagem (leitura dos contratos e implementação)**
 Próxima unidade após E10: **E11 — ResearchService sob demanda com perfis compartilhados**
@@ -124,6 +124,15 @@ Próxima unidade após E10: **E11 — ResearchService sob demanda com perfis com
 - Código e testes enviados em `579790c8a116be05f6444b02b36a161393309b5c` (`feat: add configurable Radar daily scheduler`). A suíte integral serial sobre esse código passou: `& '.\.venv\Scripts\python.exe' -m unittest discover -s motor_editorial/tests -q` → **162/162 OK**, 122,539 s. Focadas: orquestração **41/41** (23,108 s) e Radar **40/40** (20,899 s). `compileall` e `git diff --check` repetidos no fechamento documental; relatório E09 e README setorial atualizados.
 - Sem worker/daemon, banco runtime, fontes reais, LLM, SIWC/Plus, API paga, publicação, deploy ou merge. O teste de heartbeat que oscilou numa execução concorrente passou isolado e na suíte integral serial; não houve alteração nesse código.
 - Handoffs Issue #28 e PR #30 publicados; checkbox E09 marcado em 25/10/2026. Próxima unidade autorizada e em andamento: E10.
+
+## E10 — implementação em andamento
+
+- Critério da ordem versionada: alimentar a fila de triagem com `DiscoveryBatch`; threshold de relevância e pesos de prioridade configuráveis/auditáveis; polling sem novidade não enfileira IA; edição material gera candidato; grupos de rumor/republicação não duplicam e carregam proveniência.
+- Implementação local em `motor_editorial/radar_triage.py`: `RadarGeneralService` reaproveita `IncrementalRadarService`, `RadarStore`, `AgentQueue` e o contrato `triage_analyst@1.0.0`. Um batch válido cria uma tarefa versionada na mesma fila; não há segundo dispatcher, chamada LLM, promoção automática à carteira ou execução de tarefa nesta unidade. O executor permanece `triage.pending` para a integração de papéis E13.
+- A política expõe `relevance_threshold` e pesos por tipo de `ObservationEvent`, e grava versão, valores, score e base do score no `diff` do item. O score usa apenas o tipo de evento; não infere importância editorial, independência de fonte nem veracidade. Linhagens de republicação e de alegações conservam IDs/fontes/relações e `epistemic_status`, inclusive rumor atribuído.
+- Testes focados: `& '.\.venv\Scripts\python.exe' -m unittest motor_editorial.tests.test_radar_triage -v` → **4/4 OK** (6,929 s). Cobrem tarefa contratual em fila, 304/poll sem novidade sem tarefa nova, threshold/pesos, edição material e grupo atribuído com três fontes sem duplicação, com proveniência e estado epistêmico.
+- `& '.\.venv\Scripts\python.exe' -m compileall -q motor_editorial` → exit 0; `git diff --check` → exit 0. A suíte integral E10 ainda precisa rodar serialmente; depois fechar relatório/índice/README e registrar handoffs antes de começar E11.
+- Testes usam SQLite temporário, fontes/feeds `.invalid`, relógio/transportes/resolvedor simulados. Nenhuma fonte pública consultada, nenhum worker/dispatcher iniciado, sem LLM/SIWC/Plus/API paga, banco runtime, publicação, deploy ou merge.
 
 ## Bloqueios e retomada
 
