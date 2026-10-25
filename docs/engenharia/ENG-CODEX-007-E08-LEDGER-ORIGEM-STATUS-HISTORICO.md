@@ -40,5 +40,6 @@ A primeira tentativa da suíte focada após a edição acusou erro de sintaxe na
 ## Commit e próximo passo
 
 - Código/testes e checkpoint parcial: `bf96cfb12fa025577d0a3d48c31ad695434d3a78` (`feat: harden Radar claim provenance and history`), enviado à branch de implementação.
-- Relatório final, índice, resultado integral e handoffs Issue #28/PR #30 serão registrados no fechamento documental.
+- Relatório/índice/checkpoint final: `0a622f45718a0a10cfeabeaedc7c32affe349ebb` (`docs: record ENG-CODEX-007 E08 evidence`), enviado à branch.
+- Handoffs: [Issue #28, comentário 6401183533](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6401183533) e [PR #30, comentário 6401184099](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6401184099). Issue E08 marcada com os commits e resultados.
 - PR draft [#30](https://github.com/Saaimingo/Revista_Gamer/pull/30) permanece aberta e sem merge. Próxima unidade após E08: **E09 — scheduler configurável, default OFF**.

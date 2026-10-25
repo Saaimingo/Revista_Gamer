@@ -1,6 +1,6 @@
 # ENG-CODEX-007 — checkpoint de continuidade
 
-Atualizado: 2026-10-25 15:00 -03:00
+Atualizado: 2026-10-25 15:02 -03:00
 Última unidade concluída: **E08 — ledger de alegações, rumores e histórico, validada localmente**
 Unidade em andamento: **E09 — scheduler configurável (análise dos agendadores existentes; sem edição E09 ainda)**
 Próxima unidade após E09: **E10 — Radar geral → DiscoveryBatch → triagem**
@@ -17,7 +17,7 @@ Próxima unidade após E09: **E10 — Radar geral → DiscoveryBatch → triagem
 - E05 código/testes no commit `313baeeb1384354189c49a2a3ec206dc8a428ae1`; relatório/índice/checkpoint em `d4bbb81e2c8d0019f4d6062f42062803ab6097e4`, handoffs na Issue #28 (`6400677577`) e PR #30 (`6400677792`); checklist E01–E05 marcado com evidências.
 - E06 código/testes no commit `eddc0e904b0a220f24651209a4e4da2d27153423`; relatório/índice/checkpoint no commit `1d78eb83100b5fc3dba0c3989a0e1142c0360725`; ambos enviados e sincronizados. Handoffs publicados na Issue #28 e PR #30; checklist E01–E06 marcado com evidências. PR #30 continua draft/aberta/sem merge.
 - E07 implementação/testes em `b63c620e39d3e4ac4fea3ebdca37a71d10cde653`; relatório/índice/checkpoint final em `dace58c53132c6db4ef5bd21c1795cc73709a80f`; handoffs Issue #28 [6401083176](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6401083176) e PR #30 [6401083777](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6401083777). Checklist E07 atualizado. Suíte integral 147/147. PR #30 segue draft/aberta/sem merge.
-- E08 código/testes e checkpoint parcial em `bf96cfb12fa025577d0a3d48c31ad695434d3a78`, enviado. Suíte integral final 148/148; relatório/índice/checkpoint final e handoffs serão registrados ao fechar a documentação. Issue #28 ainda precisa da marcação E08; PR #30 permanece draft/aberta/sem merge no último estado consultado.
+- E08 código/testes em `bf96cfb12fa025577d0a3d48c31ad695434d3a78`; relatório/índice/checkpoint final em `0a622f45718a0a10cfeabeaedc7c32affe349ebb`; ambos enviados. Suíte integral 148/148. Handoffs Issue #28 [6401183533](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6401183533) e PR #30 [6401184099](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6401184099); checkbox E08 atualizado. PR #30 segue draft/aberta/sem merge.
 
 ## Evidências E01 executadas nesta sessão
 
@@ -110,7 +110,8 @@ Próxima unidade após E09: **E10 — Radar geral → DiscoveryBatch → triagem
 - Inventário E04: `radar_claims`, `radar_claim_sources` e `radar_claim_events` já existiam. Faltava impedir linhagem de republicação sem fonte-base, validar que os status de eventos correspondam ao tipo, exigir documento/fonte nas mudanças probatórias e proteger as alegações/links contra sobrescrita.
 - Alterações locais E08: Radar schema v4 e migração v3→v4 com `based_on_source_id`, imutabilidade de alegações/vínculos e índice de linhagem. `link_claim_source` exige documento público da própria fonte; republicação precisa derivar de uma fonte já ligada no mesmo grupo; grupos `origin`/`independent` são distintos. Declaração oficial/pessoal exige entidade do tipo correspondente e relação `statement_by`; transições de conteúdo exigem status coerente e evidência pública ligada à fonte. Eventos preservam histórico sem editar a classificação inicial da alegação.
 - Testes focados após correção da primeira tentativa de sintaxe: `& '.\.venv\Scripts\python.exe' -m unittest discover -s motor_editorial/tests -p 'test_radar*.py' -v` → **33/33 OK**, 16,507 s; suíte integral `& '.\.venv\Scripts\python.exe' -m unittest discover -s motor_editorial/tests -q` → **148/148 OK**, 163,240 s. `compileall` → exit 0; `git diff --check` → exit 0 (avisos LF→CRLF do Git).
-- Relatório: `docs/engenharia/ENG-CODEX-007-E08-LEDGER-ORIGEM-STATUS-HISTORICO.md`; testes em `motor_editorial/tests/test_radar_store.py`. Código/testes/checkpoint parcial: commit `bf96cfb12fa025577d0a3d48c31ad695434d3a78`, enviado. Relatório final, índice e handoffs ainda serão sincronizados.
+- Relatório: `docs/engenharia/ENG-CODEX-007-E08-LEDGER-ORIGEM-STATUS-HISTORICO.md`; testes em `motor_editorial/tests/test_radar_store.py`. Código/testes: `bf96cfb12fa025577d0a3d48c31ad695434d3a78`; relatório/índice/checkpoint: `0a622f45718a0a10cfeabeaedc7c32affe349ebb`.
+- Handoff Issue #28 [6401183533](https://github.com/Saaimingo/Revista_Gamer/issues/28#issuecomment-6401183533); handoff PR #30 [6401184099](https://github.com/Saaimingo/Revista_Gamer/pull/30#issuecomment-6401184099). Checkbox E08 da Issue marcada como concluída.
 - Somente fixtures SQLite temporárias, domínios `.invalid` e nenhuma rede/LLM/SIWC/API paga/runtime DB; sem scheduler/publicação/deploy/merge. Sem dados privados; `published=false`.
 
 ## E09 — início de análise
