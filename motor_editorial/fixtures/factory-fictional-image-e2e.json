@@ -1,0 +1,73 @@
+{
+  "fixture_version": "SyntheticFactoryFixture.v0",
+  "run_id": "codex-010-factory-image-e2e",
+  "article_type": "brief",
+  "topic": "Mod fictício Rota de Maré para Farol de Papel",
+  "research_note": "Pauta inteiramente inventada para testar localmente a cadeia editorial e visual; nenhum jogo ou mod real está descrito.",
+  "sources": [
+    {
+      "id": "S1",
+      "title": "Notas fictícias da Oficina de Bruma",
+      "publisher": "Oficina de Bruma (fictícia)",
+      "url": "https://example.invalid/oficina-bruma/rota-de-mare",
+      "published_at": "2026-10-26T09:00:00-03:00",
+      "accessed_at": "2026-10-26T09:05:00-03:00",
+      "kind": "official",
+      "confidence": "high",
+      "evidence": "As notas fictícias do autor descrevem uma trilha costeira opcional no mod Rota de Maré para o jogo imaginário Farol de Papel."
+    },
+    {
+      "id": "S2",
+      "title": "Resumo fictício do Caderno Pixel Imaginário",
+      "publisher": "Caderno Pixel Imaginário (fictício)",
+      "url": "https://example.invalid/caderno-pixel/rota-de-mare",
+      "published_at": "2026-10-26T09:03:00-03:00",
+      "accessed_at": "2026-10-26T09:05:00-03:00",
+      "kind": "secondary",
+      "confidence": "medium",
+      "evidence": "O resumo fictício atribui às notas do autor a descrição de uma trilha costeira opcional, sem relatar teste independente do mod."
+    }
+  ],
+  "identities": {
+    "editor": {
+      "profile_id": "synthetic-editor",
+      "version": "0.1.0",
+      "description": "Editora fictícia de validação que organiza uma pauta sintética sem acrescentar fatos."
+    },
+    "writer_persona": {
+      "profile_id": "neutral-fictional-writer",
+      "version": "0.1.0",
+      "description": "Persona neutra e fictícia para ensaio técnico; não representa jornalista real."
+    },
+    "reviewer": {
+      "profile_id": "synthetic-reviewer",
+      "version": "0.1.0",
+      "description": "Revisora fictícia que confere atribuição, fontes e consistência do rascunho."
+    }
+  },
+  "synthetic_figure": {
+    "asset_id": "asset-rota-de-mare-generated",
+    "block_id_suffix": "figure-01",
+    "caption": "Ilustração original gerada para esta pauta fictícia; não é captura de jogo.",
+    "alt_text": "Ilustração sintética de um farol sobre uma ilha costeira ao entardecer, com ondas em camadas de papel.",
+    "image_file": "assets/farol-de-papel-ficticio.png"
+  },
+  "e14_case": {
+    "case_id": "codex-010-mod-ficticio-rota-de-mare",
+    "case_type": "game_mod",
+    "genre": "guide",
+    "angle": "Atribuir os recursos às notas do autor e deixar claro que o mod não foi instalado ou testado.",
+    "claim": "As notas do autor descrevem uma trilha costeira opcional no mod fictício Rota de Maré para Farol de Papel.",
+    "assessment": "supported",
+    "fact_status": "supported",
+    "headline": "Rota de Maré: notas fictícias descrevem trilha costeira opcional",
+    "dek": "A descrição é atribuída ao autor do mod; este ensaio não instalou nem testou o conteúdo.",
+    "section_heading": "O que as notas descrevem",
+    "section_focus": "Separar a descrição atribuída de qualquer alegação de experiência própria.",
+    "body_markdown": "As notas fictícias da Oficina de Bruma descrevem uma trilha costeira opcional no mod Rota de Maré, feito para o jogo imaginário Farol de Papel [S1]. O Caderno Pixel Imaginário repete essa atribuição, sem relatar teste independente [S2]. Este ensaio não instalou nem executou o mod; os detalhes permanecem descrições atribuídas, não experiência própria.",
+    "correction_body_markdown": "As notas fictícias da Oficina de Bruma descrevem uma trilha costeira opcional no mod Rota de Maré, feito para o jogo imaginário Farol de Papel [S1]. O Caderno Pixel Imaginário resume as notas, mas não apresenta confirmação independente nem teste do mod [S2]. Este ensaio não instalou nem executou o conteúdo.",
+    "fact_claim": "A trilha costeira opcional é descrita pelas notas fictícias do autor do mod.",
+    "source_ids": ["S1", "S2"]
+  },
+  "simulated_human_decision": "approve_internally"
+}

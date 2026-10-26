@@ -102,3 +102,7 @@ Uma pauta real -> investigação com fonte -> texto com persona -> revisão -> e
 - [E18 — jornalistas isolados, validação offline](ENG-CODEX-007-E18-JORNALISTAS-ISOLADOS-OFFLINE.md): manifesto aponta os commits e hashes dos documentos de referência; `persona_writer` exige instruções cujo SHA-256 corresponda ao envelope; 23/23 testes focados. Matrizes T01–T16 não executadas, P/J não avaliados e revisão humana pendente.
 - [E19 — trio na fábrica, validação offline](ENG-CODEX-007-E19-TRIO-NA-FABRICA-OFFLINE.md): três tarefas sintéticas com brief/dossier/ResearchPacket comparáveis na mesma `AgentQueue`/`TaskDispatcher`, IDs e instruções isolados; falhas sem resolvedor, com identidade cruzada e erro foram bloqueadas; suíte integral 198/198. Sem `StoryDraft` real, matrizes executadas ou avaliação P/J.
 - [Checkpoint ENG-CODEX-007](ENG-CODEX-007-CHECKPOINT.md), [Issue #28](https://github.com/Saaimingo/Revista_Gamer/issues/28) e [PR draft #30](https://github.com/Saaimingo/Revista_Gamer/pull/30).
+
+## ENG-CODEX-010 — ensaio fictício ilustrado da fábrica
+
+- [Checkpoint e relatório E2E](ENG-CODEX-010-FACTORY-E2E-CHECKPOINT.md): pauta fictícia com revisão/correção, imagem sintética local, composição/render e gate interno simulado; suíte integral 218/218. [PR draft #40](https://github.com/Saaimingo/Revista_Gamer/pull/40), empilhada na ENG-CODEX-008, aberta sem merge ou publicação.

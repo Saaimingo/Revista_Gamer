@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import hashlib
 import json
 import tempfile
 import unittest
@@ -13,9 +14,18 @@ from unittest.mock import patch
 from motor_editorial import cli
 from motor_editorial.db import Store
 from motor_editorial.editorial import article_revision_sha256, review_matches_revision
-from motor_editorial.factory import FACTORY_E14_CASES_FIXTURE, FACTORY_FIXTURE, run_factory_demo
+from motor_editorial.factory import (
+    FACTORY_E14_CASES_FIXTURE,
+    FACTORY_FICTIONAL_IMAGE_FIXTURE,
+    FACTORY_FIXTURE,
+    FactoryFixtureError,
+    _build_media_inventory,
+    _load_fixture,
+    run_factory_demo,
+)
 from motor_editorial.editorial_handoffs import ARTIFACT_KEYS, HandoffError, validate_handoff_chain
 from motor_editorial.layout.contracts import (
+    ContractError,
     SCHEMA_STORY,
     profile_sha256,
     seal_artifact,
@@ -56,6 +66,12 @@ class SyntheticFactoryTests(unittest.TestCase):
         run_tasks = [tasks[task_id] for task_id in report["task_ids"]]
         self.assertEqual(len(run_tasks), 15)
         self.assertTrue(all(task.state == "succeeded" for task in run_tasks))
+        placeholder_asset = next(
+            task.result["media_inventory"]["payload"]["assets"][0]
+            for task in run_tasks if task.task_type == "factory.media_inventory"
+        )
+        self.assertEqual(placeholder_asset["media_kind"], "placeholder")
+        self.assertIn("sem imagem binária", placeholder_asset["credit"])
         self.assertEqual([row["stage"] for row in report["task_stages"][:5]], [
             "source_analysis", "outline", "draft", "fact_check", "review",
         ])
@@ -120,6 +136,98 @@ class SyntheticFactoryTests(unittest.TestCase):
         self.assertEqual(resumed["task_ids"], report["task_ids"])
         self.assertEqual(resumed["task_count"], report["task_count"])
         self.assertEqual(len(queue.list_tasks(limit=100)), 15)
+
+    def test_generated_image_traverses_factory_and_is_verified_in_internal_preview(self) -> None:
+        with patch("motor_editorial.factory.TaskDispatcher", wraps=TaskDispatcher) as dispatcher_class:
+            report = run_factory_demo(
+                self.store, FACTORY_FICTIONAL_IMAGE_FIXTURE,
+                review_flow="revise",
+            )
+        self.assertEqual(dispatcher_class.call_count, 1)
+
+        self.assertEqual(report["status"], "simulated_approved_internally")
+        self.assertEqual(report["task_count"], 18)
+        self.assertEqual(report["story_revision"], 2)
+        self.assertEqual(report["reviewed_revision_stage"], "correction")
+        self.assertEqual(report["composition_status"], "PASS")
+        self.assertEqual(report["network_calls"], 0)
+        self.assertEqual(report["siwc_calls"], 0)
+        self.assertEqual(report["paid_api_calls"], 0)
+        self.assertFalse(report["published"])
+
+        stages = {row["stage"] for row in report["task_stages"]}
+        self.assertTrue({
+            "source_analysis", "outline", "draft", "fact_check", "review",
+            "correction", "final_fact_check", "final_review", "rights_inventory",
+            "story_package", "visual_needs", "references", "layout_plan",
+            "composition_validation", "render", "render_validation",
+            "persist_internal_preview", "simulated_human_approval",
+        }.issubset(stages))
+        tasks = {task.task_id: task for task in AgentQueue(self.store).list_tasks(limit=100)}
+        run_tasks = [tasks[task_id] for task_id in report["task_ids"]]
+        self.assertTrue(all(task.state == "succeeded" for task in run_tasks))
+        editorial_by_stage = {
+            task.payload["stage"]: task.result["structured_output"]
+            for task in run_tasks if task.task_type == "editorial.stage"
+        }
+        original = editorial_by_stage["draft"]
+        correction = editorial_by_stage["correction"]
+        self.assertNotEqual(article_revision_sha256(original), article_revision_sha256(correction))
+        self.assertIn("sem relatar teste independente", original["body_markdown"])
+        self.assertIn("não apresenta confirmação independente", correction["body_markdown"])
+        self.assertEqual(report["article_revision_sha256"], article_revision_sha256(correction))
+
+        self.assertEqual(len(report["media_assets"]), 1)
+        image = report["media_assets"][0]
+        self.assertEqual(image["media_kind"], "synthetic_generated")
+        self.assertEqual(image["rights_status"], "synthetic_fixture")
+        self.assertEqual(image["license_status"], "not_applicable_synthetic_generated")
+        self.assertEqual(image["permitted_modes"], ["internal_preview"])
+        self.assertEqual(image["dimensions"], {"width": 1536, "height": 1024})
+        media_task = next(task for task in run_tasks if task.task_type == "factory.media_inventory")
+        self.assertIn("Imagem original gerada", media_task.result["media_inventory"]["payload"]["assets"][0]["credit"])
+        relative_asset = image["internal_preview_path"]
+        self.assertRegex(relative_asset, r"^assets/[0-9a-f]{64}\.png$")
+        preview_path = Path(report["preview_path"])
+        asset_path = preview_path.parent.joinpath(*relative_asset.split("/"))
+        self.assertTrue(asset_path.is_file())
+        image_bytes = asset_path.read_bytes()
+        self.assertEqual(hashlib.sha256(image_bytes).hexdigest(), image["asset_sha256"])
+        self.assertEqual(Path(relative_asset).stem, image["asset_sha256"])
+
+        html = preview_path.read_text(encoding="utf-8")
+        self.assertIn("<img", html)
+        self.assertIn(f'data-asset-id="{image["asset_id"]}"', html)
+        self.assertIn(f'src="{relative_asset}"', html)
+        self.assertIn("Ilustração sintética de um farol", html)
+        self.assertIn("não apresenta confirmação independente nem teste", html)
+        self.assertIn("Ilustração original gerada para esta pauta fictícia", html)
+        self.assertNotIn("http://", html.casefold())
+        self.assertNotIn("https://", html.casefold())
+        checks = {row["check_id"]: row["status"] for row in report["composition_check_results"]}
+        self.assertEqual(checks["rendered_local_assets"], "PASS")
+        self.assertEqual(checks["internal_artifact_only"], "PASS")
+
+        resumed = run_factory_demo(
+            self.store, FACTORY_FICTIONAL_IMAGE_FIXTURE,
+            review_flow="revise",
+        )
+        self.assertEqual(resumed["task_ids"], report["task_ids"])
+        self.assertEqual(resumed["preview_sha256"], report["preview_sha256"])
+        self.assertEqual(hashlib.sha256(asset_path.read_bytes()).hexdigest(), image["asset_sha256"])
+
+    def test_generated_image_fixture_rejects_path_traversal_and_invalid_rights(self) -> None:
+        fixture = json.loads(FACTORY_FICTIONAL_IMAGE_FIXTURE.read_text(encoding="utf-8"))
+        fixture["synthetic_figure"]["image_file"] = "../outside.png"
+        traversal_path = self.data_dir / "factory-image-traversal.json"
+        traversal_path.write_text(json.dumps(fixture, ensure_ascii=False), encoding="utf-8")
+        with self.assertRaises(FactoryFixtureError):
+            _load_fixture(traversal_path)
+
+        valid_fixture = _load_fixture(FACTORY_FICTIONAL_IMAGE_FIXTURE)
+        valid_fixture["synthetic_figure"]["test_license_status"] = "pending"
+        with self.assertRaises(ContractError):
+            _build_media_inventory({"fixture": valid_fixture, "story_revision": 1})
 
     def test_cli_factory_demo_emits_audit_report(self) -> None:
         output = io.StringIO()

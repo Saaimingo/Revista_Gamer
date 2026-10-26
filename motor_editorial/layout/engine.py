@@ -5,6 +5,7 @@ from __future__ import annotations
 import html
 import hashlib
 import re
+from html.parser import HTMLParser
 from typing import Any, Iterable, Mapping
 
 from .contracts import (
@@ -19,6 +20,43 @@ from .contracts import (
     validate_media_inventory,
     validate_story_package,
 )
+
+
+_LOCAL_PREVIEW_PNG_RE = re.compile(r"^assets/[0-9a-f]{64}\.png$")
+
+
+class _PreviewImageParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.images: list[dict[str, str]] = []
+        self.valid = True
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag.lower() != "img":
+            return
+        attributes: dict[str, str] = {}
+        for name, value in attrs:
+            if name in attributes:
+                self.valid = False
+            attributes[name] = value or ""
+        self.images.append(attributes)
+
+
+def _validated_preview_asset_urls(value: Mapping[str, str] | None) -> dict[str, str]:
+    if value is None:
+        return {}
+    if not isinstance(value, Mapping):
+        raise ContractError("media_asset_urls precisa ser um mapa de asset_id para caminho local.")
+    result: dict[str, str] = {}
+    for asset_id, path in value.items():
+        if not isinstance(asset_id, str) or not asset_id.strip():
+            raise ContractError("media_asset_urls contém asset_id vazio ou inválido.")
+        if not isinstance(path, str) or not _LOCAL_PREVIEW_PNG_RE.fullmatch(path):
+            raise ContractError("Imagem de prévia deve usar caminho local assets/<sha256>.png.")
+        result[asset_id] = path
+    if len(set(result.values())) != len(result):
+        raise ContractError("Dois ativos não podem compartilhar o mesmo caminho de prévia.")
+    return result
 
 
 DIAGRAMMER_IDENTITY = {
@@ -297,13 +335,22 @@ def validate_plan(
             media_allowed = False
             continue
         if asset["rights_status"] == "synthetic_fixture":
-            media_allowed = (
-                media_allowed
-                and asset["media_kind"] == "placeholder"
-                and asset["synthetic"] is True
-                and asset["license"]["status"] == "not_applicable_synthetic_placeholder"
-                and "internal_preview" in asset["permitted_modes"]
-            )
+            if asset["media_kind"] == "placeholder":
+                media_allowed = (
+                    media_allowed
+                    and asset["synthetic"] is True
+                    and asset["license"]["status"] == "not_applicable_synthetic_placeholder"
+                    and "internal_preview" in asset["permitted_modes"]
+                )
+            elif asset["media_kind"] == "synthetic_generated":
+                media_allowed = (
+                    media_allowed
+                    and asset["synthetic"] is True
+                    and asset["license"]["status"] == "not_applicable_synthetic_generated"
+                    and asset["permitted_modes"] == ["internal_preview"]
+                )
+            else:
+                media_allowed = False
         elif asset["rights_status"] == "authorized":
             media_allowed = (
                 media_allowed
@@ -409,6 +456,7 @@ def render_preview(
     story_package: Mapping[str, Any],
     plan: Mapping[str, Any],
     validation: Mapping[str, Any],
+    media_asset_urls: Mapping[str, str] | None = None,
 ) -> str:
     story = validate_story_package(story_package)
     checked_plan = validate_layout_plan(plan)
@@ -416,6 +464,7 @@ def render_preview(
     story_payload = story["payload"]
     plan_payload = checked_plan["payload"]
     validation_payload = checked_validation["payload"]
+    safe_asset_urls = _validated_preview_asset_urls(media_asset_urls)
     if validation_payload["status"] != "PASS" or not validation_payload["preview_allowed"]:
         details = "".join(
             f"<li><strong>{html.escape(item['check_id'])}</strong>: {html.escape(item['detail'])}</li>"
@@ -452,11 +501,21 @@ def render_preview(
         elif kind == "figure_request":
             figures = []
             for figure in section["figures"]:
-                figures.append(
-                    '<figure class="context-figure">'
-                    f'<div class="asset-placeholder" role="img" aria-label="{html.escape(figure["alt_text"])}">'
-                    f'Placeholder sintético · {html.escape(figure["asset_id"])}'
+                asset_id = str(figure["asset_id"])
+                source = safe_asset_urls.get(asset_id)
+                visual = (
+                    f'<img data-asset-id="{html.escape(asset_id, quote=True)}" '
+                    f'src="{html.escape(source, quote=True)}" '
+                    f'alt="{html.escape(figure["alt_text"], quote=True)}" '
+                    'loading="lazy" decoding="async">'
+                    if source else
+                    f'<div class="asset-placeholder" role="img" aria-label="{html.escape(figure["alt_text"], quote=True)}">'
+                    f'Placeholder sintético · {html.escape(asset_id)}'
                     '</div>'
+                )
+                figures.append(
+                    f'<figure class="context-figure" data-asset-id="{html.escape(asset_id, quote=True)}">'
+                    f'{visual}'
                     f'<figcaption>{html.escape(figure["caption"])}</figcaption>'
                     '</figure>'
                 )
@@ -468,11 +527,21 @@ def render_preview(
             groups = {2: [], 3: []}
             for index, item in enumerate(section["items"]):
                 page_number = 2 if index == 0 else 3
+                asset_id = str(item["asset_id"])
+                source = safe_asset_urls.get(asset_id)
+                visual = (
+                    f'<img data-asset-id="{html.escape(asset_id, quote=True)}" '
+                    f'src="{html.escape(source, quote=True)}" '
+                    f'alt="{html.escape(item["label"], quote=True)}" '
+                    'loading="lazy" decoding="async">'
+                    if source else
+                    f'<div class="asset-placeholder" role="img" aria-label="{html.escape(item["label"], quote=True)}">'
+                    f'Placeholder sintético · {html.escape(asset_id)}'
+                    '</div>'
+                )
                 groups[page_number].append(
                     '<figure class="comparison-item">'
-                    f'<div class="asset-placeholder" role="img" aria-label="{html.escape(item["label"])}">'
-                    f'Placeholder sintético · {html.escape(item["asset_id"])}'
-                    '</div>'
+                    f'{visual}'
                     f'<h3>{html.escape(item["label"])}</h3>'
                     f'<p>{html.escape(item["detail"])}</p>'
                     f'<figcaption>{html.escape(item["caption"])}</figcaption>'
@@ -525,6 +594,7 @@ def validate_rendered_preview(
     plan: Mapping[str, Any],
     validation: Mapping[str, Any],
     preview_html: str,
+    media_asset_urls: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Add deterministic checks for text, captions, responsive modes and clipping."""
     story = validate_story_package(story_package)
@@ -537,19 +607,23 @@ def validate_rendered_preview(
     story_payload = story["payload"]
     required_text = [story_payload["title"], story_payload["dek"]]
     required_captions: list[str] = []
+    expected_asset_alt: dict[str, str] = {}
     for section in story_payload["sections"]:
         required_text.append(section["text"])
         if section["kind"] == "figure_request":
             for figure in section["figures"]:
                 required_text.append(figure["alt_text"])
                 required_captions.append(figure["caption"])
+                expected_asset_alt[str(figure["asset_id"])] = str(figure["alt_text"])
         elif section["kind"] == "comparison":
             for item in section["items"]:
                 required_text.extend((item["label"], item["detail"]))
                 required_captions.append(item["caption"])
+                expected_asset_alt[str(item["asset_id"])] = str(item["label"])
         elif section["kind"] == "map_request":
             required_text.append(section["alt_text"])
             required_captions.append(section["caption"])
+            expected_asset_alt[str(section["asset_id"])] = str(section["alt_text"])
     text_complete = all(html.escape(value) in preview_html for value in required_text)
     ids_complete = all(
         preview_html.count(f'data-block-id="{html.escape(section["block_id"])}"') == 1
@@ -596,8 +670,33 @@ def validate_rendered_preview(
         and "Ampliar mapa" in preview_html
         and "overflow:auto" in preview_html
     )
+    media_urls_valid = True
+    try:
+        safe_asset_urls = _validated_preview_asset_urls(media_asset_urls)
+    except ContractError:
+        safe_asset_urls = {}
+        media_urls_valid = False
+    image_parser = _PreviewImageParser()
+    image_parser.feed(preview_html)
+    image_ids = [item.get("data-asset-id", "") for item in image_parser.images]
+    rendered_assets_valid = (
+        media_urls_valid
+        and image_parser.valid
+        and len(image_ids) == len(set(image_ids))
+        and set(safe_asset_urls).issubset(expected_asset_alt)
+        and len(image_parser.images) == len(safe_asset_urls)
+        and set(image_ids) == set(safe_asset_urls)
+        and all(
+            set(item) == {"data-asset-id", "src", "alt", "loading", "decoding"}
+            and item.get("src") == safe_asset_urls.get(item.get("data-asset-id", ""))
+            and item.get("alt") == expected_asset_alt.get(item.get("data-asset-id", ""))
+            and item.get("loading") == "lazy"
+            and item.get("decoding") == "async"
+            for item in image_parser.images
+        )
+    )
     local_only = not re.search(
-        r"<img\b|<iframe\b|<script\s+src|https?://", preview_html,
+        r"<iframe\b|<script\s+src|https?://", preview_html,
         flags=re.IGNORECASE,
     )
     checks = list(base["checks"])
@@ -605,7 +704,7 @@ def validate_rendered_preview(
         {"check_id": "rendered_text_integrity", "status": "PASS" if text_complete and ids_complete else "FAIL",
          "detail": "Texto, títulos e IDs semânticos aparecem no HTML interno."},
         {"check_id": "rendered_caption_association", "status": "PASS" if captions_associated else "FAIL",
-         "detail": "Legendas permanecem em figcaption junto ao respectivo placeholder."},
+         "detail": "Legendas permanecem em figcaption junto à figura correspondente."},
         {"check_id": "responsive_reader_modes", "status": "PASS" if modes_present else "FAIL",
          "detail": "A prévia oferece Folhear, Contínua e viewport responsivo."},
         {"check_id": "spread_pages_side_by_side", "status": "PASS" if spread_pages_present else "FAIL",
@@ -616,8 +715,10 @@ def validate_rendered_preview(
          "detail": "O panorama oferece controle de zoom e rolagem horizontal."},
         {"check_id": "no_hidden_overflow", "status": "PASS" if no_hidden_overflow else "FAIL",
          "detail": "A composição não usa overflow:hidden nem display:none para ocultar conteúdo."},
-        {"check_id": "internal_artifact_only", "status": "PASS" if local_only else "FAIL",
-         "detail": "A prévia não carrega imagens, iframes, scripts remotos ou URLs externas."},
+        {"check_id": "rendered_local_assets", "status": "PASS" if rendered_assets_valid else "FAIL",
+         "detail": "Imagens correspondem às figuras, usam alt text e caminhos locais content-addressed em PNG."},
+        {"check_id": "internal_artifact_only", "status": "PASS" if local_only and rendered_assets_valid else "FAIL",
+         "detail": "A prévia usa somente ativos locais validados e não carrega iframes, scripts remotos ou URLs externas."},
     ])
     status = "PASS" if all(item["status"] == "PASS" for item in checks) else "FAIL"
     payload = {
@@ -662,6 +763,7 @@ def _document(title: str, body: str, layouts: Mapping[str, Any] | None = None) -
         "grid-template-columns:minmax(0,1fr);gap:1rem}.context-figure,figure{margin:1rem 0}.asset-placeholder,.panorama-canvas{"
         "display:grid;place-items:center;min-height:9rem;padding:1rem;background:#d9dce2;color:#30343b;text-align:center;"
         "border:1px dashed #687080}.panorama-scroll{max-width:100%;overflow:auto;overscroll-behavior-inline:contain}"
+        ".context-figure img,.comparison-item img{display:block;width:100%;height:auto;border-radius:.25rem}"
         ".panorama-canvas{display:grid;grid-template-columns:repeat(2,minmax(20rem,1fr));min-width:42rem;"
         "min-height:14rem;background:linear-gradient(120deg,#d9dce2,#c2c9d3);transition:transform .15s ease}"
         ".panorama-canvas[data-zoom=large]{transform:scale(1.35);transform-origin:left top}"

@@ -206,4 +206,12 @@ Código e relatório estão na [PR #18](https://github.com/Saaimingo/Revista_Gam
 py -3.11 -m motor_editorial --data-dir "$env:TEMP\revista-gamer-factory-demo" factory-demo
 ```
 
-A fixture `fixtures/factory-demo.json` contém duas fontes fictícias sob `example.invalid` e perfis neutros versionados; nada é buscado na rede. O relatório e a prévia HTML ficam em `artifacts/factory-demo/<run_id>/`; evidências e hashes do C1 estão no [relatório técnico](../docs/engenharia/ENG-CODEX-006-C1-RELATORIO.md). `simulated_approved_internally` registra somente o resultado do teste: não altera uma edição real, não é aceite da direção e sempre mantém `published=false`. Use o mesmo `--run-id` para retomar as mesmas tarefas idempotentes.
+A fixture `fixtures/factory-demo.json` contém duas fontes fictícias sob `example.invalid` e perfis neutros versionados; nada é buscado na rede. `fixtures/factory-fictional-image-e2e.json` exercita também revisão/correção e uma ilustração PNG original classificada como `synthetic_generated`, com SHA-256 e dimensões conferidos e uso limitado a `internal_preview`. A prévia usa somente `assets/<sha256>.png` local; o renderizador rejeita imagens externas e verifica `src`, alt text e vínculo com a figura. Os bytes são copiados sem alteração para `artifacts/factory-demo/<run_id>/assets/`.
+
+Ensaio com imagem:
+
+```powershell
+py -3.11 -m motor_editorial --data-dir "$env:TEMP\revista-gamer-fictional-image-e2e" factory-demo --fixture motor_editorial/fixtures/factory-fictional-image-e2e.json --review-flow revise
+```
+
+O relatório e a prévia HTML ficam em `artifacts/factory-demo/<run_id>/`; evidências e hashes do C1 estão no [relatório técnico](../docs/engenharia/ENG-CODEX-006-C1-RELATORIO.md). `simulated_approved_internally` registra somente o resultado do teste: não altera uma edição real, não é aceite da direção e sempre mantém `published=false`. Use o mesmo `--run-id` para retomar as mesmas tarefas idempotentes.
