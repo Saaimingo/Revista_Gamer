@@ -17,6 +17,7 @@
 - **Commits H01/H02:** `60c4c0f` (executor por papel, retenção SIWC e regressões offline) e `7256db1` (checkpoint); ambos enviados para `origin/codex/eng-codex-008-siwc-validation`.
 - **Comentários H00:** [Issue #33](https://github.com/Saaimingo/Revista_Gamer/issues/33#issuecomment-6405340231) · [PR #34](https://github.com/Saaimingo/Revista_Gamer/pull/34#issuecomment-6405340777).
 - **Comentários H01/H02:** [Issue #33](https://github.com/Saaimingo/Revista_Gamer/issues/33#issuecomment-6405551977) · [PR #34](https://github.com/Saaimingo/Revista_Gamer/pull/34#issuecomment-6405552335).
+- **Commit/checkpoint H03:** `b0b0441`; relatório com a mesma evidência: [Issue #33](https://github.com/Saaimingo/Revista_Gamer/issues/33#issuecomment-6405668375) · [PR #34](https://github.com/Saaimingo/Revista_Gamer/pull/34#issuecomment-6405668626).
 - **Baseline:** sem alterações de código antes desta branch; suíte serial `198/198 OK` em CPython 3.11.9, 134,945 s.
 - **Chamadas SIWC/Plus nesta missão:** 1 consulta real a `/v1/models`, 1 refresh suportado da credencial existente e 1 inferência real. Nenhum login ou consentimento novo. As chamadas de teste de H01/H02 foram mockadas.
 - **Orçamento informado pelo usuário antes de H03:** 24% da franquia compartilhada com Codex. A inferência H03 reportou 1.611 tokens (628 input, 983 output; 501 de raciocínio), sem medidor de percentual restante na resposta.
