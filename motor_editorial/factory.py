@@ -13,6 +13,7 @@ from .db import Store, json_dumps, stable_hash
 from .editorial import (
     EDITORIAL_PROFILE,
     EDITORIAL_TASK_TYPE,
+    SOURCE_CITATION_PATTERN,
     article_revision_sha256,
     build_stage_input,
     normalize_source_packet,
@@ -226,6 +227,84 @@ def _packet(fixture: Mapping[str, Any]) -> dict[str, Any]:
 
 def _source_ids(packet: Mapping[str, Any]) -> set[str]:
     return {str(source["id"]) for source in packet["sources"]}
+
+
+def role_story_draft_to_editorial_output(
+    role_output: Mapping[str, Any],
+    *,
+    evidence_rows: Sequence[Mapping[str, Any]],
+    valid_source_ids: set[str],
+) -> dict[str, Any]:
+    """Adapt a validated persona StoryDraft to the factory's article-stage shape.
+
+    The adapter preserves the agent's section text and adds inline source markers
+    from its evidence references. It fails closed when a reference cannot be
+    mapped through the supplied EvidenceDossier.
+    """
+    if not isinstance(role_output, Mapping):
+        raise TaskFailure("factory_storydraft_invalid", "StoryDraft do papel precisa ser um objeto.", blocked=True)
+
+    evidence_to_source: dict[str, str] = {}
+    for row in evidence_rows:
+        if not isinstance(row, Mapping):
+            raise TaskFailure("factory_storydraft_evidence_invalid", "EvidenceDossier contém item inválido.", blocked=True)
+        evidence_id = row.get("evidence_id")
+        source_id = row.get("source_id")
+        if not isinstance(evidence_id, str) or not evidence_id or not isinstance(source_id, str):
+            raise TaskFailure("factory_storydraft_evidence_invalid", "EvidenceDossier não vincula evidence_id a source_id.", blocked=True)
+        if source_id not in valid_source_ids:
+            raise TaskFailure("factory_storydraft_source_invalid", "EvidenceDossier aponta para fonte fora do pacote corrente.", blocked=True)
+        previous_source = evidence_to_source.get(evidence_id)
+        if previous_source is not None and previous_source != source_id:
+            raise TaskFailure("factory_storydraft_evidence_ambiguous", "EvidenceDossier vincula uma evidência a fontes divergentes.", blocked=True)
+        evidence_to_source[evidence_id] = source_id
+
+    sections = role_output.get("sections")
+    if not isinstance(sections, list) or not sections:
+        raise TaskFailure("factory_storydraft_sections_missing", "StoryDraft precisa conter seções.", blocked=True)
+
+    body_sections: list[str] = []
+    ordered_source_ids: list[str] = []
+    for section in sections:
+        if not isinstance(section, Mapping):
+            raise TaskFailure("factory_storydraft_section_invalid", "StoryDraft contém seção inválida.", blocked=True)
+        heading = section.get("heading")
+        body = section.get("body")
+        evidence_ids = section.get("evidence_ids")
+        if (
+            not isinstance(heading, str) or not heading.strip()
+            or not isinstance(body, str) or not body.strip()
+            or not isinstance(evidence_ids, list) or not evidence_ids
+            or any(not isinstance(item, str) for item in evidence_ids)
+        ):
+            raise TaskFailure("factory_storydraft_section_invalid", "Seção do StoryDraft precisa de título, texto e evidências.", blocked=True)
+
+        section_source_ids: list[str] = []
+        for evidence_id in evidence_ids:
+            source_id = evidence_to_source.get(evidence_id)
+            if source_id is None:
+                raise TaskFailure("factory_storydraft_unknown_evidence", "StoryDraft cita evidence_id ausente do EvidenceDossier.", blocked=True)
+            if source_id not in section_source_ids:
+                section_source_ids.append(source_id)
+            if source_id not in ordered_source_ids:
+                ordered_source_ids.append(source_id)
+
+        existing_citations = set(SOURCE_CITATION_PATTERN.findall(body))
+        if not existing_citations.issubset(section_source_ids):
+            raise TaskFailure("factory_storydraft_citation_mismatch", "Citação inline não corresponde às evidências da seção.", blocked=True)
+        missing_citations = [source_id for source_id in section_source_ids if source_id not in existing_citations]
+        rendered_body = f"## {heading.strip()}\n\n{body.strip()}"
+        if missing_citations:
+            rendered_body += " " + " ".join(f"[{source_id}]" for source_id in missing_citations)
+        body_sections.append(rendered_body)
+
+    converted = {
+        "headline": role_output.get("title"),
+        "dek": role_output.get("dek"),
+        "body_markdown": "\n\n".join(body_sections),
+        "source_ids": ordered_source_ids,
+    }
+    return validate_stage_output("draft", converted, valid_source_ids)
 
 
 def _editorial_output(

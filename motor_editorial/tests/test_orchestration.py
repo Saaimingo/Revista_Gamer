@@ -1137,6 +1137,83 @@ class SIWCContractTests(unittest.TestCase):
                 self.assertEqual(result["usage"]["total_tokens"], 7)
                 self.assertGreaterEqual(result["duration_ms"], 0)
 
+    def test_editorial_raw_stream_sink_preserves_exact_complete_and_partial_text(self) -> None:
+        class FakeResponse:
+            def __init__(self, rows):
+                self.rows = rows
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def __iter__(self):
+                return iter(row.encode("utf-8") for row in self.rows)
+
+        class FakeContext:
+            external_request_started = False
+
+            def mark_external_started(self):
+                self.external_request_started = True
+
+        with tempfile.TemporaryDirectory() as directory:
+            client = SIWCClient(CredentialStore(Path(directory) / "tokens.bin"))
+            raw_text = ' \n{"full_text":"primeiro parágrafo\\nsegundo parágrafo"}\t\n'
+            deltas = [raw_text[:20], raw_text[20:]]
+            complete_rows = [
+                "data: " + json.dumps({"type": "response.output_text.delta", "delta": delta}, ensure_ascii=False) + "\n"
+                for delta in deltas
+            ]
+            complete_rows.append("data: " + json.dumps({
+                "type": "response.completed",
+                "response": {
+                    "id": "response-raw-fixture", "model": "gpt-6-luna-2026-10-26",
+                    "reasoning": {"effort": "max"}, "usage": {"total_tokens": 9},
+                },
+            }) + "\n")
+            captured = []
+            context = FakeContext()
+
+            def sink(text, metadata):
+                captured.append((text, dict(metadata)))
+                return {"ref": "fixture://response", "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest()}
+
+            with patch.object(client, "access_token", return_value="oauth-fixture-token"), patch(
+                "motor_editorial.siwc.urllib.request.urlopen", return_value=FakeResponse(complete_rows),
+            ):
+                result = client.editorial_stream_with_raw(
+                    model="gpt-6-luna", reasoning_effort="max", instructions="trusted",
+                    input_text="untrusted data", stage="fixture", context=context, response_sink=sink,
+                )
+            self.assertEqual(captured[0][0], raw_text)
+            self.assertEqual(result["response_sha256"], hashlib.sha256(raw_text.encode("utf-8")).hexdigest())
+            self.assertTrue(result["response_completed"])
+            self.assertFalse(result["store"])
+            self.assertTrue(result["stream"])
+            self.assertEqual(result["raw_artifact"]["ref"], "fixture://response")
+            self.assertTrue(context.external_request_started)
+
+            partial_text = '{"body":"parágrafo incompleto'
+            partial_rows = ["data: " + json.dumps({
+                "type": "response.output_text.delta", "delta": partial_text,
+            }, ensure_ascii=False) + "\n"]
+            partial_captured = []
+            with patch.object(client, "access_token", return_value="oauth-fixture-token"), patch(
+                "motor_editorial.siwc.urllib.request.urlopen", return_value=FakeResponse(partial_rows),
+            ):
+                with self.assertRaises(TaskFailure) as raised:
+                    client.editorial_stream_with_raw(
+                        model="gpt-6-luna", reasoning_effort="max", instructions="trusted",
+                        input_text="untrusted data", stage="fixture", context=FakeContext(),
+                        response_sink=lambda text, metadata: partial_captured.append((text, dict(metadata))) or None,
+                    )
+            self.assertEqual(raised.exception.code, "stream_incomplete")
+            self.assertTrue(raised.exception.uncertain)
+            self.assertEqual(partial_captured[0][0], partial_text)
+            self.assertEqual(partial_captured[0][1]["output_state"], "incomplete")
+            self.assertFalse(partial_captured[0][1]["response_completed"])
+
     def test_responses_executor_requires_explicit_catalog_model_and_effort_without_fallback(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             client = SIWCClient(CredentialStore(Path(directory) / "tokens.bin"))

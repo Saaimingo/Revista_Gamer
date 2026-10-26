@@ -1,0 +1,232 @@
+# ENG-CODEX-008 — checkpoint de execução
+
+**Atualizado:** 2026-10-25 21:39 -03:00
+**Issue de execução:** [#33](https://github.com/Saaimingo/Revista_Gamer/issues/33)
+**Ordem documental:** [PR #32](https://github.com/Saaimingo/Revista_Gamer/pull/32)
+**PR de implementação:** [#34](https://github.com/Saaimingo/Revista_Gamer/pull/34), draft, aberta, sem merge.
+
+## Estado atual
+
+- **H00:** concluída — estado remoto, base, fontes de persona, documentos obrigatórios, arquitetura e baseline conferidos.
+- **H01:** concluída — executor SIWC genérico, validação de papel/modelo/esforço/schema e retenção integral da resposta.
+- **H02:** concluída — testes offline de segurança, incerteza, lease, replay, fronteiras de evidência e falhas do provedor.
+- **H03:** concluída no gate técnico com ressalva do harness de entrada — catálogo e uma inferência real de `assignment_editor` concluíram; resposta integral privada, completa e válida pelo schema.
+- **Próxima ação:** H04 — rever os commits/decisões de identidade ao vivo, preparar fixtures de persona em JSON UTF-8 validado e iniciar os cenários autorizados de Carranca, Beto e Nina.
+- **Branch:** `codex/eng-codex-008-siwc-validation`, criada diretamente de `codex/eng-codex-007-factory-radar@cd71022ef3b3d60fa4c97beb6db5583a03856102`.
+- **Commits H00:** `b8e2dde` (checkpoint inicial), `05d3c8f` (vínculo à PR #34); ambos enviados para `origin/codex/eng-codex-008-siwc-validation`.
+- **Commits H01/H02:** `60c4c0f` (executor por papel, retenção SIWC e regressões offline) e `7256db1` (checkpoint); ambos enviados para `origin/codex/eng-codex-008-siwc-validation`.
+- **Comentários H00:** [Issue #33](https://github.com/Saaimingo/Revista_Gamer/issues/33#issuecomment-6405340231) · [PR #34](https://github.com/Saaimingo/Revista_Gamer/pull/34#issuecomment-6405340777).
+- **Comentários H01/H02:** [Issue #33](https://github.com/Saaimingo/Revista_Gamer/issues/33#issuecomment-6405551977) · [PR #34](https://github.com/Saaimingo/Revista_Gamer/pull/34#issuecomment-6405552335).
+- **Commit/checkpoint H03:** `b0b0441`; relatório com a mesma evidência: [Issue #33](https://github.com/Saaimingo/Revista_Gamer/issues/33#issuecomment-6405668375) · [PR #34](https://github.com/Saaimingo/Revista_Gamer/pull/34#issuecomment-6405668626).
+- **Baseline:** sem alterações de código antes desta branch; suíte serial `198/198 OK` em CPython 3.11.9, 134,945 s.
+- **Chamadas SIWC/Plus nesta missão:** 1 consulta real a `/v1/models`, 1 refresh suportado da credencial existente e 1 inferência real. Nenhum login ou consentimento novo. As chamadas de teste de H01/H02 foram mockadas.
+- **Orçamento informado pelo usuário antes de H03:** 24% da franquia compartilhada com Codex. A inferência H03 reportou 1.611 tokens (628 input, 983 output; 501 de raciocínio), sem medidor de percentual restante na resposta.
+- **Saída editorial real:** 1 briefing estruturado de `assignment_editor`, sintético e sem persona; não é `StoryDraft`, não teve avaliação P/J ou parecer humano, e `published=false`.
+- **Publicação/merge/deploy:** não realizados; `published=false`.
+
+## Estado remoto verificado
+
+| Referência | Estado observado |
+| --- | --- |
+| PR #30 / ENG-CODEX-007 | aberta, draft, sem reviews; head `cd71022ef3b3d60fa4c97beb6db5583a03856102`; base `4de16640e67bd16c61468955e96e4ffa850d4cab` |
+| PR #32 / contrato 008 | aberta, draft, sem reviews; head `a9aee221f1783d402bbed16ff13f1ea32042dae2`; base no head da #30 |
+| PR #34 / implementação 008 | aberta, draft, sem reviews; sincronizada com a branch de execução, base no head da #30; não mesclada |
+| Issue #33 / ordem 008 | aberta; inclui adendo obrigatório de preservação integral das saídas textuais |
+| PR #13 / Ranzinza | aberta, draft, sem reviews; head `3d651fe1951818767b4a6b935732857f08cb7849` |
+| PR #19 / Beto e Nina | aberta, draft, sem reviews; head `21381c0975bef1da048d7887cbdfbd0dd97bed96` |
+| PR #27 / diretriz de apuração | aberta, draft, sem reviews; head `d38c5da92ba76739d9234942f7bf0bd087949e5f` |
+
+O repositório GitHub é público. PR #30 e os relatórios históricos E17–E19 não foram editados. A autorização 008 permite pilotos reais controlados na assinatura existente, dentro dos limites da Issue #33; não autoriza API paga, novo consentimento OAuth, mudança de DNA, merge, publicação, deploy, agendamento de produção ou migração do banco runtime.
+
+## Auditoria H00
+
+- **SIWC:** `SIWCClient` usa o endpoint Responses existente, envia `store=false` e `stream=true`, valida modelo/esforço retornados e exige `response.completed`. Queda de transporte ou stream sem conclusão vira `uncertain`, sem replay automático.
+- **Lacuna de retenção encontrada no H00 e tratada em H01:** o caminho anterior aparava a resposta, fazia parse do JSON e descartava o texto original. Agora a rota de papel preserva a string integral (inclusive whitespace) em artefato bruto antes do parse/schema; respostas parciais, falhas de JSON e falhas HTTP deixam manifesto com estado e hash.
+- **Executor atual:** `SIWCEditorialExecutor` é restrito ao perfil experimental neutro e a `gpt-6-luna/max`; não executa os papéis funcionais nem as personas.
+- **Contratos e fila:** `AgentRoleCatalog` resolve papel por `role_id/version/hash`, valida input/schema e hash de persona, separa seções confiáveis de input e evidência não confiável. `TaskDispatcher` prepara esse contexto e valida `AgentResultEnvelope`; filas, leases e ledger permanecem no `AgentQueue`/SQLite existentes.
+- **Fábrica:** `SyntheticFactoryExecutor` ainda executa os estágios sintéticos. E18 e E19 da 007 só provaram vínculo/isolamento offline; as 48 entradas seguem sem execução real e não há `StoryDraft` real dessas etapas.
+- **Persistência e publicação:** o `Store` mantém artefatos fora dos documentos versionados e a fábrica registra o estado `not_published`; os ensaios 008 devem manter os conteúdos brutos fora do Git público.
+- **Fontes de persona:** os hashes SHA-256 do pacote/contrato de carregamento do Ranzinza, contratos de carregamento do Beto e da Nina e diretriz de apuração na fixture E18 coincidem com os bytes dos commits fonte acima. Os comentários do fundador reconhecem as identidades criativas e liberam a preparação de testes técnicos; PRs permanecem independentes, sem merge.
+
+## H01–H02 — ponte genérica e validação offline
+
+- `SIWCAgentRoleExecutor` é registrado no `TaskDispatcher` já existente, exige `AgentRoleCatalog` ativo e usa o `AgentQueue`/ledger recebido; não instancia outro Motor, fila ou dispatcher.
+- Resolução role/version/hash e persona hash ocorrem antes do executor. Instruções confiáveis e schema ficam no campo de instruções; input e evidência permanecem como dados separados, com fronteira de confiança explícita.
+- Modelo e esforço são parâmetros obrigatórios; o modelo precisa estar no catálogo verificado, o perfil precisa autorizar o executor SIWC e fallback permanece proibido. O resultado exige `store=false`, `stream=true`, evento `response.completed`, modelo/esforço retornados e JSON válido.
+- Cada tarefa grava request, resposta bruta e manifesto local com hashes, role/persona, run/story/revision/case, snapshots, refs de evidência, modelo/esforço, uso/latência disponíveis e status. A resposta bruta não entra no resultado SQLite nem em logs; o envelope aponta para o artefato e conserva `input_hash`, `output_hash` e `human_review_required`.
+- Validação semântica bloqueia referências a evidência/claims ausentes, claims sem evidência, promoção de rumor apoiado só por fonte rumorosa e fact-check/revisão com `draft_hash` obsoleto. A saída nunca é aprovação humana nem publicação.
+- Artefatos dos testes H01/H02 ficaram em diretórios temporários e foram removidos. No fechamento de H01/H02 não havia saída SIWC real; a primeira saída real foi produzida em H03 e permanece fora do Git público, sob ACL local verificada.
+
+## H03 — E17 real controlada, concluída com ressalva do harness de entrada
+
+- ACL observada em `%LOCALAPPDATA%`: `ReadAndExecute` herdado por outro principal; caminho rejeitado. `%USERPROFILE%\\.codex\\Revista_Gamer\\ensaios-008` foi criado sob o pai privado e conferido com acesso de usuário atual, SYSTEM e Administrators apenas; nenhuma ACL foi alterada.
+- Pré-leitura local do CredentialStore sem segredos: credencial e access/refresh tokens presentes, escopo `chatgpt.tokens.use.direct` presente; access token expirado. A `SIWCClient.models()` usou o refresh existente suportado; expiração restante depois: 3599 s. Sem login ou novo consentimento.
+- Uma chamada real `GET /v1/models` concluiu em 2875 ms: 9 modelos, 7 listados, `gpt-6-luna` visível. Manifesto de metadados: `%USERPROFILE%\\.codex\\Revista_Gamer\\ensaios-008\\h03-model-catalog-c3d837d559d049bfbad3ef922507aac8.json`.
+- Uma inferência real foi despachada como `assignment_editor` (`role_version=1.0.0`, `role_hash=3b3db550015edd5fcf90aff8aa5ed781429efe9af7cc59e6b76504d9d3eb1810`), `gpt-6-luna/max`, `store=false`, `stream=true`, `response.completed=true`; o dispatcher concluiu `succeeded`, `role_schema_valid`, `human_review_required=true`, `publication_state=not_published`.
+- Uso reportado: 628 input, 983 output, 501 raciocínio, 1.611 total; duração 19.828 ms. `temperature` de amostragem não configurada. Texto original integral: 2.147 bytes UTF-8, SHA-256 `0e7f24d4b38d5ac4d194837fadc594871944015983d9ab3fed27fecc4f027f22`; conferido contra o manifesto.
+- Índice privado, com links diretos para original, manifesto e entrada: `%USERPROFILE%\\.codex\\Revista_Gamer\\ensaios-008\\INDICE-LEITURA-INTEGRAL.md`. A resposta encontrou dossier vazio, `needs_more_research=true` e 3 lacunas; não há claims nem evidências no resultado. Sem revisão/correção posterior.
+- **Ressalva:** o script de ensaio foi alimentado por pipeline PowerShell→Python, que converteu caracteres portugueses não ASCII da entrada sintética em `?`. O `.request.json` e manifesto preservam exatamente o que foi enviado; `test_only`, `no_external_sources` e `no_real_world_factual_claims` permaneceram intactos. Isso limita a evidência de fidelidade da entrada deste caso; não invalida a conclusão técnica do fluxo SIWC, da resposta completa nem da validação de schema. Nota privada: `%USERPROFILE%\\.codex\\Revista_Gamer\\ensaios-008\\h03-assignment-editor-20261026-0035z\\h03-operator-note.md`. H04 usará arquivos JSON UTF-8 lidos com `encoding="utf-8"` e validação dos bytes antes de inferir.
+
+## Evidências executadas
+
+| Comando/consulta | Resultado |
+| --- | --- |
+| `git status --short --branch`, branch/upstream, `git rev-parse HEAD`, `git log -5 --oneline` | árvore inicial limpa; branch e upstream 007 apontavam para `cd71022`; histórico preservado |
+| `gh issue view 33 --json body,title,labels,assignees,milestone,url` | Issue aberta; sequência H00–H09 e limites atuais confirmados |
+| `gh pr view 30/32/13/19/27` | heads, bases, estados e ausência de reviews confirmados; #30/#32 e fontes seguem draft |
+| `gh repo view Saaimingo/Revista_Gamer --json nameWithOwner,visibility,url` | `PUBLIC` |
+| `git cat-file -t <commit fonte>` e SHA-256 de sete arquivos via `git show` | commits disponíveis; todos os sete hashes do pacote E18 conferiram |
+| `& '.\\.venv\\Scripts\\python.exe' --version` | CPython 3.11.9 |
+| `& '.\\.venv\\Scripts\\python.exe' -m unittest discover -s motor_editorial/tests -q` | `Ran 198 tests in 134.945s — OK` |
+
+| `& '.\\.venv\\Scripts\\python.exe' -m unittest motor_editorial.tests.test_agent_contracts motor_editorial.tests.test_agent_role_catalog motor_editorial.tests.test_agent_siwc_executor motor_editorial.tests.test_orchestration motor_editorial.tests.test_agent_workflow motor_editorial.tests.test_editorial motor_editorial.tests.test_factory motor_editorial.tests.test_factory_multipauta -q` | H01/H02: `Ran 109 tests in 79.474s — OK` |
+| `& '.\\.venv\\Scripts\\python.exe' -m unittest motor_editorial.tests.test_agent_siwc_executor motor_editorial.tests.test_orchestration.SIWCContractTests.test_editorial_raw_stream_sink_preserves_exact_complete_and_partial_text -q` | Repetição focada: `Ran 13 tests in 6.682s — OK` |
+| `& '.\\.venv\\Scripts\\python.exe' -m compileall -q motor_editorial` | exit 0 |
+| `git diff --check` e `git diff --cached --check` | exit 0, sem problemas de whitespace |
+| Inspeção ACL PowerShell de `%LOCALAPPDATA%`, `%USERPROFILE%\\.codex` e raiz de artefatos H03 recém-criada | `%LOCALAPPDATA%` rejeitado por `ReadAndExecute` de outro principal; raiz H03 privada, owner usuário atual e acessos herdados somente de usuário atual/SYSTEM/Administrators; sem alteração de ACL |
+| Pré-leitura local de `CredentialStore.default_path()`/`CredentialStore.load()` | Arquivo presente; `authenticated=true`; `direct_usage_scope=true`; access/refresh token presentes; access token expirado; valores sensíveis nunca impressos; nenhuma rede acessada |
+| Uma chamada `SIWCClient.models()` pelo CredentialStore existente | `GET /v1/models`, 1 request em 2875 ms; catálogo 9, listados 7, `gpt-6-luna` visível; refresh suportado concluiu; sem inferência; manifesto privado em `h03-model-catalog-c3d837d559d049bfbad3ef922507aac8.json` |
+| Uma execução real via `TaskDispatcher` e `SIWCAgentRoleExecutor` | 1 inferência `assignment_editor`; `succeeded`; `role_schema_valid`; resposta completa 2.147 bytes; SHA-256 conferido; 1.611 tokens; request/response/manifesto/índice preservados no storage privado; ressalva de encoding descrita acima |
+| Verificação local do `INDICE-LEITURA-INTEGRAL.md`, resposta e manifesto | três links diretos existentes; resposta UTF-8 de 2.147 bytes; SHA-256 do arquivo e `artifact_sha256` coincidem |
+
+## Gates para H03 — E17 real controlada
+
+1. **Armazenamento:** não usar `%LOCALAPPDATA%` para texto bruto porque foi observada leitura por outro principal. A raiz `%USERPROFILE%\\.codex\\Revista_Gamer\\ensaios-008` já herda a ACL privada de `%USERPROFILE%\\.codex`; verificação final não encontrou outro principal com leitura/escrita. Não alterar permissões.
+2. **Conta e catálogo:** concluído — CredentialStore existente renovado pelo caminho suportado, sem login/consentimento novo; uma consulta única mostrou `gpt-6-luna` como listado.
+3. **Primeira inferência:** concluída — uma chamada curta `assignment_editor` em `gpt-6-luna/max`, sem fallback, via SIWCClient e dispatcher existentes. O resultado completou e passou schema; por controle de cota, não foram feitas chamadas H03 adicionais.
+4. **Parada segura:** 401/403, 429, novo consentimento, modelo/esforço divergente, resposta incompleta/incerta ou orçamento insuficiente interrompem o lote; não repetir chamadas incertas. Se incompleta, marcar `incomplete` e nunca apresentar como texto integral. Nenhuma dessas falhas ocorreu no piloto H03.
+5. **Trilhas de aceite:** qualquer texto editorial fica preservado integralmente, com metadados e hash, em storage local privado. Não gravar textos integrais de terceiros, tokens ou PII no Git/Issue/PR. `published=false`; revisão humana e critérios P/J continuam separados e pendentes.
+6. **Identidades:** manter commits/hashes fonte fixados para Carranca/Ranzinza, Beto, Nina e diretriz de apuração; não alterar DNA. Não editar os históricos E17–E19 da 007.
+
+## Próximo passo exato
+
+H01/H02 estão implementadas e enviadas (`60c4c0f`, `7256db1`), validadas por 109 testes focados, repetição de 13 testes críticos, `compileall` e `git diff --check`; evidências H01/H02 registradas na Issue #33 e PR #34. H03 concluiu o gate técnico: uma consulta ao catálogo, refresh suportado e uma inferência real concluída, sem login/consentimento novo. A resposta original e metadados estão preservados localmente e indexados; a ressalva de encoding está registrada e orienta o harness H04. Próximo: H04 — rever ao vivo as fontes de DNA e decisões, montar inputs UTF-8 com hash verificado e executar os cenários autorizados isolados de Carranca, Beto e Nina. P/J e avaliação humana continuam pendentes; nada foi publicado.
+
+## H04 — primeira leva privada preparada (2026-10-25 21:52 BRT)
+
+**Estado:** preparação local concluída; zero inferências H04 executadas neste checkpoint. PR #34 permanece aberta/draft e sem reviews; branch sincronizada antes desta atualização. A sessão do runner mantém a fila H04 local pronta e aguardando despacho controlado.
+
+**Fontes e identidade:** os 16 arquivos privados travados para H04 foram revalidados contra os SHA-256 do manifesto fonte. Os textos carregados são os documentos de perfil fixados por commit: Carranca/Ranzinza, pacote consolidado v1.0 em 3d651fe1951818767b4a6b935732857f08cb7849; Beto, GAMER.md v0.2 em 21381c0975bef1da048d7887cbdfbd0dd97bed96; Nina, NINA-PRISMA.md v1.0 no mesmo commit. Os hashes do conteúdo do DNA efetivamente carregado ficam no manifesto privado por tarefa. Nenhuma fonte ou perfil foi alterado.
+
+**Pacotes de evidência:** três fixtures UTF-8 privadas e inteiramente fictícias, uma para cada T13 profundo (CPU para Carranca, jogo de luta para Beto, anatomia de mod para Nina). Cada uma identifica claims, fontes simuladas, métodos/limites e proíbe alegações reais. Inputs, diretório e documentos fonte tiveram SHA-256 verificados antes do despacho. Arquivo de preparação: %USERPROFILE%\.codex\Revista_Gamer\ensaios-008\h04-isolated-batch-20261026\batch-inputs.json.
+
+**Preflight sem rede:** a credencial existente foi lida sem exibir valores sensíveis e contém o escopo de uso direto já autorizado. O catálogo não foi consultado novamente. O lote está preparado no AgentQueue/SQLite privado existente para executar pelo mesmo TaskDispatcher com persona_writer, modelo gpt-6-luna, esforço max, sem fallback, uma chamada por tarefa, retenção de resposta integral, gate humano obrigatório e publication_state=not_published. Nenhuma chamada SIWC ocorreu na preparação.
+
+**Limite de consumo:** o usuário informou 16% da franquia compartilhada antes da primeira leva. Para respeitar o orçamento, executar agora somente os três casos T13, um por persona, em ordem e com checkpoint entre resultados. Os segundos casos de correção permanecem pendentes: Carranca T06, Beto T09 e Nina T08. Não marcar H04 completo até esses casos e as avaliações P/J pendentes serem resolvidos ou registrados como bloqueados por orçamento.
+
+**Hashes dos inputs T13:** Carranca 2cb680650abf0e79cacac5f280f5bcfec2cc96f03248bb59839e6b65cf87cf7f; Beto 6392334eddedadd861d40ca6c936927c35ef5173ef60c123fb911ad71a92ab0b; Nina 8b9b2e0e39eb436ae619d72fdc451de181c2e9e739ceb4793f08efeb6fa20cb1.
+
+**Próximo passo:** despachar apenas Carranca T13. Após cada inferência, verificar estado, resposta completa, schema, hash, consumo, original integral e link no índice privado. Parar o lote em 401/403, 429, novo consentimento, modelo/esforço divergente, saída incerta/incompleta, schema inválido ou orçamento insuficiente; não repetir uma chamada incerta. Não publicar texto bruto no GitHub.
+
+## H04 — Carranca T13 concluído (2026-10-25 21:53 BRT)
+
+**Evidência real SIWC:** tarefa de redação T13 do Carranca/Ranzinza passou pelo TaskDispatcher existente e persona_writer v1.0.0, usando a persona consolidada v1.0 travada no commit 3d651fe1951818767b4a6b935732857f08cb7849. Modelo gpt-6-luna, esforço max, resposta completa, succeeded, role_schema_valid, store=false, stream=true, gate humano requerido e published=false. Duração 51.187 ms. Uso reportado: 4.510 tokens de entrada, 2.743 de saída (1.744 raciocínio), 7.253 total.
+
+**Integridade e acesso ao texto:** original bruto UTF-8 preservado em C:\Users\saimi\.codex\Revista_Gamer\ensaios-008\h04-isolated-batch-20261026\artifacts\siwc-role-responses\69c60794-db84-58a0-bd05-d264ed109ccf.response.json; SHA-256 bb5901344f0187bc0800796bc07c696a288485e75de06d3a89986f3224d4e720, conferido com o manifesto. Índice privado C:\Users\saimi\.codex\Revista_Gamer\ensaios-008\INDICE-LEITURA-INTEGRAL.md agora tem links diretos para render legível integral, resposta bruta, manifesto, request e input UTF-8. Tamanho do render: 3.643 bytes. O relatório P/J desta amostra está em cases\ranzinza\T13\assessment.md, no mesmo diretório privado.
+
+**Avaliação separada, Codex e provisória:** P = 12/14; voz tecnicamente compatível, mas ainda próxima de análise neutra, com ironia/assinatura pouco marcadas. J = 11/12; boa atribuição, separação de alegação e medição, preservação das diferenças metodológicas e conclusão suspensa; cenário de custo/uso ficou parcial. As escalas de aceite da matriz são propostas, não aprovadas. Isso não é revisão humana nem aprovação da direção e não generaliza para a persona.
+
+**Limite do ensaio:** todas as entidades e fontes do caso são fictícias; o teste avalia resposta a um pacote controlado, não apuração de fatos reais. Não houve edição ou revisão textual. Texto bruto permanece privado e não foi copiado para Issue/PR.
+
+**Próximo passo:** após este checkpoint, executar somente Beto T13; confirmar seu hash de resposta, schema, uso reportado e texto integral. Nina T13 continua na mesma primeira leva se o consumo e o orçamento observado permitirem. Casos de correção Carranca T06, Beto T09 e Nina T08 continuam pendentes; nenhuma chamada incerta será repetida.
+
+## H04 — Beto T13 concluído e runner recuperado (2026-10-25 21:56 BRT)
+
+**Evidência real SIWC:** Beto T13 concluiu em gpt-6-luna/max pelo papel persona_writer v1.0.0, usando GAMER.md v0.2 do commit 21381c0975bef1da048d7887cbdfbd0dd97bed96. response.completed=true, estado succeeded, role_schema_valid, consumo reportado de 2.692 input + 3.214 output = 5.906 tokens, incluindo 2.044 de raciocínio; duração 59.391 ms. human_review_required=true; publication_state=not_published.
+
+**Integridade e texto integral:** a resposta bruta tem 4.715 bytes UTF-8, SHA-256 54f2f0c3c25032ccceba02f39c3b9de9b5315022075c67f63edd7c22b0c1d01f, conferido com o manifesto. Render legível, request, input UTF-8 e manifesto estão preservados em C:\Users\saimi\.codex\Revista_Gamer\ensaios-008\h04-isolated-batch-20261026\cases\beto-cartucho\T13 e no armazenamento SIWC privado; todos têm links no índice privado. Avaliação Codex separada e provisória: P=9/12, com acolhimento/calor insuficientes; J=11/12, com boa atribuição e limites, mas sem menção explícita de que não há pacote visual. Avaliação humana e aceite da direção continuam pendentes.
+
+**Recuperação sem replay:** após o dispatcher registrar o sucesso e gravar resposta, render e resultado, o runner parou somente ao tratar o agregado execution-summary.json como imutável. A resposta SIWC não foi repetida. O SHA foi conferido, índice e agregado reconciliados localmente e uma nota de recuperação ficou no diretório privado. A linha de Beto no mesmo h04-motor.sqlite3 está succeeded; nenhuma fila ou banco novo foi criado.
+
+**Consumo observado:** as duas inferências concluídas reportaram 13.159 tokens SIWC no total (Carranca 7.253 + Beto 5.906). O percentual restante da franquia Codex não foi informado após a leva; tokens SIWC não são convertidos em porcentagem de franquia.
+
+**Próximo passo:** usar o mesmo banco/ledger privado e despachar somente Nina T13, após confirmar que seu task_id ainda está queued e que Carranca/Beto continuam succeeded. Não reenviar nenhuma tarefa concluída. Depois da saída Nina, gravar checkpoint e reavaliar o orçamento antes dos casos de correção Carranca T06, Beto T09 e Nina T08.
+
+## H04 — primeira leva profunda T13 encerrada (2026-10-25 21:59 BRT)
+
+**Nina T13 — evidência real:** tarefa succeeded em gpt-6-luna/max por persona_writer v1.0.0, usando NINA-PRISMA.md v1.0 do commit 21381c0975bef1da048d7887cbdfbd0dd97bed96. response.completed=true, role_schema_valid, uso 3.403 input + 2.605 output = 6.008 tokens (1.552 raciocínio), 48.500 ms. human_review_required=true; published=false. Fixture de mod completamente fictícia. SHA-256 bruto 6c634e81b0962fb78428975c557658f13b015d8c65b85080e4fb4ac635deeab5; resposta, request, manifesto, input, render integral e avaliação P/J estão no índice privado.
+
+**Primeira leva concluída:** um caso profundo T13 por jornalista, no mesmo SQLite e registro de tarefas: Carranca succeeded (7.253 tokens), Beto succeeded (5.906), Nina succeeded (6.008). Total SIWC reportado: 19.167 tokens; 10.605 entrada, 8.562 saída, 5.340 de raciocínio. Todos passaram response.completed=true, schema de persona e conferência do SHA. Os três textos completos e originais estão locais, com links diretos em C:\Users\saimi\.codex\Revista_Gamer\ensaios-008\INDICE-LEITURA-INTEGRAL.md. Nenhum texto bruto foi enviado a GitHub.
+
+**Leitura separada do Codex, ainda não humana:** Carranca T13 P=12/14 e J=11/12; voz adequada ao assunto técnico, porém pouco distinta, e cenário de custo parcial. Beto T13 P=9/12 e J=11/12; disciplina factual forte, mas pouca hospitalidade e ausência de nota sobre pacote visual indisponível. Nina T13 P=9/10 e J=11/12; liga mecânica a possibilidade e mantém direitos/compatibilidade em aberto, mas não cita a equipe informada na fonte e ainda apresenta voz discreta. Estas pontuações são avaliações provisórias desta única amostra; não aprovam identidades, limiares ou conteúdo. O diretor precisa ler os originais e a revisão humana permanece pendente.
+
+**Orçamento e sequência:** o usuário informou 11% da franquia antes da chamada Nina. Após a chamada, não foi informado novo percentual; consumo SIWC não converte diretamente em percentual da franquia Codex. Para preservar a cota, não executar agora os segundos casos Carranca T06, Beto T09 e Nina T08. H04 fica parcialmente concluída: os três casos profundos reais foram executados, mas os casos de correção e as avaliações humanas continuam pendentes. Não avançar para H05 até completar ou documentar formalmente o bloqueio de quota em H04.
+
+**Runner e segurança:** a primeira execução do processo encerrou depois do sucesso Beto por erro local de atualização do resumo; o artefato íntegro foi reconciliado, sem replay. Nina foi despachada depois de validar que sua tarefa ainda estava queued e que Carranca/Beto continuavam succeeded, reutilizando o mesmo banco h04-motor.sqlite3. Nenhuma tarefa concluída foi executada novamente. O preflight não consultou novamente o catálogo nem iniciou login/consentimento.
+
+**Próximo passo exato:** depois que houver franquia suficiente, revalidar branch, PR/Issue, fila SQLite e hashes locais; executar em lote pequeno os casos de correção que faltam, primeiro Carranca T06, depois Beto T09 e Nina T08, sem replay dos T13 concluídos. Avaliar P/J separadamente, gravar originais/revisões e hashes no armazenamento privado, atualizar índice/checkpoint e evidência da PR/Issue. Revisão do diretor continua necessária antes de qualquer aceite editorial; nada foi publicado, mesclado ou implantado.
+
+## H04 — atualização de orçamento e fixtures de correção preparadas (2026-10-25 22:02 BRT)
+
+**Orçamento:** após os três T13, o usuário informou 9% restante da franquia Codex. Não foi feita nova chamada SIWC depois dessa informação. O uso SIWC reportado pelos três T13 é 19.167 tokens; isso não é conversível em percentual da franquia.
+
+**Preparação offline:** foram montadas três entradas curtas, inteiramente fictícias, em JSON UTF-8 no diretório privado h04-isolated-batch-20261026/cases, sem enfileirar nem executar: Carranca T06, Beto T09 e Nina T08. Os hashes dos documentos de persona correspondem aos source locks. SHA-256 das entradas:
+- Carranca T06: e150311d542a87c674dc226a82f33eda9025e48f6620db5059074176af446553
+- Beto T09: 44f379505b213e4cdf5db68c89b2031bab28c16b11d28cda15a504813ffe44f2
+- Nina T08: 098113afbcd43ad73a8437b5354bfbcf321503c8c8a6efe799e30e361bc9dd65
+
+As três entradas são especificações de caso, não resultados. Não existem saídas/revisões para elas, e nenhum texto está sendo apresentado como gerado. H04 continua parcialmente concluída; não avançar H05 antes da execução/evidência restante ou do registro explícito de bloqueio por orçamento.
+
+**Próximo passo:** quando houver franquia suficiente, revalidar branch/PR/Issue, estado do SQLite existente e os hashes acima; enfileirar somente tarefas de correção T06/T09/T08 com max_attempts=1, usar a mesma AgentQueue e executor versionado, executar uma por vez, arquivar texto original, manifesto e avaliação P/J e checkpoint após cada. Carranca/Beto/Nina T13 permanecem succeeded e não podem ser repetidos. A revisão humana do diretor continua pendente.
+## H04 — Carranca T06 concluído (2026-10-25 22:06 BRT)
+
+**Evidência real:** o caso de correção T06 do Carranca concluiu pelo executor SIWC no mesmo h04-motor.sqlite3. Modelo gpt-6-luna/max; estado succeeded; response.completed=true; role_schema_valid; uso 4.194 input + 851 output = 5.045 tokens, 413 raciocínio; duração 17.156 ms. human_review_required=true; published=false. SHA-256 bruto dfda02336e1b92330e5d949861acf43f49738e64ff2460fb11d796480007da86; resposta bruta UTF-8, manifesto, request e input com links privados no índice.
+
+**Avaliação Codex separada:** P=13/14 e J=12/12, provisórias. A resposta admite “Erramos”, diferencia TDP de limite de potência do pacote e de consumo medido, agradece o leitor, não usa ironia para evitar responsabilidade e pede medições independentes antes de ampliar a conclusão. A voz permanece discreta. Revisão humana pendente. Parâmetro técnico temperature não foi configurado nem reportado; isso fica separado da leitura de temperatura narrativa.
+
+**Complemento de integridade:** o render legível inicial do retorno não apresentou o campo estruturado requested_research, embora ele esteja intacto na resposta JSON bruta. O campo foi conferido e preservado em arquivo complementar local, sem sobrescrever o original nem alterar a redação. O índice agora liga o retorno bruto, o render, o complemento e a avaliação P/J.
+
+**Orçamento:** esta chamada ocorreu depois de o usuário informar 9% restante; não houve novo percentual informado após ela. O consumo medido foi 5.045 tokens SIWC, sem conversão para percentual Codex. Casos ainda não executados: Beto T09 e Nina T08. Nenhum caso T13 foi repetido.
+
+**Próximo passo:** reavaliar o saldo quando o usuário o informar ou quando a franquia se recuperar; prosseguir com Beto T09 e depois Nina T08 somente se houver orçamento suficiente. Atualizar checkpoint após cada inferência; não avançar para H05 sem fechar ou bloquear formalmente H04. A fila mantida é a mesma, sem replay automático; qualquer tarefa já succeeded deve ser pulada.
+## H04 — Beto T09 concluído (2026-10-25 22:07 BRT)
+
+**Evidência real SIWC:** correção fictícia do Beto concluída pelo TaskDispatcher/AgentQueue e executor persona_writer existentes. Tarefa f6c8a832-56ae-5769-a028-38736da5c4e9; estado succeeded; modelo gpt-6-luna/max; response.completed=true; role_schema_valid; store=false; stream=true; human_review_required=true; published=false. Uso 2.370 tokens de entrada + 863 de saída = 3.233 tokens, incluindo 615 de raciocínio; duração 17.203 ms. Input SHA-256 44f379505b213e4cdf5db68c89b2031bab28c16b11d28cda15a504813ffe44f2. SHA-256 da resposta integral fa75bf0a5aea6bc9413fd34fc15872f012ae61b0cb30a2ca9d734db885415154; arquivo e manifesto conferidos. O perfil GAMER.md v0.2 permanece fixado no commit 21381c0975bef1da048d7887cbdfbd0dd97bed96. Parâmetro técnico temperature não configurado nem reportado.
+
+A saída assume o erro, corrige a estreia/retorno com ficha e nota de elenco simuladas, agradece ao leitor e não alega gameplay. A contagem estruturada é 113 palavras frente à meta de 210, embora abaixo do máximo. Avaliação Codex provisória e separada: P=8/12 e J=11/12; a concisão abaixo da meta reduz formato/profundidade. Avaliação humana e decisão editorial seguem pendentes. Texto, request, resposta bruta, manifesto e avaliação estão somente no armazenamento local privado e no índice, não nesta branch ou nos comentários.
+
+**Resumo privado reconciliado:** cinco execuções únicas succeeded (Carranca, Beto e Nina T13; Carranca T06; Beto T09); total reportado 27.445 tokens (17.169 entrada, 10.276 saída, 6.368 raciocínio, incluído nos tokens de saída). O total T13 permanece 19.167 tokens; as correções T06/T09 somam 8.278. Sem replay de tarefa concluída.
+
+**Orçamento:** o usuário informou 9% antes desta chamada. Esta inferência retornou 3.233 tokens SIWC; não há conversão confiável entre tokens SIWC e percentual da franquia Codex. Não foi consultado novamente o catálogo, não houve novo login/consentimento, nem uso de fonte externa.
+
+**Próximo passo exato:** revalidar a tarefa Nina T08 na fila do mesmo SQLite, verificar input/hash e source lock, executar uma única vez pelo runner com max_attempts=1 se ainda queued, conferir resposta/manifesto/uso, fazer avaliação P/J provisória e atualizar índice, checkpoint e evidências Issue/PR. Não repetir T13, T06 ou T09. Revisão humana permanece pendente; published=false.
+
+## H04 — matriz inicial isolada 6/6 concluída; H05 real aguarda orçamento (2026-10-25 22:08 BRT)
+
+**Cobertura executada:** os seis cenários iniciais H04/E18 foram executados uma única vez pelo AgentQueue/TaskDispatcher e persona_writer existentes, com os três perfis fixados nos source locks. Os três casos profundos T13 e as correções Carranca T06, Beto T09 e Nina T08 terminaram succeeded, response.completed=true, role_schema_valid, com resposta bruta integral e manifesto conferidos. Todos usaram gpt-6-luna/max, store=false, human_review_required=true e published=false. Não houve consulta repetida ao catálogo nem novo login/consentimento. As fixtures não afirmam fatos reais e não usaram URLs/fontes externas.
+
+**Uso total medido:** seis chamadas, 31.616 tokens (20.066 entrada, 11.550 saída, 7.275 de raciocínio, que integra a saída). T13: 19.167 tokens; as três correções: 12.449 tokens. Essas contagens não se convertem em percentual da franquia Codex.
+
+**Avaliações Codex provisórias P/J, independentes por eixo:** Carranca T13 12/14 e 11/12; Beto T13 9/12 e 11/12; Nina T13 9/10 e 11/12; Carranca T06 13/14 e 12/12; Beto T09 8/12 e 11/12; Nina T08 9/10 e 11/12. As matrizes e limitações específicas estão no índice privado. Beto T09 (113 palavras) e Nina T08 (118 palavras) ficaram abaixo da meta de 210; esse ponto reduziu formato/profundidade nas avaliações. No Nina T08, o render legível omitia requested_research; o campo bruto foi conferido e um complemento privado foi criado sem modificar o original. Não há parecer humano nem aceite editorial.
+
+**Integridade e privacidade:** os seis originais, inputs, requests, manifestos, avaliações e complementos permanecem no armazenamento local privado com ACL previamente verificada; nenhum texto integral foi anexado ao GitHub. Índice local: %USERPROFILE%\\.codex\\Revista_Gamer\\ensaios-008\\INDICE-LEITURA-INTEGRAL.md. O resumo privado reconciliado registra seis tarefas concluídas e 31.616 tokens.
+
+**Orçamento e continuidade:** o usuário informou 5% da franquia após a última chamada. H04 atinge 6/6 da matriz inicial. Não iniciar novas inferências SIWC enquanto o saldo informado permanecer baixo. A tarefa técnica real H05/E19 ainda não foi executada: ela requer StoryDraft real no ledger compartilhado, fontes comuns, pesquisa complementar/revisão e gate humano; os critérios não podem ser declarados satisfeitos por mock. Próximo passo permitido: começar a auditoria e preparação offline de H05 no mesmo motor e registrar os gates reais como pendentes por orçamento. Sem alterar DNAs, usar API paga, acionar produção, publicar, fazer deploy ou mesclar PR.
+
+## H04 — Nina T08 e contagem de cobertura atualizados (2026-10-25 22:10 BRT)
+
+**Nina T08:** uma inferência concluída via AgentQueue/TaskDispatcher, persona_writer v1.0.0, perfil NINA-PRISMA v1.0 fixado no commit 21381c0975bef1da048d7887cbdfbd0dd97bed96. Estado succeeded; response.completed=true; role_schema_valid; gpt-6-luna/max; store=false; stream=true; external_call_count=1; human_review_required=true; published=false. Uso 2.897 entrada + 1.274 saída = 4.171 tokens, com 907 de raciocínio incluídos; duração 24.516 ms. Input SHA-256 098113afbcd43ad73a8437b5354bfbcf321503c8c8a6efe799e30e361bc9dd65; SHA-256 bruto 29b4f07f9e2107f4e6876ee167af3aa78e68af643f42323c17068f925a0d4d7a, igual ao manifesto; source doc SHA-256 62af383a2dec528a7f38a6e84cd2d30a5706d877ce065f34c0ef0a531078f420. A saída corrige Windows-only para suporte experimental no Linux e preserva a limitação de áudio; distingue documentação de teste independente e não alega instalação própria. A contagem estruturada é 118 palavras frente à meta de 210. Avaliação Codex provisória: P=9/10 e J=11/12. A questão de pesquisa está no JSON bruto; como o render não a exibia, o complemento privado foi preservado sem substituir o original. Temperatura técnica não configurada/reportada.
+
+**Cobertura real H04/E18:** 6 de 48 cenários do inventário executados — T13 das três personas e um caso de correção/segurança por persona (Carranca T06, Beto T09, Nina T08). Não afirmar 48/48. Todas as seis chamadas concluíram sem replay; uso acumulado 31.616 tokens (20.066 entrada, 11.550 saída, 7.275 raciocínio incluído). Índice privado e resumo conferidos. Parecer humano e aceite editorial continuam pendentes.
+
+**Novo orçamento:** o usuário informou 5% depois desta inferência. Nenhuma chamada SIWC adicional será feita enquanto este for o saldo disponível; a etapa de H05 prossegue somente com trabalho offline.
+
+## H05/E19 — auditoria offline do caminho de integração (2026-10-25 22:10 BRT)
+
+**Evidência do código atual:** factory.py configura FACTORY_TASK_ROUTES para enviar todas as etapas editoriais ao SyntheticFactoryExecutor; run_factory_demo aceita AgentQueue/TaskDispatcher compartilhados, mas sua etapa draft continua determinística/sintética. O SIWCAgentRoleExecutor aceita tarefas contratuais agent.role.<role_id> por AgentRoleCatalog e já persiste a resposta integral, mas ainda não há adaptador que converta StoryDraft.v1 em StoryDraft.v1 tipado da esteira de fábrica, preservando os mesmos hashes de EvidenceDossier/EditorialBrief e a referência imutável da persona.
+
+**Pesquisa complementar:** SIWCAgentRoleExecutor atualmente grava requested_research=null no AgentResultEnvelope, embora a saída de persona_writer possa trazer itens question/purpose. O ResearchResultRouter só cria handoff para ResearchRequest tipado e vinculado à tarefa de origem. Assim, o resultado real de E18 pode registrar perguntas no artefato, mas o caminho atual não as encaminha ao ResearchService. H05 precisa de uma mediação tipada e limitada, reutilizando o mesmo AgentQueue/TaskDispatcher/ResearchService; não criar ledger, OAuth ou serviço paralelo. A validação offline deve usar somente RADAR_INDEX_SCOPE e provider ausente; nenhuma pesquisa externa será disparada.
+
+**Status e próximo passo exato:** H05 real não iniciada e não pode ser declarada validada por mocks. Com saldo de 5%, construir offline o adaptador opcional de draft no dispatcher compartilhado, preservar StoryDraft/identidade/fonte/hash e mapear ResearchRequest de modo idempotente e index-only; adicionar regressões com executor de teste e rodar apenas a suíte focada. Se a identidade do artefato, referência de fonte ou formato de ResearchRequest não puder ser ligada sem inferência, bloquear essa parte em checkpoint, sem inventar equivalências. A validação real do StoryDraft e qualquer complemento de pesquisa por SIWC aguardam orçamento. H06 continua depois de H05 conforme a ordem.
+
+## H05/E19 — adaptador determinístico parcial e bloqueio formal de escopo (2026-10-25 22:21 BRT)
+
+**Issue de direção:** a saída persona_writer usa solicitações genéricas question/purpose, mas a integração exige ResearchRequest tipado. A autorização H05 não define se essa solicitação pode consultar só o índice local, alcançar fontes públicas registradas, ser despachada sem gate prévio, nem como preencher required_evidence_kinds e limites. Conforme o Protocolo de handoff, foi aberta a [Issue #35](https://github.com/Saaimingo/Revista_Gamer/issues/35), status bloqueado, para decisão da Direção. Até resposta, nenhuma solicitação de pesquisa gerada por modelo será convertida em consulta executável ou fonte externa.
+
+**Trabalho independente concluído offline:** motor_editorial/factory.py agora inclui role_story_draft_to_editorial_output(), conversor puro de StoryDraft estruturado para ArticleDraft da fábrica. Mapeia evidence_id→source_id pelo EvidenceDossier vigente, verifica que a fonte pertence ao pacote corrente, preserva texto/seções e adiciona citações inline derivadas das evidências; bloqueia referências ausentes, fonte fora do pacote, vínculo ambíguo e citação inline incompatível. O caminho padrão continua sintético; este helper ainda não está ligado a run_factory_demo nem produz, sozinho, um handoff de fábrica real. Nenhuma resposta integral foi duplicada no ledger.
+
+**Validação executada no Windows:** CPython 3.11.9; comando & '.\\.venv\\Scripts\\python.exe' -m unittest motor_editorial.tests.test_factory_role_draft_bridge -q — Ran 5 tests in 0.000s — OK. git diff --check — exit 0. Os testes cobrem mapeamento de IDs, não duplicação de citações já corretas, evidence_id desconhecido, citação fora das evidências da seção e fonte fora do pacote. São testes offline; não contam como StoryDraft SIWC real nem como aceitação H05.
+
+**Estado atual:** o conversor e seus testes foram commitados e enviados no commit 9749989. H05 permanece em andamento; adaptação de pesquisa não implementada por depender da decisão #35. O usuário atualizou a franquia para 2%; não houve nova chamada SIWC após a atualização de 5%. Não fazer chamada real com o saldo baixo.
+
+**Próximo passo exato:** integrar o conversor a uma opção explícita de run_factory_demo que use a mesma AgentQueue/TaskDispatcher e um resultado agent.role.persona_writer já persistido; preservar o artefato bruto por referência e SHA, criar o StoryDraft tipado com briefing/dossiê/persona atuais e manter checagem, revisão e gate humano. Adicionar regressões da integração e rodar a suíte focada. A pesquisa permanece sem despacho até a decisão #35. Só depois de orçamento suficiente executar uma inferência real controlada e marcar cada evidência como real ou mock. H05 não está validada; não avançar para H06 como se estivesse concluída.
