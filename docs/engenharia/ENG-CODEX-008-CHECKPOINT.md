@@ -1,15 +1,16 @@
 # ENG-CODEX-008 — checkpoint de execução
 
-**Atualizado:** 2026-10-25 21:10 -03:00
+**Atualizado:** 2026-10-25 21:12 -03:00
 **Issue de execução:** [#33](https://github.com/Saaimingo/Revista_Gamer/issues/33)
 **Ordem documental:** [PR #32](https://github.com/Saaimingo/Revista_Gamer/pull/32)
-**PR de implementação:** a criar após o primeiro commit desta branch.
+**PR de implementação:** [#34](https://github.com/Saaimingo/Revista_Gamer/pull/34), draft, aberta, sem merge.
 
 ## Estado atual
 
 - **H00:** concluída — estado remoto, base, fontes de persona, documentos obrigatórios, arquitetura e baseline conferidos.
 - **Próxima unidade:** H01 — executor SIWC genérico por papel, sem trocar o cliente SIWC nem o dispatcher.
 - **Branch:** `codex/eng-codex-008-siwc-validation`, criada diretamente de `codex/eng-codex-007-factory-radar@cd71022ef3b3d60fa4c97beb6db5583a03856102`.
+- **Commit H00:** `b8e2dde` — `docs: checkpoint ENG-CODEX-008 H00`; enviado para `origin/codex/eng-codex-008-siwc-validation`.
 - **Baseline:** sem alterações de código antes desta branch; suíte serial `198/198 OK` em CPython 3.11.9, 134,945 s.
 - **Chamadas SIWC/Plus nesta missão:** 0. Nenhum login, refresh, catálogo ou inferência foi iniciado.
 - **Saída editorial real:** 0; nenhum texto ou caso foi fabricado.
@@ -21,6 +22,7 @@
 | --- | --- |
 | PR #30 / ENG-CODEX-007 | aberta, draft, sem reviews; head `cd71022ef3b3d60fa4c97beb6db5583a03856102`; base `4de16640e67bd16c61468955e96e4ffa850d4cab` |
 | PR #32 / contrato 008 | aberta, draft, sem reviews; head `a9aee221f1783d402bbed16ff13f1ea32042dae2`; base no head da #30 |
+| PR #34 / implementação 008 | aberta, draft, sem reviews; base no head da #30; não mesclada |
 | Issue #33 / ordem 008 | aberta; inclui adendo obrigatório de preservação integral das saídas textuais |
 | PR #13 / Ranzinza | aberta, draft, sem reviews; head `3d651fe1951818767b4a6b935732857f08cb7849` |
 | PR #19 / Beto e Nina | aberta, draft, sem reviews; head `21381c0975bef1da048d7887cbdfbd0dd97bed96` |
@@ -59,4 +61,4 @@ O repositório GitHub é público. PR #30 e os relatórios históricos E17–E19
 
 ## Próximo passo exato
 
-Fechar o registro H00 com commit/push e PR draft filha da #30. Em seguida implementar H01 no executor de papel acoplado ao dispatcher existente, cobrindo retenção integral da resposta sem inserir texto editorial em Git ou logs.
+H00 foi commitada, enviada e vinculada à PR #34. Próximo passo: implementar H01 no executor de papel acoplado ao dispatcher existente, cobrindo retenção integral da resposta sem inserir texto editorial em Git ou logs.
