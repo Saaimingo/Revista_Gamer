@@ -22,8 +22,9 @@ import uuid
 import zlib
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Mapping
-from urllib.parse import quote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 
 from .agent_contracts import (
     AGENT_TASK_ENVELOPE_SCHEMA_VERSION,
@@ -90,6 +91,7 @@ GITHUB_DOMAIN = "api.github.com"
 DAILY_QUOTA = 8
 TOTAL_REQUEST_BUDGET = 4
 MAX_CANDIDATES_TO_EDITOR = 12
+EDITOR_HANDOFF_LANES = frozenset({"principal", "reserva", "monitoramento"})
 MODEL_ID = "gpt-6-luna"
 REASONING_EFFORT = "high"
 ROBOTS_SNAPSHOT = "User-agent: *\nAllow: /\n"
@@ -233,6 +235,29 @@ class Checkpoint:
         self.state["stage"] = stage
         self.state["events"].append({"at": _now(), "stage": stage, "status": status, **fields})
         self.save()
+
+    @classmethod
+    def resume_after_triage(cls, root: Path, run_id: str) -> "Checkpoint":
+        checkpoint = cls.__new__(cls)
+        checkpoint.root = root
+        checkpoint.run_id = run_id
+        checkpoint.path = root / "checkpoint.json"
+        checkpoint.state = _load_json(checkpoint.path)
+        events = checkpoint.state.get("events", [])
+        last = events[-1] if isinstance(events, list) and events else {}
+        if checkpoint.state.get("run_id") != run_id or checkpoint.state.get("stage") != "triage_agent":
+            raise RunBlocked("resume_checkpoint_is_not_at_triage_boundary")
+        if last.get("stage") != "triage_agent" or last.get("status") != "succeeded":
+            raise RunBlocked("resume_requires_a_durable_successful_triage_result")
+        if last.get("task_state") != "succeeded" or last.get("error_code") is not None:
+            raise RunBlocked("resume_triage_result_is_not_successful")
+        usage_ref = last.get("usage_record_ref")
+        if not isinstance(usage_ref, str) or not (root / usage_ref).is_file():
+            raise RunBlocked("resume_triage_usage_receipt_missing")
+        checkpoint.state["status"] = "running"
+        checkpoint.event("resume_after_triage", "started", reused_task_id=last.get("task_id"),
+                         repeated_siwc_calls=0, repeated_public_requests=0)
+        return checkpoint
 
 
 def _ensure_git_branch() -> str:
@@ -829,6 +854,76 @@ def _map_live_items(scan: Any, source_by_id: Mapping[str, Mapping[str, str]], ra
     return mapped
 
 
+def _map_persisted_live_items(
+    batch_items: list[Mapping[str, Any]],
+    source_by_id: Mapping[str, Mapping[str, str]],
+    radar_store: RadarStore,
+) -> dict[str, dict[str, Any]]:
+    """Rebuild live release candidates from the already persisted Radar batch."""
+    mapped: dict[str, dict[str, Any]] = {}
+    for item in batch_items:
+        document_refs = [ref for ref in item.get("evidence_refs", [])
+                         if isinstance(ref, str) and ref.startswith("radar://document/")]
+        docs = [radar_store.get_row("radar_documents", "document_id", document_id)
+                for ref in document_refs
+                if (document_id := _document_id_from_ref(ref))]
+        docs = [doc for doc in docs if doc is not None]
+        if not docs:
+            continue
+        document = docs[0]
+        source_id = str(document.get("source_id"))
+        source = source_by_id.get(source_id)
+        origin_url = document.get("origin_url")
+        if source is None or not isinstance(origin_url, str):
+            continue
+        parsed = urlsplit(origin_url)
+        marker = "/releases/tag/"
+        if (parsed.scheme != "https" or parsed.hostname != "github.com" or parsed.username
+                or parsed.password or marker not in parsed.path):
+            continue
+        tag_name = unquote(parsed.path.split(marker, 1)[1])
+        if not tag_name or len(tag_name) > 200 or any(ord(char) < 32 for char in tag_name):
+            continue
+        release = {
+            "name": document.get("title"),
+            "tag_name": tag_name,
+            "url": document.get("canonical_url"),
+            "html_url": origin_url,
+            "author": document.get("byline"),
+            "published_at": document.get("published_at"),
+            "body_excerpt": document.get("summary_snippet"),
+        }
+        mapped[str(item["item_id"])] = {
+            "item_id": str(item["item_id"]),
+            "url": str(item.get("url") or origin_url),
+            "publisher": str(item.get("publisher") or document.get("publisher") or source["label"]),
+            "published_at": item.get("published_at") or document.get("published_at"),
+            "diff": item.get("diff", ""),
+            "triage_evidence_refs": list(item.get("evidence_refs", [])),
+            "document_ids": [str(row["document_id"]) for row in docs],
+            "evidence_ids": [f"radar://document/{row['document_id']}" for row in docs],
+            "source_id": source_id,
+            "source": dict(source),
+            "release": release,
+            "title": str(release.get("name") or tag_name),
+            "tag_name": tag_name,
+            "author": release.get("author"),
+            "body_excerpt": release.get("body_excerpt"),
+            "fetched_at": document.get("fetched_at"),
+            "source_snapshot_ids": [],
+        }
+    return mapped
+
+
+def _candidate_matches_triage_refs(candidate: Mapping[str, Any], refs: set[str]) -> bool:
+    if candidate.get("item_id") in refs:
+        return True
+    candidate_refs = candidate.get("triage_evidence_refs", [])
+    return isinstance(candidate_refs, list) and bool(refs.intersection(
+        ref for ref in candidate_refs if isinstance(ref, str)
+    ))
+
+
 def _claim_records_for_candidate(investigator_output: Mapping[str, Any], candidate: Mapping[str, Any]) -> list[dict[str, Any]]:
     evidence = set(candidate["evidence_ids"])
     rows: list[dict[str, Any]] = []
@@ -1149,31 +1244,50 @@ def _serve(preview_root: Path, port_file: Path) -> int:
     return 0
 
 
-def run_live_factory(root: Path = PRIVATE_ROOT) -> dict[str, Any]:
+def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_after_triage: bool = False) -> dict[str, Any]:
     root = root.expanduser().resolve()
     root.mkdir(parents=True, exist_ok=True)
     active_path = root / "active-run.json"
-    if active_path.exists():
-        raise RunBlocked("existing_eng_011_run_prevents_redundant_execution")
     branch = _ensure_git_branch()
-    run_token = uuid.uuid4().hex[:12]
-    run_id = f"eng-codex-011-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{run_token}"
-    checkpoint = Checkpoint(root, run_id)
-    _atomic_json(active_path, {"run_id": run_id, "status": "running", "started_at": _now(), "branch": branch})
+    if resume_after_triage:
+        if not active_path.exists():
+            raise RunBlocked("resume_requires_an_existing_blocked_run")
+        active = _load_json(active_path)
+        if active.get("status") != "blocked" or active.get("branch") != branch:
+            raise RunBlocked("resume_run_state_or_branch_mismatch")
+        run_id = active.get("run_id")
+        if not isinstance(run_id, str) or not run_id.startswith("eng-codex-011-"):
+            raise RunBlocked("resume_run_id_invalid")
+        run_token = run_id.rsplit("-", 1)[-1]
+        checkpoint = Checkpoint.resume_after_triage(root, run_id)
+        _atomic_json(active_path, {**active, "status": "running", "updated_at": _now(), "branch": branch})
+    else:
+        if active_path.exists():
+            raise RunBlocked("existing_eng_011_run_prevents_redundant_execution")
+        run_token = uuid.uuid4().hex[:12]
+        run_id = f"eng-codex-011-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{run_token}"
+        checkpoint = Checkpoint(root, run_id)
+        _atomic_json(active_path, {"run_id": run_id, "status": "running", "started_at": _now(), "branch": branch})
     usage_store = AgentUsageArtifactStore(root)
     version_archive = StoryVersionArchive(root)
     response_store = SIWCResponseArtifactStore(root)
     role_catalog = load_builtin_role_catalog()
     profiles = _role_profiles(role_catalog)
     client = SIWCClient(CredentialStore())
-    model_rows = client.models()
-    visible_models = {
-        str(row.get("slug")) for row in model_rows
-        if isinstance(row, Mapping) and row.get("visibility") == "list" and isinstance(row.get("slug"), str)
-    }
-    checkpoint.event("model_preflight", "succeeded" if MODEL_ID in visible_models else "blocked",
-                     model=MODEL_ID if MODEL_ID in visible_models else None, visible_model_count=len(visible_models),
-                     api_calls=1, paid_api_calls=0)
+    if resume_after_triage:
+        visible_models = {MODEL_ID}
+        if not any(event.get("stage") == "model_preflight" and event.get("status") == "succeeded"
+                   and event.get("model") == MODEL_ID for event in checkpoint.state.get("events", [])):
+            raise RunBlocked("resume_model_preflight_not_proven_in_prior_run")
+    else:
+        model_rows = client.models()
+        visible_models = {
+            str(row.get("slug")) for row in model_rows
+            if isinstance(row, Mapping) and row.get("visibility") == "list" and isinstance(row.get("slug"), str)
+        }
+        checkpoint.event("model_preflight", "succeeded" if MODEL_ID in visible_models else "blocked",
+                         model=MODEL_ID if MODEL_ID in visible_models else None, visible_model_count=len(visible_models),
+                         api_calls=1, paid_api_calls=0)
     if MODEL_ID not in visible_models:
         raise RunBlocked("gpt_6_luna_not_visible_in_existing_siwc_catalog")
 
@@ -1185,7 +1299,11 @@ def run_live_factory(root: Path = PRIVATE_ROOT) -> dict[str, Any]:
     quota_guard = PersistentDomainQuotaGuard(radar_store, quotas={GITHUB_DOMAIN: DAILY_QUOTA}, timezone_name="America/Sao_Paulo")
     connector = RadarConnectorService(domain_quota_guard=quota_guard)
     incremental = IncrementalRadarService(store=radar_store, connector=connector)
-    source_profiles, source_by_id = _register_candidate_sources(radar_store)
+    if resume_after_triage:
+        source_profiles = []
+        source_by_id = {source["source_id"]: dict(source) for source in SOURCE_CANDIDATES}
+    else:
+        source_profiles, source_by_id = _register_candidate_sources(radar_store)
     provider = GitHubReleaseResearchProvider(radar_store, incremental)
     research_service = ResearchService(store=radar_store, provider=provider)
     router = ResearchResultRouter(
@@ -1213,78 +1331,129 @@ def run_live_factory(root: Path = PRIVATE_ROOT) -> dict[str, Any]:
     )
     dispatcher.executors[RADAR_RESEARCH_EXECUTOR_ID] = ResearchTaskExecutor(research_service, role_catalog)
     dispatcher.profiles[(RADAR_RESEARCH_PROFILE.profile_id, RADAR_RESEARCH_PROFILE.version)] = RADAR_RESEARCH_PROFILE
-    checkpoint.event("preflight", "succeeded", model=MODEL_ID, reasoning_effort=REASONING_EFFORT,
-                     source_allowlist=[GITHUB_DOMAIN], daily_quota=DAILY_QUOTA, total_requests_max=TOTAL_REQUEST_BUDGET,
-                     branch=branch, research_provider="bounded GitHub releases metadata", retries=0)
-
-    radar_service = RadarGeneralService(
-        store=radar_store,
-        incremental=incremental,
-        queue=queue,
-        catalog=role_catalog,
-        executor_id=SIWC_ROLE_EXECUTOR_ID,
-        executor_profile=SIWC_ROLE_EXECUTOR_PROFILE,
-    )
-    checkpoint.event("radar_scan", "started", sources=[profile.source_id for profile in source_profiles], parallel_requests=1)
-    scan = radar_service.scan(
-        source_profiles,
-        policy=RadarTriagePolicy(relevance_threshold=0.50),
-        portfolio=(),
-        wait_for_origin_slot=True,
-    )
-    request_rows: list[dict[str, Any]] = []
-    for item in scan.fetches:
-        request_rows.append({
-            "source_id": item.fetch.source_id,
-            "requested_url": item.fetch.requested_url,
-            "status": item.fetch.status,
-            "http_status": item.fetch.http_status,
-            "fetched_at": item.fetch.fetched_at,
-            "bytes": item.fetch.payload_bytes,
-            "sha256": item.fetch.payload_sha256,
-            "documents": len(item.documents),
+    if resume_after_triage:
+        public_log = _load_json(root / "public-research-log.json")
+        request_rows = public_log.get("requests", [])
+        if (public_log.get("mission") != "ENG-CODEX-011" or public_log.get("run_id") != run_id
+                or not isinstance(request_rows, list) or len(request_rows) >= TOTAL_REQUEST_BUDGET):
+            raise RunBlocked("resume_public_request_budget_or_run_identity_mismatch")
+        batch_id = public_log.get("batch_id")
+        triage_task_id = f"radar-triage-{batch_id}"
+        triage_task = queue.get(triage_task_id)
+        if triage_task is None or triage_task.state != "succeeded" or triage_task.attempts != 1:
+            raise RunBlocked("resume_requires_one_durable_successful_triage_task")
+        request_path = root / "siwc-role-responses" / f"{triage_task_id}.request.json"
+        request_payload = _load_json(request_path)
+        batch_data = request_payload.get("prompt_input", {}).get("task_input_data", {}).get("data", {})
+        if batch_data.get("batch_id") != batch_id or not isinstance(batch_data.get("items"), list):
+            raise RunBlocked("resume_triage_input_artifact_mismatch")
+        scan = SimpleNamespace(
+            batch=SimpleNamespace(
+                batch_id=batch_id,
+                source_snapshot_ids=public_log.get("batch_source_snapshot_ids", []),
+                items=batch_data["items"],
+            ),
+            triage_task_id=triage_task_id,
+            fetches=[],
+        )
+        observed = [row for row in request_rows if row.get("status") == "observed" and row.get("http_status") == 200]
+        if not observed:
+            raise RunBlocked("resume_requires_a_successful_live_source_fetch")
+        triage_envelope = envelope_from_payload(triage_task.payload)
+        role_catalog.validate_result(triage_envelope, triage_task.result)
+        output_container = _load_json(root / "structured-outputs" / f"{triage_task_id}.json")
+        triage_meta = _load_json(root / "siwc-role-responses" / f"{triage_task_id}.metadata.json")
+        response_ref = triage_task.result.get("artifact_ref") if isinstance(triage_task.result, Mapping) else None
+        if not isinstance(response_ref, Mapping):
+            raise RunBlocked("resume_triage_response_reference_missing")
+        response_bytes = response_store.read_response(str(response_ref.get("ref")), str(response_ref.get("sha256")))
+        response_digest = _sha(response_bytes)
+        if (response_digest != output_container.get("raw_response_sha256")
+                or response_digest != triage_meta.get("response_sha256")
+                or triage_meta.get("response_completed") is not True
+                or triage_meta.get("output_validation") != "role_schema_valid"):
+            raise RunBlocked("resume_triage_artifact_integrity_check_failed")
+        triage_output = output_container.get("structured_output")
+        if not isinstance(triage_output, Mapping):
+            raise RunBlocked("resume_triage_output_not_structured")
+        checkpoint.event("triage_reused", "succeeded", task_id=triage_task_id,
+                         network_requests_reused=len(request_rows), prior_triage_calls=1,
+                         repeated_public_requests=0, repeated_siwc_calls=0)
+        live_items = _map_persisted_live_items(scan.batch.items, source_by_id, radar_store)
+    else:
+        checkpoint.event("preflight", "succeeded", model=MODEL_ID, reasoning_effort=REASONING_EFFORT,
+                         source_allowlist=[GITHUB_DOMAIN], daily_quota=DAILY_QUOTA, total_requests_max=TOTAL_REQUEST_BUDGET,
+                         branch=branch, research_provider="bounded GitHub releases metadata", retries=0)
+        radar_service = RadarGeneralService(
+            store=radar_store,
+            incremental=incremental,
+            queue=queue,
+            catalog=role_catalog,
+            executor_id=SIWC_ROLE_EXECUTOR_ID,
+            executor_profile=SIWC_ROLE_EXECUTOR_PROFILE,
+        )
+        checkpoint.event("radar_scan", "started", sources=[profile.source_id for profile in source_profiles], parallel_requests=1)
+        scan = radar_service.scan(
+            source_profiles,
+            policy=RadarTriagePolicy(relevance_threshold=0.50),
+            portfolio=(),
+            wait_for_origin_slot=True,
+        )
+        request_rows = []
+        for item in scan.fetches:
+            request_rows.append({
+                "source_id": item.fetch.source_id,
+                "requested_url": item.fetch.requested_url,
+                "status": item.fetch.status,
+                "http_status": item.fetch.http_status,
+                "fetched_at": item.fetch.fetched_at,
+                "bytes": item.fetch.payload_bytes,
+                "sha256": item.fetch.payload_sha256,
+                "documents": len(item.documents),
+            })
+        _atomic_json(root / "public-research-log.json", {
+            "mission": "ENG-CODEX-011",
+            "run_id": run_id,
+            "authorization_ref": "github-issue-41",
+            "robots_provenance": ROBOTS_PROVENANCE,
+            "terms_provenance": TERMS_PROVENANCE,
+            "requests": request_rows,
+            "candidate_count": len(scan.batch.items),
+            "batch_id": scan.batch.batch_id,
+            "batch_source_snapshot_ids": list(scan.batch.source_snapshot_ids),
         })
-    _atomic_json(root / "public-research-log.json", {
-        "mission": "ENG-CODEX-011",
-        "run_id": run_id,
-        "authorization_ref": "github-issue-41",
-        "robots_provenance": ROBOTS_PROVENANCE,
-        "terms_provenance": TERMS_PROVENANCE,
-        "requests": request_rows,
-        "candidate_count": len(scan.batch.items),
-        "batch_id": scan.batch.batch_id,
-        "batch_source_snapshot_ids": list(scan.batch.source_snapshot_ids),
-    })
-    observed = [row for row in request_rows if row["status"] == "observed" and row["http_status"] == 200]
-    if not observed or scan.triage_task_id is None:
-        raise RunBlocked("radar_found_no_successful_live_candidate_batch")
-    checkpoint.event("radar_scan", "succeeded", triage_task_id=scan.triage_task_id,
-                     batch_id=scan.batch.batch_id, candidate_count=len(scan.batch.items),
-                     network_requests=len(request_rows), successful_sources=len(observed),
-                     fetched_at=max((row["fetched_at"] for row in request_rows), default=None))
+        observed = [row for row in request_rows if row["status"] == "observed" and row["http_status"] == 200]
+        if not observed or scan.triage_task_id is None:
+            raise RunBlocked("radar_found_no_successful_live_candidate_batch")
+        checkpoint.event("radar_scan", "succeeded", triage_task_id=scan.triage_task_id,
+                         batch_id=scan.batch.batch_id, candidate_count=len(scan.batch.items),
+                         network_requests=len(request_rows), successful_sources=len(observed),
+                         fetched_at=max((row["fetched_at"] for row in request_rows), default=None))
 
-    triage_output, triage_meta, _ = _dispatch_role(
-        dispatcher=dispatcher, queue=queue, task_id=scan.triage_task_id,
-        envelope=envelope_from_payload(queue.get(scan.triage_task_id).payload),
-        root=root, response_store=response_store, usage_store=usage_store,
-        checkpoint=checkpoint, stage="triage_agent",
-    )
-    live_items = _map_live_items(scan, source_by_id, radar_store)
+        triage_output, triage_meta, _ = _dispatch_role(
+            dispatcher=dispatcher, queue=queue, task_id=scan.triage_task_id,
+            envelope=envelope_from_payload(queue.get(scan.triage_task_id).payload),
+            root=root, response_store=response_store, usage_store=usage_store,
+            checkpoint=checkpoint, stage="triage_agent",
+        )
+        live_items = _map_live_items(scan, source_by_id, radar_store)
     decisions = triage_output.get("decisions", []) if isinstance(triage_output, Mapping) else []
     eligible: list[dict[str, Any]] = []
     for decision in decisions:
-        if not isinstance(decision, Mapping) or decision.get("suggested_lane") not in {"principal", "reserva"}:
+        if not isinstance(decision, Mapping) or decision.get("suggested_lane") not in EDITOR_HANDOFF_LANES:
             continue
         refs = decision.get("evidence_refs", [])
         if not isinstance(refs, list):
             continue
-        candidates = [item for item in live_items.values() if item["item_id"] in refs]
+        decision_refs = {ref for ref in refs if isinstance(ref, str)}
+        candidates = [item for item in live_items.values()
+                      if _candidate_matches_triage_refs(item, decision_refs)]
         for candidate in candidates:
             eligible.append({**candidate, "triage_decision": dict(decision)})
     unique_eligible = {item["item_id"]: item for item in eligible}
     eligible = list(unique_eligible.values())[:MAX_CANDIDATES_TO_EDITOR]
     if not eligible:
-        raise RunBlocked("live_triage_produced_no_supported_principal_or_reserve_story")
+        raise RunBlocked("live_triage_produced_no_editorial_candidate_with_traceable_evidence")
     initial_request_id = "initial-radar-" + stable_hash(run_id)[:24]
     initial_packet, initial_evidence = _build_initial_packet(
         request_id=initial_request_id,
@@ -1357,13 +1526,15 @@ def run_live_factory(root: Path = PRIVATE_ROOT) -> dict[str, Any]:
             "investigation": investigator_output,
             "research_packet": initial_packet.to_dict(),
         },
-        "edition_state": {"edition_id": "eng-codex-011", "active_story_ids": [], "decision_owner": "direction"},
+        "edition_state": {"edition_id": "eng-codex-011", "current_date": "2026-10-26",
+                          "active_story_ids": [], "decision_owner": "direction"},
         "editorial_constraints": {
             "eligible_candidate_ids": [candidate["item_id"] for candidate in eligible],
             "eligible_journalists": PERSONA_LINEAGES,
             "publication_state": "not_published",
             "technical_testing_claims": "prohibited unless evidenced by this dossier",
             "character_rules": "recommend one approved persona; no DNA may be edited",
+            "triage_lane_policy": "monitoramento is a real triage outcome, not an automatic rejection or approval; select only if the specific release has a timely reader-relevant angle supported by evidence, and preserve any remaining research need",
         },
         "required_coverage": [
             "Select exactly one candidate_item_id from evidence_dossier.candidates.",
@@ -1883,6 +2054,8 @@ def main(argv: list[str] | None = None) -> int:
     subparsers = parser.add_subparsers(dest="command", required=True)
     run_parser = subparsers.add_parser("run", help="execute one authorized ENG-011 live newsroom proof")
     run_parser.add_argument("--image-path", type=Path, help="private original PNG for the internal preview")
+    resume_parser = subparsers.add_parser("resume", help="resume after the persisted successful Radar triage without repeating it")
+    resume_parser.add_argument("--image-path", type=Path, help="private original PNG for the internal preview")
     serve = subparsers.add_parser("serve", help=argparse.SUPPRESS)
     serve.add_argument("preview_root", type=Path)
     serve.add_argument("port_file", type=Path)
@@ -1892,7 +2065,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.image_path is not None:
             os.environ["ENGCODEX011_IMAGE_PATH"] = str(args.image_path.expanduser().resolve())
-        report = run_live_factory()
+        report = run_live_factory(resume_after_triage=args.command == "resume")
     except RunBlocked as error:
         root = PRIVATE_ROOT.expanduser().resolve()
         root.mkdir(parents=True, exist_ok=True)
