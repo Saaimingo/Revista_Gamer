@@ -4,7 +4,7 @@
 **Issue:** [#42](https://github.com/Saaimingo/Revista_Gamer/issues/42)
 **Documentação normativa:** [PR #43](https://github.com/Saaimingo/Revista_Gamer/pull/43), os três documentos foram lidos integralmente antes de qualquer mudança.
 **Branch:** `codex/eng-codex-012-architecture-contracts`, derivada de `codex/eng-codex-011-live-factory@27c6703`.
-**Status:** em andamento. U00 e U01 concluídas; U02/U03 em seguida. Nenhuma chamada SIWC/Plus ou pesquisa pública nesta missão.
+**Status:** em andamento. U00–U03 concluídas; próxima unidade U04. Nenhuma chamada SIWC/Plus ou pesquisa pública nesta missão.
 
 ## Limites ativos
 
@@ -23,27 +23,38 @@
 - Matriz módulo a módulo e por unidade está em `docs/engenharia/ENG-CODEX-012-MATRIZ-RASTREABILIDADE.md`.
 - Corrigido no dono do contrato: `RadarStore.get_row` agora aceita `(radar_topics, topic_id)` e emite código/fase sanitizados para chaves não permitidas.
 - `ResearchExecutionDiagnostic` v1.0 separa `phase`, `code` e `exception_type` da prosa do `ResearchPacket`; resultado persistente da tarefa Radar passou a v1.1, mantendo leitura retrocompatível do resultado v1.0. A mensagem da exceção não é serializada.
+- Issue #42 foi revalidada ao vivo; a Direção reiterou 7 chamadas arquivadas (109.336 tokens, 142.047 ms), estratégia de corrigir contratos antes de novo uso de franquia, autorização para trabalho Plus necessário e ausência de autorização para novas consultas públicas além das 4/4 da ENG-011.
+- U02 generalizou o contrato de resultado de agentes: `AgentResultEnvelope` agora grava v1.1 com `usage_receipt_ref` tipado e hash-checked, mantendo leitura/serialização v1.0. Cada execução SIWC persiste recibo de uso por tarefa/tentativa, vinculando tokens, latência, resposta, hash e ID de resposta do provedor; custo real e percentual de franquia ficam explicitamente indisponíveis.
+- U03 tornou a persistência da resposta SIWC recuperável: request imutável; resposta e manifesto publicados como bundle local atômico; leituras verificam task binding e hashes; artefatos flat existentes continuam legíveis. A recuperação local valida input atual, DNA/hash aprovado, instruções, modelo/esforço, resposta concluída e recibo, reconstrói o envelope sem chamar SIWC e é tentada antes de novo claim.
+- U03 substituiu reparos específicos do runner por APIs gerais da fila para adotar resultado externo já persistido, reconciliar campos ausentes de um resultado concluído sem trocar sua resposta e reencaminhar falha pré-externa identificada. Tentativas com chamada externa iniciada passam a `uncertain` e retries legados com marcador externo são colocados em quarentena.
+- A fronteira externa de pesquisa agora é marcada pelo callback imediatamente antes do transporte, não ao iniciar tarefa. O conector Radar chama o callback uma vez antes da primeira requisição e o repassa por `IncrementalRadarService`/provider; bloqueios prévios à rede não marcam chamada.
 
 ## Validação e resultados
 
 - Regressão antes da correção: `& '.\.venv\Scripts\python.exe' -m unittest motor_editorial.tests.test_radar_store.RadarStoreTests.test_get_row_reads_topic_by_typed_primary_key -q` — falhou com `RadarStoreError: Tabela/chave de leitura não suportada.`.
 - Regressão após a correção: lookup de tópico, diagnóstico estruturado, persistência após reiniciar `AgentQueue` e bloqueio de continuação vazia — 4/4 passaram.
 - Validação focada em CPython 3.11.9: `& '.\.venv\Scripts\python.exe' -m unittest motor_editorial.tests.test_agent_contracts motor_editorial.tests.test_orchestration motor_editorial.tests.test_radar_store motor_editorial.tests.test_radar_connectors motor_editorial.tests.test_radar_incremental motor_editorial.tests.test_research_service motor_editorial.tests.test_agent_workflow motor_editorial.tests.test_eng_codex_011_runner -q` — 124 testes em 45.664 s, OK.
+- U02/U03, suíte integrada focada em CPython 3.11: `& '.\.venv\Scripts\python.exe' -m unittest motor_editorial.tests.test_agent_contracts motor_editorial.tests.test_agent_siwc_executor motor_editorial.tests.test_orchestration motor_editorial.tests.test_agent_workflow motor_editorial.tests.test_radar_connectors motor_editorial.tests.test_radar_incremental motor_editorial.tests.test_research_service motor_editorial.tests.test_factory_multipauta -q` — 120 testes em 250.395 s, OK.
+- U02/U03: `py_compile` nos 14 módulos de código/teste modificados — OK; `git diff --check` — OK antes da atualização deste checkpoint.
+- Recuperação após interrupção entre persistência e conclusão da fila validou resposta e receipt com hashes idênticos, `attempts=1` e zero chamadas no cliente SIWC reiniciado; reparo do vínculo receipt no manifesto também reaproveitou arquivo existente por tarefa/tentativa. Testes locais/sintéticos comprovam apenas os estados cobertos, não homologação real de provedor.
 - Consultas SQLite de diagnóstico feitas com URI `mode=ro`. Nenhum registro, fonte ou pacote ENG-011 foi modificado.
-- Nenhuma chamada externa foi realizada durante a implementação/validação.
+- Nenhuma chamada SIWC/Plus nem consulta pública foi realizada durante a implementação/validação; respostas arquivadas não foram repetidas.
 
 ## Unidades concluídas
 
 - **U00:** inventário e matriz por módulo/unidade.
 - **U01:** causa raiz comprovada nos registros, allowlist corrigida, falha técnica estruturada separada do packet e resultado Radar persistido com diagnóstico na fila.
+- **U02:** compatibilidade de envelope de resultado v1.0/v1.1 e recibo de uso persistido e ligado por hash.
+- **U03:** resposta/manifesto atômicos, recuperação local sem chamada externa, fronteira externa correta e operações genéricas de adoção/reconciliação/requeue; validado com 120 testes offline focados.
 
 ## Próximo passo
 
-1. U02: revisar versões de envelopes/resultados, persistência de respostas/hash/uso e consumidores da mudança de resultado Radar v1.1; decidir migrações e compatibilidade de histórico.
-2. U03: mapear cada fronteira de crash na fila/SIWC e na coleta; garantir que resposta completa/receipt seja reutilizado e chamada externa incerta não seja repetida.
-3. Validar U02/U03 com regressões de fila reiniciada e respostas arquivadas; nenhuma chamada Plus/Radar nova.
-4. Atualizar matriz/checkpoint, fazer commit/push após a unidade e abrir PR draft para revisão técnica quando os contratos formarem uma mudança revisável.
+1. U04: modularizar/recuperar fetch→parse→ingest→evidência em Radar com registros locais e regressões offline, sem consultas públicas.
+2. U05–U07: completar handoffs da pauta entre triagem, investigador, editor, jornalista, pedido de pesquisa, fact-check e revisor, vinculados à story/revision/persona corretas.
+3. U08: localizar draft e imagem existentes com direitos demonstráveis; servir preview HTTP local e comprovar visualmente texto e imagem no navegador.
+4. U09: provar isolamento multipauta e agregação de orçamento sem duplicidade; uma pauta bloqueada não interrompe as demais.
+5. Registrar matriz/checkpoint e commits/push a cada unidade revisável; manter PR #44 draft, sem merge. U10 fica bloqueada até autorização específica para novas consultas públicas.
 
 ## Critérios ainda abertos
 
-Contratos gerais U02, recuperação confiável U03, arquitetura Radar offline U04, handoffs U05–U07, preview real em navegador U08, isolamento multipauta U09 e nova homologação U10 (bloqueada por autorização de pesquisa esgotada). A missão não está concluída enquanto algum critério obrigatório permanecer aberto.
+Arquitetura Radar offline U04, handoffs U05–U07, preview real em navegador U08, isolamento multipauta U09 e nova homologação U10 (bloqueada por autorização de pesquisa esgotada). A missão não está concluída enquanto algum critério obrigatório permanecer aberto.

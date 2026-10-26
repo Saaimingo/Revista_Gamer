@@ -202,6 +202,17 @@ class RaisingProvider:
         )
 
 
+class BoundaryProvider:
+    def search(self, request, profile, *, cached_document_ids, budget):
+        self.called = True
+        if budget.before_external_request is not None:
+            budget.before_external_request()
+        return ResearchProviderResult(
+            status="blocked", missing_evidence=request.required_evidence_kinds,
+            constraints=("offline boundary fixture",), requests_used=1,
+        )
+
+
 class AgentWorkflowTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory(prefix="revista-agent-workflow-e13-")
@@ -312,11 +323,32 @@ class AgentWorkflowTests(unittest.TestCase):
         self.assertEqual(research_outcome.state, "succeeded", research_outcome.error_code)
         research_task = queue.get(research_tasks[0].task_id)
         self.assertEqual(research_task.result["packet"]["status"], "blocked")
+        self.assertFalse(research_task.external_request_started)
         continuations = [
             task for task in queue.list_tasks()
             if task.task_type == "agent.role.evidence_investigator" and task.task_id != parent_id
         ]
         self.assertEqual(continuations, [])
+
+    def test_research_task_marks_external_boundary_only_when_provider_requests_it(self) -> None:
+        provider = BoundaryProvider()
+        self.research_service = ResearchService(store=self.radar_store, provider=provider)
+        queue = AgentQueue(Store(self.motor_path, self.artifact_dir))
+        router = ResearchResultRouter(
+            queue=queue, catalog=self.catalog, executor_profiles=self.execution_profiles,
+        )
+        dispatcher, _executor = self.dispatcher(
+            queue, router=router, role_executor=PublicScopeRoleExecutor(),
+        )
+        parent_id, _envelope = self.enqueue_role(queue, self.profile_a, "story-external-boundary")
+        self.assertEqual(dispatcher.dispatch_one(parent_id).state, "succeeded")
+        research_task = next(task for task in queue.list_tasks() if task.task_type == RADAR_RESEARCH_TASK_TYPE)
+
+        outcome = dispatcher.dispatch_one(research_task.task_id)
+
+        self.assertEqual(outcome.state, "succeeded")
+        self.assertTrue(provider.called)
+        self.assertTrue(queue.get(research_task.task_id).external_request_started)
 
     def test_provider_diagnostic_survives_in_the_durable_task_result(self) -> None:
         self.research_service = ResearchService(store=self.radar_store, provider=RaisingProvider())

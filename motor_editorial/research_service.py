@@ -13,7 +13,7 @@ import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
-from typing import Any, Mapping, Protocol, Sequence
+from typing import Any, Callable, Mapping, Protocol, Sequence
 from urllib.parse import urlsplit
 
 from .agent_contracts import (
@@ -66,6 +66,7 @@ class ResearchBudget:
     allowed_scope: tuple[str, ...]
     preferred_source_ids: tuple[str, ...]
     preferred_domains: tuple[str, ...]
+    before_external_request: Callable[[], None] | None = None
 
 
 @dataclass(frozen=True)
@@ -266,7 +267,13 @@ class ResearchService:
             raise ValueError("ResearchService exige ao menos um ResearchProfile.")
         self.profiles = profile_map
 
-    def execute(self, request: ResearchRequest, *, now: str | datetime | None = None) -> ResearchExecutionResult:
+    def execute(
+        self,
+        request: ResearchRequest,
+        *,
+        now: str | datetime | None = None,
+        before_external_request: Callable[[], None] | None = None,
+    ) -> ResearchExecutionResult:
         if not isinstance(request, ResearchRequest):
             raise ValueError("ResearchService exige ResearchRequest versionado.")
         fetched_at = _utc_iso(now)
@@ -322,12 +329,23 @@ class ResearchService:
             and missing_evidence
         ):
             provider_called = True
+            external_request_started = False
+
+            def mark_external_request_started() -> None:
+                nonlocal external_request_started
+                if external_request_started:
+                    return
+                if before_external_request is not None:
+                    before_external_request()
+                external_request_started = True
+
             budget = ResearchBudget(
                 max_sources=remaining_source_budget, max_requests=request.max_requests,
                 max_bytes=request.max_bytes, max_duration_seconds=request.max_duration_seconds,
                 allowed_scope=tuple(request.allowed_scope),
                 preferred_source_ids=tuple(request.preferred_source_ids),
                 preferred_domains=tuple(request.preferred_domains),
+                before_external_request=mark_external_request_started,
             )
             try:
                 provider_result = self.provider.search(
@@ -343,6 +361,9 @@ class ResearchService:
                 provider_result = ResearchProviderResult(status="blocked", constraints=(violation,))
             else:
                 violation = self._budget_violation(budget, provider_result)
+                if provider_result.requests_used > 0 and not external_request_started:
+                    mark_external_request_started()
+                    violation = violation or "retriever omitted the durable pre-request boundary callback"
                 if set(provider_result.missing_evidence) - set(request.required_evidence_kinds):
                     violation = "retriever returned an unrequested missing_evidence category"
             provider_documents: list[dict[str, Any]] = []

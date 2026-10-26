@@ -11,7 +11,7 @@ import json
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from email.utils import parsedate_to_datetime
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 from urllib.parse import urlsplit, urlunsplit
 
 from .db import stable_hash
@@ -152,7 +152,7 @@ class IncrementalRadarService:
 
     def fetch(
         self, profile: SourceProfile, *, now: str | datetime | None = None,
-        url: str | None = None,
+        url: str | None = None, before_external_request: Callable[[], None] | None = None,
     ) -> IncrementalFetchResult:
         target_url = canonicalize_content_url(url or profile.target_url())
         source = self.store.get_row("radar_sources", "source_id", profile.source_id)
@@ -166,6 +166,7 @@ class IncrementalRadarService:
             etag=cached["etag"] if cached else None,
             last_modified=cached["last_modified"] if cached else None,
             now=now,
+            before_external_request=before_external_request,
         )
         self.store.record_fetch_event(
             source_id=profile.source_id, request_url=target_url, observed_at=fetched.fetched_at,

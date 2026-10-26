@@ -28,7 +28,6 @@ from .orchestration import (
     TaskFailure,
 )
 from .research_service import (
-    PUBLIC_SOURCES_SCOPE,
     ResearchExecutionDiagnostic,
     ResearchService,
 )
@@ -81,11 +80,10 @@ class ResearchTaskExecutor:
                 blocked=True,
             ) from None
 
-        # If an explicitly configured provider might be reached, preserve the
-        # queue's existing uncertain-after-external-call retry guard.
-        if self.service.provider is not None and PUBLIC_SOURCES_SCOPE in request.allowed_scope:
-            context.mark_external_started()
-        execution = self.service.execute(request)
+        execution = self.service.execute(
+            request,
+            before_external_request=context.mark_external_started,
+        )
         return {
             "schema_version": RADAR_RESEARCH_RESULT_SCHEMA_VERSION,
             "request_id": execution.request_id,

@@ -21,7 +21,7 @@ from urllib.parse import parse_qs, urlparse
 from urllib.request import urlopen
 from unittest.mock import patch
 
-from motor_editorial.db import SCHEMA_VERSION, Store
+from motor_editorial.db import SCHEMA_VERSION, Store, json_dumps, stable_hash
 from motor_editorial.cli import _build_parser
 from motor_editorial.orchestration import (
     AgentProfile,
@@ -152,7 +152,7 @@ class AgentOrchestrationTests(unittest.TestCase):
             "status": "completed",
         }
 
-        self.assertTrue(self.queue.recover_completed_external_output(
+        self.assertTrue(self.queue.adopt_persisted_external_result(
             task_id, result, response_sha256=response_hash,
         ))
         recovered = self.queue.get(task_id)
@@ -160,7 +160,7 @@ class AgentOrchestrationTests(unittest.TestCase):
         self.assertEqual(recovered.attempts, 1)
         self.assertEqual(recovered.result, result)
         event = self.queue.events(task_id)[-1]
-        self.assertEqual(event["action"], "external_output_recovered")
+        self.assertEqual(event["action"], "persisted_external_result_adopted")
         self.assertEqual(event["detail"]["response_sha256"], response_hash)
         child_id = self.queue.enqueue(
             task_type="validation.child", payload={"role": "writer"},
@@ -171,8 +171,8 @@ class AgentOrchestrationTests(unittest.TestCase):
 
     def test_completed_external_output_recovery_requires_exact_response_hash(self) -> None:
         response_hash = "e" * 64
-        with self.assertRaisesRegex(ValueError, "hash exato"):
-            self.queue.recover_completed_external_output(
+        with self.assertRaisesRegex(ValueError, "resposta exata"):
+            self.queue.adopt_persisted_external_result(
                 "missing-task", {"artifact_ref": {"ref": "private://x", "sha256": response_hash},
                                  "output_hash": "f" * 64},
                 response_sha256=response_hash,
@@ -218,15 +218,17 @@ class AgentOrchestrationTests(unittest.TestCase):
         }
         reconciled = {**original, "requested_research": request}
 
-        self.assertTrue(self.queue.reconcile_completed_research_handoff(
-            queued_id, reconciled, response_sha256=response_hash,
+        self.assertTrue(self.queue.reconcile_succeeded_result_fields(
+            queued_id, {"requested_research": request},
+            expected_result_sha256=stable_hash(json_dumps(original)),
+            response_sha256=response_hash,
         ))
         task = self.queue.get(queued_id)
         self.assertEqual(task.state, "succeeded")
         self.assertEqual(task.attempts, 1)
         self.assertEqual(task.result, reconciled)
         event = self.queue.events(queued_id)[-1]
-        self.assertEqual(event["action"], "completed_research_handoff_reconciled")
+        self.assertEqual(event["action"], "persisted_result_fields_reconciled")
         self.assertEqual(event["detail"]["provider_calls_repeated"], 0)
 
     def test_completed_writer_research_reconciliation_rejects_changed_response(self) -> None:
@@ -259,10 +261,11 @@ class AgentOrchestrationTests(unittest.TestCase):
         self.queue.complete(queued_id, claimed.lease_owner, claimed.lease_generation, original)
         changed = {**original, "output_hash": "c" * 64}
 
-        with self.assertRaisesRegex(ValueError, "resposta e à tarefa"):
-            self.queue.reconcile_completed_research_handoff(
-                queued_id, changed, response_sha256=response_hash,
-            )
+        self.assertFalse(self.queue.reconcile_succeeded_result_fields(
+            queued_id, {"requested_research": {"request_id": "changed"}},
+            expected_result_sha256=stable_hash(json_dumps(original)),
+            response_sha256=changed["output_hash"],
+        ))
         self.assertIsNone(self.queue.get(queued_id).result["requested_research"])
 
     def test_pre_external_contract_failure_can_be_reopened_once_after_local_fix(self) -> None:
@@ -278,13 +281,15 @@ class AgentOrchestrationTests(unittest.TestCase):
             TaskFailure("agent_contract_invalid", "Local contract preparation failed.", blocked=True),
         ), "blocked")
 
-        self.assertTrue(self.queue.reopen_pre_external_contract_failure(task_id))
+        self.assertTrue(self.queue.requeue_pre_external_failure(
+            task_id, expected_error_code="agent_contract_invalid",
+        ))
         reopened = self.queue.get(task_id)
         self.assertEqual(reopened.state, "queued")
         self.assertEqual(reopened.attempts, 1)
         self.assertEqual(reopened.max_attempts, 2)
         self.assertFalse(reopened.external_request_started)
-        self.assertEqual(self.queue.events(task_id)[-1]["action"], "pre_external_contract_reopened")
+        self.assertEqual(self.queue.events(task_id)[-1]["action"], "pre_external_failure_requeued")
         next_claim = self.queue.claim_next(task_id=task_id)
         self.assertEqual(next_claim.attempts, 2)
 
@@ -638,6 +643,43 @@ class AgentOrchestrationTests(unittest.TestCase):
         self.assertEqual(second.state, "succeeded")
         self.assertEqual(self.queue.get(task_id).attempts, 2)
         self.assertEqual(self.queue.get(task_id).result, {"ok": True, "attempt": 2})
+
+    def test_retryable_failure_after_external_start_becomes_uncertain(self) -> None:
+        class ExternalTemporaryExecutor:
+            executor_id = "external-temporary"
+
+            def execute(self, task, profile, context):
+                context.mark_external_started()
+                raise TaskFailure("remote_busy", "Remote response was retryable.", retryable=True)
+
+        task_id = self.enqueue(key="external-retry-suppressed", executor="external-temporary", max_attempts=3)
+        dispatcher = TaskDispatcher(
+            self.queue,
+            executors={"external-temporary": ExternalTemporaryExecutor()},
+            profiles={(VALIDATION_PROFILE.profile_id, VALIDATION_PROFILE.version): VALIDATION_PROFILE},
+        )
+        first = dispatcher.dispatch_one(task_id)
+        self.assertEqual(first.state, "uncertain")
+        task = self.queue.get(task_id)
+        self.assertEqual(task.attempts, 1)
+        self.assertEqual(task.state, "uncertain")
+        self.assertTrue(task.external_request_started)
+        self.assertEqual(dispatcher.dispatch_one(task_id).state, "idle")
+        self.assertTrue(self.queue.events(task_id)[-1]["detail"]["automatic_retry_suppressed_after_external_start"])
+
+    def test_legacy_retry_wait_with_external_marker_is_quarantined_before_claim(self) -> None:
+        task_id = self.enqueue(key="legacy-external-retry", max_attempts=3)
+        with closing(self.store.connect()) as connection:
+            connection.execute(
+                "UPDATE agent_tasks SET state='retry_wait', external_request_started=1 WHERE id=?",
+                (task_id,),
+            )
+            connection.commit()
+        self.assertIsNone(self.queue.claim_next(task_id=task_id))
+        task = self.queue.get(task_id)
+        self.assertEqual(task.state, "uncertain")
+        self.assertEqual(task.attempts, 0)
+        self.assertEqual(self.queue.events(task_id)[-1]["action"], "external_retry_suppressed")
 
     def test_retry_limit_stops_the_durable_task(self) -> None:
         task_id = self.enqueue(key="retry-limit", executor="always-temporary", max_attempts=2)

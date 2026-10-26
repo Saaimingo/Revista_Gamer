@@ -77,6 +77,8 @@ class FakeProvider:
 
     def search(self, request, profile, *, cached_document_ids, budget):
         self.calls.append((profile.profile_id, cached_document_ids, budget.max_sources))
+        if budget.before_external_request is not None:
+            budget.before_external_request()
         if not self.results:
             raise AssertionError("Unexpected provider call with no queued fixture result.")
         result = self.results.pop(0)

@@ -24,7 +24,8 @@ from .orchestration import AgentProfile, AgentQueue, _assert_no_credentials
 AGENT_ROLE_PROFILE_SCHEMA_VERSION = "1.0"
 AGENT_TASK_ENVELOPE_SCHEMA_VERSION = "1.1"
 SUPPORTED_AGENT_TASK_ENVELOPE_SCHEMA_VERSIONS = frozenset({"1.0", "1.1"})
-AGENT_RESULT_ENVELOPE_SCHEMA_VERSION = "1.0"
+AGENT_RESULT_ENVELOPE_SCHEMA_VERSION = "1.1"
+SUPPORTED_AGENT_RESULT_ENVELOPE_SCHEMA_VERSIONS = frozenset({"1.0", AGENT_RESULT_ENVELOPE_SCHEMA_VERSION})
 RESEARCH_REQUEST_SCHEMA_VERSION = "1.1"
 SUPPORTED_RESEARCH_REQUEST_SCHEMA_VERSIONS = frozenset({"1.0", "1.1"})
 RESEARCH_PACKET_SCHEMA_VERSION = "1.0"
@@ -759,16 +760,17 @@ class AgentResultEnvelope:
     model_effort: str | None = None
     usage_reported: Mapping[str, Any] | None = None
     next_action_suggestion: str | None = None
+    usage_receipt_ref: ArtifactReference | None = None
     schema_version: str = AGENT_RESULT_ENVELOPE_SCHEMA_VERSION
 
     @classmethod
     def from_mapping(cls, value: Any) -> "AgentResultEnvelope":
         keys = {"schema_version", "task_id", "status", "output_schema_version", "artifact_ref", "material_claims",
                 "requested_research", "open_questions", "observed_constraints", "input_hash", "output_hash", "model_used",
-                "model_effort", "usage_reported", "created_at", "next_action_suggestion"}
-        optional = {"requested_research", "model_used", "model_effort", "usage_reported", "next_action_suggestion"}
+                "model_effort", "usage_reported", "created_at", "next_action_suggestion", "usage_receipt_ref"}
+        optional = {"requested_research", "model_used", "model_effort", "usage_reported", "next_action_suggestion", "usage_receipt_ref"}
         raw = _object(value, name="AgentResultEnvelope", required=keys - optional, optional=optional)
-        if raw["schema_version"] != AGENT_RESULT_ENVELOPE_SCHEMA_VERSION:
+        if raw["schema_version"] not in SUPPORTED_AGENT_RESULT_ENVELOPE_SCHEMA_VERSIONS:
             raise ContractValidationError("Versão de AgentResultEnvelope não suportada.")
         if raw["status"] not in RESULT_STATUSES:
             raise ContractValidationError("Status de AgentResultEnvelope inválido.")
@@ -777,6 +779,12 @@ class AgentResultEnvelope:
         request = ResearchRequest.from_mapping(raw["requested_research"]) if raw.get("requested_research") is not None else None
         usage = _json_mapping(raw["usage_reported"], "usage_reported") if raw.get("usage_reported") is not None else None
         artifact = ArtifactReference.from_mapping(raw["artifact_ref"])
+        usage_receipt_ref = (
+            ArtifactReference.from_mapping(raw["usage_receipt_ref"], "usage_receipt_ref")
+            if raw.get("usage_receipt_ref") is not None else None
+        )
+        if raw["schema_version"] == AGENT_RESULT_ENVELOPE_SCHEMA_VERSION and usage_receipt_ref is None:
+            raise ContractValidationError("AgentResultEnvelope v1.1 exige recibo de consumo persistido.")
         output_hash = _sha256(raw["output_hash"], "output_hash")
         if artifact.sha256 != output_hash:
             raise ContractValidationError("output_hash diverge do hash do artefato.")
@@ -792,11 +800,12 @@ class AgentResultEnvelope:
             model_used=_text(raw.get("model_used"), "model_used", maximum=128, optional=True),
             model_effort=_text(raw.get("model_effort"), "model_effort", maximum=64, optional=True), usage_reported=usage,
             next_action_suggestion=_text(raw.get("next_action_suggestion"), "next_action_suggestion", maximum=2_000, optional=True),
+            usage_receipt_ref=usage_receipt_ref,
             schema_version=raw["schema_version"],
         )  # type: ignore[arg-type]
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        value = {
             "schema_version": self.schema_version, "task_id": self.task_id, "status": self.status,
             "output_schema_version": self.output_schema_version, "artifact_ref": self.artifact_ref.to_dict(),
             "material_claims": [claim.to_dict() for claim in self.material_claims],
@@ -807,6 +816,9 @@ class AgentResultEnvelope:
             "usage_reported": _thaw(self.usage_reported) if self.usage_reported is not None else None,
             "next_action_suggestion": self.next_action_suggestion,
         }
+        if self.schema_version != "1.0" or self.usage_receipt_ref is not None:
+            value["usage_receipt_ref"] = self.usage_receipt_ref.to_dict() if self.usage_receipt_ref else None
+        return value
 
 
 REGIMENT_SOURCE = "docs/operacao/REGIMENTO-INTERNO-FABRICA-EDITORIAL-v0.1.md"

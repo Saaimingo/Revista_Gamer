@@ -524,7 +524,10 @@ class GitHubReleaseResearchProvider:
             return ResearchProviderResult(status="blocked", missing_evidence=request.required_evidence_kinds,
                                           constraints=("source route escaped exact host policy",))
         profile_for_source: SourceProfile = route["profile"]
-        result = self.incremental.fetch(profile_for_source, url=endpoint)
+        result = self.incremental.fetch(
+            profile_for_source, url=endpoint,
+            before_external_request=budget.before_external_request,
+        )
         fetch = result.fetch
         execution = {
             "request_id": request.request_id,
@@ -829,13 +832,13 @@ def _task_output(
     research_suggestion_count: int | None,
 ) -> tuple[dict[str, Any] | None, dict[str, Any] | None, dict[str, Any] | None]:
     task = queue.get(task_id)
-    metadata_path = root / "siwc-role-responses" / f"{task_id}.metadata.json"
+    _, _, metadata_path = response_store.artifact_paths(task_id)
     if task is None or not metadata_path.exists():
         return None, None, None
     metadata = _load_json(metadata_path)
     response_ref = task.result.get("artifact_ref") if isinstance(task.result, Mapping) else None
     if not isinstance(response_ref, Mapping):
-        response_path = root / "siwc-role-responses" / f"{task_id}.response.json"
+        _, response_path, _ = response_store.artifact_paths(task_id)
         if not response_path.exists():
             return None, metadata, None
         response_bytes = response_path.read_bytes()
@@ -882,8 +885,8 @@ def _load_succeeded_role_output(
     envelope = envelope_from_payload(task.payload)
     role_catalog.validate_task(envelope, input_payload=task.payload.get("input"))
     role_catalog.validate_result(envelope, task.result)
-    metadata_path = root / "siwc-role-responses" / f"{task_id}.metadata.json"
-    request_path = root / "siwc-role-responses" / f"{task_id}.request.json"
+    _, _, metadata_path = response_store.artifact_paths(task_id)
+    request_path, _, _ = response_store.artifact_paths(task_id)
     output_path = root / "structured-outputs" / f"{task_id}.json"
     if not metadata_path.is_file() or not request_path.is_file() or not output_path.is_file():
         raise RunBlocked("persisted_role_output_artifacts_are_incomplete")
@@ -900,7 +903,7 @@ def _load_succeeded_role_output(
             or metadata.get("store") is not False or metadata.get("stream") is not True
             or metadata.get("model") != MODEL_ID or metadata.get("reasoning_effort") != REASONING_EFFORT):
         raise RunBlocked("persisted_role_response_integrity_check_failed")
-    recovered = any(event.get("action") == "external_output_recovered" for event in queue.events(task_id))
+    recovered = any(event.get("action") == "persisted_external_result_adopted" for event in queue.events(task_id))
     if metadata.get("output_validation") != "role_schema_valid" and not (
         recovered and metadata.get("output_validation") == "result_envelope_rejected"
     ):
@@ -957,7 +960,7 @@ def _dispatch_role(
     if task is None:
         checkpoint.event(stage, "blocked", task_id=task_id, error_code="task_missing_after_dispatch")
         raise RunBlocked("task_missing_after_dispatch")
-    raw_file = root / "siwc-role-responses" / f"{task_id}.response.json"
+    _, raw_file, _ = response_store.artifact_paths(task_id)
     suggestion_count: int | None = None
     if raw_file.exists():
         try:
@@ -1186,8 +1189,8 @@ def _recover_completed_investigator_output(
     envelope = envelope_from_payload(task.payload)
     if envelope.role_id != "evidence_investigator":
         raise RunBlocked("persisted_recovery_task_is_not_the_investigator")
-    metadata_path = root / "siwc-role-responses" / f"{task_id}.metadata.json"
-    request_path = root / "siwc-role-responses" / f"{task_id}.request.json"
+    _, _, metadata_path = response_store.artifact_paths(task_id)
+    request_path, _, _ = response_store.artifact_paths(task_id)
     structured_path = root / "structured-outputs" / f"{task_id}.json"
     if not metadata_path.is_file() or not request_path.is_file() or not structured_path.is_file():
         raise RunBlocked("persisted_investigator_artifacts_are_incomplete")
@@ -1258,7 +1261,10 @@ def _recover_completed_investigator_output(
         "next_action_suggestion": "human_review_required",
     }).to_dict()
     role_catalog.validate_result(envelope, result_mapping)
-    if not queue.recover_completed_external_output(task_id, result_mapping, response_sha256=response_digest):
+    if not queue.adopt_persisted_external_result(
+        task_id, result_mapping, response_sha256=response_digest,
+        expected_input_hash=envelope.input_hash,
+    ):
         raise RunBlocked("investigator_queue_recovery_transition_rejected")
     normalized_hash = stable_hash(json_dumps(normalized_output))
     _atomic_json(root / "dossier" / "investigator-output-recovery.json", {
@@ -1298,8 +1304,8 @@ def _recover_completed_writer_research_handoff(
             or packet.get("status") != "partial"
             or task.payload.get("research_cycle_already_used") is True):
         raise RunBlocked("initial_partial_packet_does_not_match_research_recovery_boundary")
-    metadata_path = root / "siwc-role-responses" / f"{task_id}.metadata.json"
-    request_path = root / "siwc-role-responses" / f"{task_id}.request.json"
+    _, _, metadata_path = response_store.artifact_paths(task_id)
+    request_path, _, _ = response_store.artifact_paths(task_id)
     output_path = root / "structured-outputs" / f"{task_id}.json"
     if not metadata_path.is_file() or not request_path.is_file() or not output_path.is_file():
         raise RunBlocked("persisted_writer_research_artifacts_are_incomplete")
@@ -1354,14 +1360,16 @@ def _recover_completed_writer_research_handoff(
         or research_request.requester_persona_id != envelope.persona_id
     ):
         raise RunBlocked("recovered_research_request_binding_is_invalid")
-    reconciled = dict(task.result)
-    if reconciled.get("requested_research") is not None:
+    if task.result.get("requested_research") is not None:
         raise RunBlocked("writer_result_already_contains_a_research_handoff")
-    reconciled["requested_research"] = research_request.to_dict()
+    request_mapping = research_request.to_dict()
+    reconciled = {**task.result, "requested_research": request_mapping}
     result_envelope = AgentResultEnvelope.from_mapping(reconciled)
     role_catalog.validate_result(envelope, result_envelope.to_dict())
-    if not queue.reconcile_completed_research_handoff(
-        task_id, result_envelope.to_dict(), response_sha256=response_digest,
+    if not queue.reconcile_succeeded_result_fields(
+        task_id, {"requested_research": result_envelope.requested_research.to_dict()},
+        expected_result_sha256=stable_hash(json_dumps(task.result)),
+        response_sha256=response_digest,
     ):
         raise RunBlocked("writer_research_handoff_reconciliation_transition_rejected")
     metadata["research_mediation_recovery"] = {
@@ -1437,8 +1445,8 @@ def _archive_persisted_writer_revision_with_evidence_ref_repair(
     envelope = envelope_from_payload(task.payload)
     if envelope.role_id != "persona_writer":
         raise RunBlocked("persisted_revision_reference_failure_is_not_from_persona_writer")
-    metadata_path = root / "siwc-role-responses" / f"{task_id}.metadata.json"
-    request_path = root / "siwc-role-responses" / f"{task_id}.request.json"
+    _, _, metadata_path = response_store.artifact_paths(task_id)
+    request_path, _, _ = response_store.artifact_paths(task_id)
     output_path = root / "structured-outputs" / f"{task_id}.json"
     if not metadata_path.is_file() or not request_path.is_file() or not output_path.is_file():
         raise RunBlocked("persisted_writer_revision_artifacts_are_incomplete")
@@ -1953,7 +1961,7 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
         triage_task = queue.get(triage_task_id)
         if triage_task is None or triage_task.state != "succeeded" or triage_task.attempts != 1:
             raise RunBlocked("resume_requires_one_durable_successful_triage_task")
-        request_path = root / "siwc-role-responses" / f"{triage_task_id}.request.json"
+        request_path, _, _ = response_store.artifact_paths(triage_task_id)
         request_payload = _load_json(request_path)
         batch_data = request_payload.get("prompt_input", {}).get("task_input_data", {}).get("data", {})
         if batch_data.get("batch_id") != batch_id or not isinstance(batch_data.get("items"), list):
@@ -1973,7 +1981,7 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
         triage_envelope = envelope_from_payload(triage_task.payload)
         role_catalog.validate_result(triage_envelope, triage_task.result)
         output_container = _load_json(root / "structured-outputs" / f"{triage_task_id}.json")
-        triage_meta = _load_json(root / "siwc-role-responses" / f"{triage_task_id}.metadata.json")
+        _, _, triage_metadata_path = response_store.artifact_paths(triage_task_id); triage_meta = _load_json(triage_metadata_path)
         response_ref = triage_task.result.get("artifact_ref") if isinstance(triage_task.result, Mapping) else None
         if not isinstance(response_ref, Mapping):
             raise RunBlocked("resume_triage_response_reference_missing")
@@ -2361,7 +2369,9 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
                 writer_envelope, input_payload=existing_writer_task.payload.get("input"),
                 research_packet=persisted_packet, persona_instructions=persona_text,
             )
-            if not queue.reopen_pre_external_contract_failure(existing_writer_task_id):
+            if not queue.requeue_pre_external_failure(
+                existing_writer_task_id, expected_error_code="agent_contract_invalid",
+            ):
                 raise RunBlocked("writer_pre_external_recovery_transition_rejected")
             checkpoint.event("writer_preflight_reopened", "succeeded", task_id=existing_writer_task_id,
                              previous_external_requests=0, next_queue_attempt=2,

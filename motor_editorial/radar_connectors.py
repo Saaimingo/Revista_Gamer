@@ -534,6 +534,7 @@ class RadarConnectorService:
         etag: str | None = None,
         last_modified: str | None = None,
         now: str | datetime | None = None,
+        before_external_request: Callable[[], None] | None = None,
     ) -> FetchResult:
         current_time = self._now(now)
         fetched_at = current_time.isoformat(timespec="seconds")
@@ -644,6 +645,9 @@ class RadarConnectorService:
                             retry_at=quota.retry_at, redirect_count=redirects,
                             error_code=quota.reason or "domain_quota_blocked",
                         )
+                if before_external_request is not None:
+                    before_external_request()
+                    before_external_request = None
                 response = self.transport.request(
                     current_url, pinned_ip, headers=request_headers, timeout_seconds=profile.timeout_seconds,
                     max_response_bytes=profile.max_response_bytes, allow_loopback_http=self.allow_loopback_http,

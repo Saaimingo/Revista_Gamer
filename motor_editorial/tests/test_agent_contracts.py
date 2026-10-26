@@ -12,6 +12,7 @@ from motor_editorial.agent_contracts import (
     AGENT_ROLE_PROFILE_SCHEMA_VERSION,
     AgentRoleCatalog,
     AgentRoleProfile,
+    AgentResultEnvelope,
     AgentTaskEnvelope,
     ContractValidationError,
     ResearchPacket,
@@ -288,6 +289,18 @@ class AgentContractTests(unittest.TestCase):
         del malformed["material_claims"]
         with self.assertRaises(ContractValidationError):
             self.catalog.validate_result(envelope, malformed)
+
+    def test_result_envelope_v1_1_requires_usage_receipt_and_keeps_v1_0_readable(self) -> None:
+        envelope = task_envelope(self.profile)
+        original = result_for(envelope)
+        self.assertEqual(AgentResultEnvelope.from_mapping(original).schema_version, "1.0")
+        current = {**original, "schema_version": "1.1"}
+        with self.assertRaisesRegex(ContractValidationError, "recibo de consumo"):
+            AgentResultEnvelope.from_mapping(current)
+        current["usage_receipt_ref"] = {"ref": "agent-usage/task.attempt-001.json", "sha256": "d" * 64}
+        result = AgentResultEnvelope.from_mapping(current)
+        self.assertEqual(result.usage_receipt_ref.sha256, "d" * 64)
+        self.assertEqual(result.to_dict()["usage_receipt_ref"], current["usage_receipt_ref"])
 
     def test_dispatcher_loads_contract_and_persists_result_in_existing_queue_ledger(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
