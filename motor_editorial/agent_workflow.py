@@ -198,6 +198,11 @@ class ResearchResultRouter:
         if parent_result.requested_research != request:
             raise ValueError("Pesquisa concluída não pertence ao resultado da tarefa de origem.")
         self._validate_request_binding(parent_envelope, request, parent.task_id)
+        if packet.status == "blocked" and not packet.document_refs and not packet.claim_refs:
+            # A blocked empty packet has no research result to return to the
+            # journalist. Do not enqueue a model continuation that can only
+            # repeat the request or write without the evidence it asked for.
+            return
 
         original_input = parent.payload.get("input")
         if not isinstance(original_input, Mapping):

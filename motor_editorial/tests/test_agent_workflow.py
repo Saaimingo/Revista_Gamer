@@ -27,7 +27,12 @@ from motor_editorial.agent_workflow import (
 from motor_editorial.db import Store, json_dumps, stable_hash
 from motor_editorial.orchestration import AgentQueue, TaskDispatcher, VALIDATION_PROFILE
 from motor_editorial.radar_store import RadarStore
-from motor_editorial.research_service import RADAR_INDEX_SCOPE, ResearchService
+from motor_editorial.research_service import (
+    PUBLIC_SOURCES_SCOPE,
+    RADAR_INDEX_SCOPE,
+    ResearchProviderResult,
+    ResearchService,
+)
 
 
 def role_profile(role_id: str) -> AgentRoleProfile:
@@ -168,6 +173,27 @@ class SyntheticRoleExecutor:
         return result_for(envelope)
 
 
+class PublicScopeRoleExecutor(SyntheticRoleExecutor):
+    def execute(self, task, profile, context):
+        envelope = context.agent_task_envelope
+        request = make_research_request(envelope)
+        public_request = ResearchRequest.from_mapping({
+            **request.to_dict(),
+            "allowed_scope": [RADAR_INDEX_SCOPE, PUBLIC_SOURCES_SCOPE],
+        })
+        self.calls.append((envelope.role_id, envelope.story_id, None))
+        return result_for(envelope, requested_research=public_request)
+
+
+class BlockedProvider:
+    def search(self, request, profile, *, cached_document_ids, budget):
+        return ResearchProviderResult(
+            status="blocked",
+            missing_evidence=request.required_evidence_kinds,
+            constraints=("fixture retriever blocked",),
+        )
+
+
 class AgentWorkflowTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory(prefix="revista-agent-workflow-e13-")
@@ -256,6 +282,33 @@ class AgentWorkflowTests(unittest.TestCase):
         )
         self.assertIsNotNone(role_executor.calls[-1][2])
         self.assertFalse(any(task.task_type.startswith("workflow.") for task in queue.list_tasks()))
+
+    def test_blocked_empty_research_packet_does_not_enqueue_journalist_continuation(self) -> None:
+        self.research_service = ResearchService(
+            store=self.radar_store,
+            provider=BlockedProvider(),
+        )
+        queue = AgentQueue(Store(self.motor_path, self.artifact_dir))
+        router = ResearchResultRouter(
+            queue=queue, catalog=self.catalog, executor_profiles=self.execution_profiles,
+        )
+        dispatcher, _executor = self.dispatcher(
+            queue, router=router, role_executor=PublicScopeRoleExecutor(),
+        )
+        parent_id, _envelope = self.enqueue_role(queue, self.profile_a, "story-blocked-research")
+
+        self.assertEqual(dispatcher.dispatch_one(parent_id).state, "succeeded")
+        research_tasks = [task for task in queue.list_tasks() if task.task_type == RADAR_RESEARCH_TASK_TYPE]
+        self.assertEqual(len(research_tasks), 1)
+        research_outcome = dispatcher.dispatch_one(research_tasks[0].task_id)
+        self.assertEqual(research_outcome.state, "succeeded", research_outcome.error_code)
+        research_task = queue.get(research_tasks[0].task_id)
+        self.assertEqual(research_task.result["packet"]["status"], "blocked")
+        continuations = [
+            task for task in queue.list_tasks()
+            if task.task_type == "agent.role.evidence_investigator" and task.task_id != parent_id
+        ]
+        self.assertEqual(continuations, [])
 
     def test_restart_replays_success_result_and_routes_idempotently(self) -> None:
         first_queue = AgentQueue(Store(self.motor_path, self.artifact_dir))
