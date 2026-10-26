@@ -101,3 +101,19 @@ O repositório GitHub é público. PR #30 e os relatórios históricos E17–E19
 ## Próximo passo exato
 
 H01/H02 estão implementadas e enviadas (`60c4c0f`, `7256db1`), validadas por 109 testes focados, repetição de 13 testes críticos, `compileall` e `git diff --check`; evidências H01/H02 registradas na Issue #33 e PR #34. H03 concluiu o gate técnico: uma consulta ao catálogo, refresh suportado e uma inferência real concluída, sem login/consentimento novo. A resposta original e metadados estão preservados localmente e indexados; a ressalva de encoding está registrada e orienta o harness H04. Próximo: H04 — rever ao vivo as fontes de DNA e decisões, montar inputs UTF-8 com hash verificado e executar os cenários autorizados isolados de Carranca, Beto e Nina. P/J e avaliação humana continuam pendentes; nada foi publicado.
+
+## H04 — primeira leva privada preparada (2026-10-25 21:52 BRT)
+
+**Estado:** preparação local concluída; zero inferências H04 executadas neste checkpoint. PR #34 permanece aberta/draft e sem reviews; branch sincronizada antes desta atualização. A sessão do runner mantém a fila H04 local pronta e aguardando despacho controlado.
+
+**Fontes e identidade:** os 16 arquivos privados travados para H04 foram revalidados contra os SHA-256 do manifesto fonte. Os textos carregados são os documentos de perfil fixados por commit: Carranca/Ranzinza, pacote consolidado v1.0 em 3d651fe1951818767b4a6b935732857f08cb7849; Beto, GAMER.md v0.2 em 21381c0975bef1da048d7887cbdfbd0dd97bed96; Nina, NINA-PRISMA.md v1.0 no mesmo commit. Os hashes do conteúdo do DNA efetivamente carregado ficam no manifesto privado por tarefa. Nenhuma fonte ou perfil foi alterado.
+
+**Pacotes de evidência:** três fixtures UTF-8 privadas e inteiramente fictícias, uma para cada T13 profundo (CPU para Carranca, jogo de luta para Beto, anatomia de mod para Nina). Cada uma identifica claims, fontes simuladas, métodos/limites e proíbe alegações reais. Inputs, diretório e documentos fonte tiveram SHA-256 verificados antes do despacho. Arquivo de preparação: %USERPROFILE%\.codex\Revista_Gamer\ensaios-008\h04-isolated-batch-20261026\batch-inputs.json.
+
+**Preflight sem rede:** a credencial existente foi lida sem exibir valores sensíveis e contém o escopo de uso direto já autorizado. O catálogo não foi consultado novamente. O lote está preparado no AgentQueue/SQLite privado existente para executar pelo mesmo TaskDispatcher com persona_writer, modelo gpt-6-luna, esforço max, sem fallback, uma chamada por tarefa, retenção de resposta integral, gate humano obrigatório e publication_state=not_published. Nenhuma chamada SIWC ocorreu na preparação.
+
+**Limite de consumo:** o usuário informou 16% da franquia compartilhada antes da primeira leva. Para respeitar o orçamento, executar agora somente os três casos T13, um por persona, em ordem e com checkpoint entre resultados. Os segundos casos de correção permanecem pendentes: Carranca T06, Beto T09 e Nina T08. Não marcar H04 completo até esses casos e as avaliações P/J pendentes serem resolvidos ou registrados como bloqueados por orçamento.
+
+**Hashes dos inputs T13:** Carranca 2cb680650abf0e79cacac5f280f5bcfec2cc96f03248bb59839e6b65cf87cf7f; Beto 6392334eddedadd861d40ca6c936927c35ef5173ef60c123fb911ad71a92ab0b; Nina 8b9b2e0e39eb436ae619d72fdc451de181c2e9e739ceb4793f08efeb6fa20cb1.
+
+**Próximo passo:** despachar apenas Carranca T13. Após cada inferência, verificar estado, resposta completa, schema, hash, consumo, original integral e link no índice privado. Parar o lote em 401/403, 429, novo consentimento, modelo/esforço divergente, saída incerta/incompleta, schema inválido ou orçamento insuficiente; não repetir uma chamada incerta. Não publicar texto bruto no GitHub.
