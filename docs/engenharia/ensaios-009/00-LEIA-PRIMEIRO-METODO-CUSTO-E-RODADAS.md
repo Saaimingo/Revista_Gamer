@@ -1,0 +1,47 @@
+# ENG-CODEX-009 / RODADA EDITORIAL 2 — Método, controle, memória experimental e orçamento
+**Criado pelo Fundador 2 em 25/10/2026; leitura e planejamento autorizados; NENHUM TESTE REAL AUTORIZADO PARA ESTA NOITE.**
+**Amanhã a Direção dará ordem de execução explícita.** Não usar esta documentação para consumir o 1% restante da franquia em 25/10/2026; não alterar a missão 008/Issue #33/H05 que esteja em execução local. Esta é missão futura de conteúdo e validação, distinta da implementação do motor.
+
+## Objetivo
+Três reportagens longas, com investigação, exposição, comparação e veredito, em ambientes de fontes reais. Não oferecer texto pronto como resposta nem opiniões pré-moldadas. O jornalista deve selecionar evidências, comparar perspectivas, identificar lacunas e formular julgamento próprio; a revista NUNCA alegará medições, jogatina, instalações ou entrevistas que não realizou.
+
+Pacotes: 01 Carranca = AMD Radeon RX 9050 4/8 GB e comparação 9060 XT 8/16 GB; 02 Beto = Resident Evil Requiem, campanha, proposta criativa, recepção e performance PC; 03 Nina = REFramework no ecossistema de mods de Resident Evil Requiem, documentação, incompatibilidades e comunidade. Mesma franquia, duas lentes (Beto/Nina), mas assuntos claramente distintos.
+
+O pacote é um **inventário de fontes verificadas em 25/10/2026**, NÃO reprodução autorizada de documentos terceiros nem prova de que o Motor já possui todo conteúdo desses URLs no Radar. Os links devem ser lidos por humano ou por coletor permitido em rodada futura, segundo escopo e robots/licenças/taxas; cada afirmação derivada indica fonte por ID. Nunca ampliar automaticamente alcance externo com a Issue #35: a autorização H05/008 é somente pesquisa **index-only**. Se não houver permissão para leitura externa na rodada 009, preparar curadoria humana no pacote ou usar cache documental licitamente obtido; registrar bloqueio e não fingir acesso.
+
+## Dois regimes de acesso
+1. **Dossiê do jornalista:** lista de documentos identificados por ID, trechos de descrição factual ORIGINAIS curtos/parafraseados, condições e dados essenciais + perguntas editoriais. É intencionalmente NÃO conclusivo; ordenar fontes por prioridade de evidência sem entregar um veredito. Pode haver conflito de metodologias, relato isolado e informação ausente.
+2. **Gabarito/controle do avaliador (este arquivo e notas privadas):** hipóteses, bloqueios e critérios de qualidade. **NÃO anexar este documento ao contexto do jornalista**; o avaliador recebe todas as fontes para conferência, não a pessoa sintética. Não dar notas automáticas enquanto a fonte efetiva não for inspecionada.
+
+## Protocolo repetível A/B e longitudinal
+- Registrar antes de cada rodada: run_id, data/hora, caso, dossier_version, lista completa de source_ids e versões/URLs, hash da ENTRADA exata, brief/constrangimentos, code_commit, persona_id, persona_version, persona_hash normalizado, perfil funcional, modelo slug efetivamente listado, reasoning_effort, parâmetros de inferência configurados (inclusive temperatura técnica quando aplicável), prompt/instruções, ambiente/idioma, estado da pesquisa e revisão.
+- **A (congelado):** testar cada jornalista com DNA idêntico e dossier/brief fixados, pelo menos duas repetições em dias diferentes quando houver cota. Ordem aleatória dos casos para evitar viés de execução; nenhuma atualização automática de docs ou instruções durante a série A.
+- **B (perturbação controlada):** alterar UM fator por vez (ordem dos documentos, disponibilidade de uma fonte contraditória, tamanho solicitado, complexidade de lacuna, modelo executor se aprovado); registrar hash e diferença. Nunca confundir B com simples repetição de A.
+- **C (refinamento, somente após análise A/B):** se padrões de falha persistirem e o diretor autorizar, ajustar ADENDO OPERACIONAL/contrato/prompt de tarefa separado do DNA-base aprovado. Registrar patch/diff, manter baseline intacto, repetir casos A e B. Uma nota melhor num único caso não demonstra evolução; observar regressão e desvio entre rodadas.
+- Guardar avaliações P=persona, T=temperatura narrativa (intensidade/ritmo/ironia/hospitalidade/curiosidade, por contexto e personagem), J=jornalismo/atribuição/profundidade, F=fidelidade factual verificável/erros bloqueantes. Escalas **proporcionais por rubrica**, nunca comparar diretamente 12/14, 9/12 e 9/10 como se fossem a mesma escala. Manter notas absolutas e percentuais normalizados com número de itens, e a rubrica exata. Não afirmar que média=metade significa desempenho aceitável; limiares dependem de requisitos editoriais.
+- Dois avaliadores distintos: (a) sistema com rubrica e evidências por item, (b) fundador humano após ler **a matéria integral**, original bruto e versões revisadas separadas. Obter crítica por trecho/parágrafo, declaração falsa identificada e motivo do desacordo. Preferir leitura cega sem assinatura em amostra paralela, sem alterar original.
+- A variação observada entre ensaios pode ter múltiplos motores: amostra pequena, fonte incompleta, input corrompido, modelo/effort diferentes, limite de output/contexto, sorte da geração, ruído de avaliador, tema/gênero, ordem das evidências. Diagnosticar causalidade por isolamento de variável, não “consertar DNA” por reflexo.
+- Pré-aprovação não habilita publicação. Gate de direitos, checagem de fatos, revisão humana e veredito permanecem.
+
+## Medição operacional OBRIGATÓRIA (engenharia: adicionar ao ledger/test runner antes da rodada)
+Escrever uma linha JSON por invocação e campo de agregação CSV/JSON: test_id/run_id, journalist/persona, role, model/effort, timestamp, case/dossier versions, text_original_sha, context_bytes, prompt_tokens, completion_tokens, reasoning_tokens quando reportados, total_tokens, latency_ms, request_count, research_index_hits, research_cache_hits, network_requests, calls_success/failed/uncertain, retry_count, schema_status, bytes_retidos, actual_billed_api_cost (nulo para SIWC Plus sem medição monetária), blocked_reason, publication=false. Token count técnico reportado pelo Responses inclui raciocínio na saída quando aplicável: NÃO somar reasoning_tokens uma segunda vez ao total.
+
+**SEPARAR TRÊS INDICADORES**, pois não são intercambiáveis: (1) tokens/latência reportados pelo SIWC por inferência, (2) variação da franquia visível do Codex/Plus na interface, fotografada/anotada antes e após lotes, (3) custo monetário real de API (zero se nenhuma API paga usada; custo marginal monetário da assinatura não decorre de tokens). Não fingir relação linear entre tokens e porcentagem da cota compartilhada, nem preço por token para a assinatura Plus. Quando uma medição faltar, escrever NAO_DISPONIVEL, não “zero”.
+
+Relatórios por persona: total inferências, mediana e intervalo de input/output/total tokens e latência; chamadas por reportagem acabada/checada/revisada, taxa de revisão, cold/warm context e cache local, custo de pesquisa (requisições locais/externas reais), produtividade por janela observada. Estimar capacidade da revista MENSAL com cenários (ex.: matérias de 1, 2 e 3 ciclos de edição) explicitando margem de segurança e variação; evitar extrapolar diretamente 6 chamadas para uma edição completa ou supor que 30 dias garantem cota ilimitada.
+
+**Proteção de textos:** preservar todas as respostas integrais como UTF-8 bruto + manifestos com SHA-256 em diretório PRIVADO já adotado para 008; criar índice de leitura, não subir textos à PR pública, não mostrar tokens OAuth, não sobrescrever originais. Guardar revisão separada. O 'temperamento/temperatura' aqui é qualidade de voz, não necessariamente o parâmetro numérico de geração.
+
+## Execução de amanhã — CHECKLIST DE GATES
+- [ ] Diretor inicia explicitamente; saldo suficiente, status de SIWC, sem repetição de chamadas incertas e sem comprar API.
+- [ ] Codex lê checkpoint 008 e NÃO reinicia H04 nem E01–E19; define destino de implementação E09 após confirmar H05 e estado remoto.
+- [ ] Fonte/robots/licença/política de pesquisa autorizada; documentos realmente acessíveis ficam com source_id e snapshot verificável; se origem não puder ser consultada, marcar NAO_OBTIDO.
+- [ ] Arquivar briefs separados dos materiais de avaliação; passar mesmos pacotes controlados às mesmas versões de DNA, sem escrever o veredito.
+- [ ] Executar ensaio de uma pessoa por vez; checkpoint a cada 1–3 inferências e registrar cota. Os pacotes não autorizam inferência antes do comando do diretor.
+- [ ] Coletar texto integral original e nota P/T/J/F separadas; inspecionar possíveis fatos inventados, uso de fontes e questões de direitos.
+- [ ] Emitir relatório humano antes de mexer em instruções ou ampliar cenários. Nada de chamar bom/ruim um personagem pelo primeiro resultado.
+
+## Fontes de controle
+ENG-CODEX-008 Issue #33, PR #34 e checkpoint. Decisão index-only da Issue #35. Matriz de 48 casos nas PRs #13/#19. Diretriz transversal PR #27. Nenhum dos seis textos reais anteriores está no GitHub público; abrir índice privado no Windows, nunca reimprimir como se já tivesse sido lido pelo Fundador 2.
+
+**Próximos pacotes:** 01 RX9050; 02 REQUIEM; 03 REFRAMEWORK; 04 TAXONOMIA DE FONTES. Estas fontes representam estado de pesquisa 25/10/2026 e devem ser revalidadas na data de uso.
