@@ -11,6 +11,19 @@ from motor_editorial.evidence_packages import DOSSIERS
 
 
 class EngCodex009RunnerTests(unittest.TestCase):
+    def test_final_schema_status_prefers_post_validation_metadata(self) -> None:
+        self.assertEqual(
+            eng_codex_009._final_schema_status(
+                {"output_validation": "role_schema_valid"},
+                {"schema_status": "not_yet_validated"},
+            ),
+            "role_schema_valid",
+        )
+        self.assertEqual(
+            eng_codex_009._final_schema_status({}, {"schema_status": "provider_call_failed"}),
+            "provider_call_failed",
+        )
+
     def test_prepare_snapshots_verbatim_approved_docs_and_curated_only_trial_inputs(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             private_root = Path(temporary)

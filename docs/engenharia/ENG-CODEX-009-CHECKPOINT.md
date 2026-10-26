@@ -1,15 +1,12 @@
 # ENG-CODEX-009 — checkpoint operacional
 
-**Atualizado:** 2026-10-26, após retomada da Direção  
-**Fase:** resposta Carranca reconciliada e arquivada; correção técnica validada; próxima execução: Beto.  
+**Atualizado:** 2026-10-26, após retomada da Direção
+**Fase:** Carranca reconciliada; Beto concluído com pesquisa pendente; próxima execução: Nina.
 **Missão:** Issue #37, segunda bateria investigativa de Carranca, Beto e Nina.
 
 ## Estado vivo conferido
 
 - Revalidação na retomada: branch `codex/eng-codex-009-evidence-metering`, HEAD `f8a222e`, upstream `origin/codex/eng-codex-009-evidence-metering`; worktree limpo antes da execução e SHA remoto conferido. PR #36 continua aberta/draft, sem reviews, na branch documental do Fundador 2.
-- Issue #37 aberta. A ordem expressa posterior da Direção nesta conversa autoriza iniciar os ensaios em 26/10; não se aplica o bloqueio temporal anterior do comentário da PR #36.
-- Issue #33 e PR #34 seguem abertas; PR #34 draft, sem reviews. Seis casos reais H04 já estavam concluídos (Carranca T13/T06, Beto T13/T09, Nina T13/T08). **Nenhum deles foi repetido.** H05 segue sem aceite real; os novos testes cobrem somente integração offline.
-- Issue #35 permite mediação automática e determinística apenas para `read:radar_index`, com `provider=None`; não autoriza HTTP, API, rede ou busca externa. A cópia local verificada em `motor_editorial/runtime/motor.sqlite3` existe, mas não contém tabelas `radar_*`; não há corpus local consultável nesta sessão.
 - Saldo informado pela Direção: 76% às 01:07 e, depois, 95% durante a chamada Carranca. O percentual posterior à execução continua `not_available`; não converter tokens em percentual ou custo Plus.
 
 ## DNAs e dossiês travados
@@ -48,14 +45,22 @@
 - A resposta não passou pelo adaptador da fábrica porque o task do ledger continua incerto. `fact_check_status=not_run`, direitos pendentes, revisão humana obrigatória e publicação `false`.
 - A Direção informou 95% enquanto a chamada ainda estava em execução. Isso foi registrado como observação durante o ensaio; uma observação posterior à chamada continua indisponível.
 
+## Beto — primeira execução
+
+- Uma chamada concluída (`gpt-6-luna/max`, `attempts=1`, `max_attempts=1`, provider response `completed`): 12.949 tokens de entrada, 7.153 de saída (2.979 de raciocínio), 20.102 total, 130.625 ms, 53.372 bytes de contexto e 2.562 palavras em oito seções.
+- SHA-256 do JSON bruto: `f936a3a4cb341f5d447ae400aa89f6d6cf353d5c462e8bcbc264a7a868269a96`; SHA-256 do texto renderizado: `c42b31b48f662a8a7bc0b0b30ccb09f2a34620803e7d273e8fa5786acf662ea3`. Original, recibo e manifesto estão no arquivo privado; `output_validation=role_schema_valid`.
+- O jornalista pediu uma consulta `read:radar_index`, mas a mediação ficou `hold_unmapped_suggestions`; não houve consulta executada. O task terminou `succeeded_needs_research` e a ponte da fábrica ficou `held_pending_research_or_review`. Publicação `false`; verificação independente e direitos continuam pendentes.
+- Corrigido no runner o resumo de status do schema: usa a validação final do metadata; mantém em campo separado o status capturado no momento do recibo de uso. Regressão offline incluída; `test_eng_codex_009_runner`, `test_h05_integration` e `test_usage_meter`: **10 testes OK**.
+
 ## Persistência
 
 - Implementação, pacotes e checkpoint foram commitados em `2b09b5c` (`feat(eng): prepare codex 009 journalist trials`) e enviados para `origin/codex/eng-codex-009-evidence-metering`.
 - A limpeza do whitespace final e o checkpoint da pausa ficaram nos commits `f189b20` e `f8a222e`, enviados à branch dedicada.
+- A correção do identificador do arquivo de matérias foi enviada em `e6fccf2` (`fix(eng): archive namespaced journalist stories`). A correção do status final de schema e este checkpoint atualizado ainda estão em andamento.
 
 ## Limites e próxima ação
 
-1. Commitar e enviar a correção de `StoryVersionArchive` e esta atualização para a branch dedicada; manter a tentativa Carranca `uncertain` e não repetir.
-2. Próxima chamada real: `python -m motor_editorial.eng_codex_009 run eng-codex-009-beto`. Uma chamada e uma tentativa; arquivar original, recibo e métricas. Se o task ficar incerto, reconciliar artefatos locais e nunca reenviar a mesma tarefa.
-3. Depois do checkpoint Beto, executar Nina individualmente dentro do saldo informado. Não editar DNAs aprovados, não criar revisão sem parecer humano, não publicar, não fazer merge ou deploy.
+1. Commitar e enviar a correção de status do schema e este checkpoint; manter Carranca `uncertain` no ledger sem replay e Beto `succeeded_needs_research`.
+2. Próxima chamada real: `python -m motor_editorial.eng_codex_009 run eng-codex-009-nina`. Uma chamada e uma tentativa; conferir hash, recibo, schema final, pacote de pesquisa e ponte da fábrica. Em estado incerto, recuperar somente artefatos locais e não repetir a tarefa.
+3. Manter os originais integrais privados; não editar DNAs aprovados, não criar revisão sem parecer humano, não publicar, não fazer merge ou deploy.
 4. Em todos os textos, distinguir raciocínio sobre notas curatoriais de apuração independente. Limitar pesquisa a `read:radar_index`; sem tabelas locais disponíveis, manter a lacuna explícita e não acionar a fábrica para tarefa incerta ou pendente de pesquisa.

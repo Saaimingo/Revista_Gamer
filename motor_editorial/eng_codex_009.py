@@ -360,6 +360,17 @@ def _usage_receipt(private_root: Path, response_metadata: Mapping[str, Any]) -> 
     return json.loads(raw.decode("utf-8"))
 
 
+def _final_schema_status(
+    response_metadata: Mapping[str, Any],
+    usage_receipt: Mapping[str, Any] | None,
+) -> str | None:
+    final_status = response_metadata.get("output_validation")
+    if isinstance(final_status, str) and final_status:
+        return final_status
+    captured_status = usage_receipt.get("schema_status") if usage_receipt is not None else None
+    return captured_status if isinstance(captured_status, str) and captured_status else None
+
+
 def _factory_bridge(
     *,
     queue: AgentQueue,
@@ -606,7 +617,8 @@ def run_one(
         "cached_input_tokens": usage.get("cached_input_tokens") if usage else None,
         "latency_ms": usage.get("latency_ms") if usage else None,
         "context_bytes": usage.get("context_bytes") if usage else None,
-        "schema_status": usage.get("schema_status") if usage else response_metadata.get("output_validation"),
+        "schema_status": _final_schema_status(response_metadata, usage),
+        "schema_status_at_usage_receipt": usage.get("schema_status") if usage else None,
         "usage_record_ref": response_metadata.get("usage_record_ref"),
         "article": story,
         "factory_adapter": bridge,
