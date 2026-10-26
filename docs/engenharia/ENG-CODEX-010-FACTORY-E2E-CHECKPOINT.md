@@ -1,9 +1,9 @@
 # ENG-CODEX-010 — fábrica fictícia ponta a ponta com imagem
 
-**Status:** implementado e validado localmente em branch isolada; revisão/PR pendente neste checkpoint.  
-**Data:** 26/10/2026.  
-**Branch:** `codex/eng-codex-010-factory-fictional-e2e`.  
-**Base:** `codex/eng-codex-008-siwc-validation` em `8d43a6c855807b2229a8e1eb620a31c6bb6e28e2`.  
+**Status:** implementado e validado localmente em branch isolada; revisão/PR pendente neste checkpoint.
+**Data:** 26/10/2026.
+**Branch:** `codex/eng-codex-010-factory-fictional-e2e`.
+**Base:** `codex/eng-codex-008-siwc-validation` em `8d43a6c855807b2229a8e1eb620a31c6bb6e28e2`.
 **Direção:** pedido do diretor para criar uma pauta fictícia ilustrada e testar a fábrica até o último gate.
 
 ## Objetivo e limites
