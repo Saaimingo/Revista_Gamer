@@ -60,3 +60,15 @@ py -3.11 -m unittest discover -s motor_editorial/tests -v
 ```
 
 Os testes usam diretórios temporários. Cobrem os 11 contratos herdados da v0.1, isolamento e retomada, idempotência sob chamadas concorrentes, migração v2, ordem da edição, revisão vigente, direitos por matéria, confirmação humana, rotas locais e ausência de publicação.
+
+## Fase 0 — diagramador offline (Issue #17)
+
+A demonstração restrita da Fase 0 é totalmente sintética: deriva necessidades visuais, consulta um índice SQLite local de metadados, gera um plano versionado e bloqueia a prévia quando direitos, hashes, referências ou integridade falham. Os três cenários cobrem uma reportagem com duas imagens pequenas, um comparativo em dupla e um mapa panorâmico.
+
+~~~powershell
+.\.venv\Scripts\python.exe -m motor_editorial --data-dir "$env:TEMP\revista-gamer-layout-demo" layout-demo
+~~~
+
+Relatórios, planos, validações e prévias ficam na pasta local artifacts/layout-demo/. Os placeholders não são as imagens de contexto do Bloco 03. Nada nesta demonstração é publicado; não há rede, SIWC ou API paga. A execução aprovada termina aguardando revisão humana interna.
+
+Código e relatório desta Fase 0 estão na [PR #18](https://github.com/Saaimingo/Revista_Gamer/pull/18), aberta para revisão e sem merge.
