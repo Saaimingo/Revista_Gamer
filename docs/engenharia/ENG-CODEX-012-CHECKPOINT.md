@@ -4,7 +4,7 @@
 **Issue:** [#42](https://github.com/Saaimingo/Revista_Gamer/issues/42)
 **Documentação normativa:** [PR #43](https://github.com/Saaimingo/Revista_Gamer/pull/43), os três documentos foram lidos integralmente antes de qualquer mudança.
 **Branch:** `codex/eng-codex-012-architecture-contracts`, derivada de `codex/eng-codex-011-live-factory@27c6703`.
-**Status:** em andamento. U00–U03 concluídas; próxima unidade U04. Nenhuma chamada SIWC/Plus ou pesquisa pública nesta missão.
+**Status:** em andamento. U00–U04 concluídas; próxima unidade U05. Nenhuma chamada SIWC/Plus ou pesquisa pública nesta missão.
 
 ## Limites ativos
 
@@ -28,6 +28,10 @@
 - U03 tornou a persistência da resposta SIWC recuperável: request imutável; resposta e manifesto publicados como bundle local atômico; leituras verificam task binding e hashes; artefatos flat existentes continuam legíveis. A recuperação local valida input atual, DNA/hash aprovado, instruções, modelo/esforço, resposta concluída e recibo, reconstrói o envelope sem chamar SIWC e é tentada antes de novo claim.
 - U03 substituiu reparos específicos do runner por APIs gerais da fila para adotar resultado externo já persistido, reconciliar campos ausentes de um resultado concluído sem trocar sua resposta e reencaminhar falha pré-externa identificada. Tentativas com chamada externa iniciada passam a `uncertain` e retries legados com marcador externo são colocados em quarentena.
 - A fronteira externa de pesquisa agora é marcada pelo callback imediatamente antes do transporte, não ao iniciar tarefa. O conector Radar chama o callback uma vez antes da primeira requisição e o repassa por `IncrementalRadarService`/provider; bloqueios prévios à rede não marcam chamada.
+- U04 corrigiu os contratos gerais de coleta do Radar em `radar_connectors.py`, `radar_policy.py`, `radar_incremental.py` e `radar_store.py`: SourceProfile v1.1 mantém leitura v1.0, inclui identidade/classe/canal, HTTPS público sem autenticação, allowlist exata de host e caminho, termos/robots, direitos separados de acesso, parser/schema, idioma, limites e quotas versionados.
+- Parsers JSON agora exigem schema reconhecido (`github_release_v1` ou `metadata_records_v1`), distinguem URL humana de endpoint técnico e descartam `body_excerpt` sem direito autorizado inclusive nos perfis legados. HTTP 200 com schema incompatível fica `parse=unsupported` e `ingest=not_attempted`; HTTP 200 sem registros termina `no_new_story`, sem criar documento. Paths percent-encoded são decodificados repetidamente para impedir traversal duplamente codificado.
+- Quotas v1.1 são reservadas em SQLite antes de cada transporte e limitam host/dia, missão e fonte/missão; registro da resposta persiste request id, status HTTP, URLs, tipo, bytes, hash e fingerprint/version do perfil sem corpo bruto. Uma tabela append-only registra parse e ingest separadamente, códigos sanitizados, contagens e refs de documentos/eventos; replay do mesmo evento é idempotente.
+- Migração Radar v7→v8 preserva fetches/quota anteriores, preenche status como `legacy` e cria o ledger de processamento. A validação cobre classes oficial/independente/comunidade/replicador, paths, traversal codificado, quotas entre hosts, schemas de API, integração fetch→parse→ingest, HTTP 200 sem pauta e migrações; nenhum DNS/transporte real ou pesquisa pública foi executado.
 
 ## Validação e resultados
 
@@ -36,6 +40,9 @@
 - Validação focada em CPython 3.11.9: `& '.\.venv\Scripts\python.exe' -m unittest motor_editorial.tests.test_agent_contracts motor_editorial.tests.test_orchestration motor_editorial.tests.test_radar_store motor_editorial.tests.test_radar_connectors motor_editorial.tests.test_radar_incremental motor_editorial.tests.test_research_service motor_editorial.tests.test_agent_workflow motor_editorial.tests.test_eng_codex_011_runner -q` — 124 testes em 45.664 s, OK.
 - U02/U03, suíte integrada focada em CPython 3.11: `& '.\.venv\Scripts\python.exe' -m unittest motor_editorial.tests.test_agent_contracts motor_editorial.tests.test_agent_siwc_executor motor_editorial.tests.test_orchestration motor_editorial.tests.test_agent_workflow motor_editorial.tests.test_radar_connectors motor_editorial.tests.test_radar_incremental motor_editorial.tests.test_research_service motor_editorial.tests.test_factory_multipauta -q` — 120 testes em 250.395 s, OK.
 - U02/U03: `py_compile` nos 14 módulos de código/teste modificados — OK; `git diff --check` — OK antes da atualização deste checkpoint.
+- U04, CPython 3.11 do `.venv`: `& '.\.venv\Scripts\python.exe' -m unittest motor_editorial.tests.test_radar_policy motor_editorial.tests.test_radar_store motor_editorial.tests.test_radar_connectors motor_editorial.tests.test_radar_incremental` — 46 testes em 11,500 s, OK. Abrange perfis v1.1, path/SSRF, quotas, parser, recibos de etapa, integração incremental e migração v7→v8; transporte/resolver são fakes locais.
+- Regressão integrada após U04: `& '.\.venv\Scripts\python.exe' -m unittest motor_editorial.tests.test_agent_contracts motor_editorial.tests.test_orchestration motor_editorial.tests.test_radar_store motor_editorial.tests.test_radar_connectors motor_editorial.tests.test_radar_incremental motor_editorial.tests.test_research_service motor_editorial.tests.test_agent_workflow motor_editorial.tests.test_eng_codex_011_runner -q` — 134 testes em 49,535 s, OK. Sem chamadas de SIWC/Plus nem pesquisa pública.
+- U04: `.venv\Scripts\python.exe -m py_compile` nos quatro módulos Radar alterados e três arquivos de teste — OK; `git diff --check` — OK antes da atualização dos documentos.
 - Recuperação após interrupção entre persistência e conclusão da fila validou resposta e receipt com hashes idênticos, `attempts=1` e zero chamadas no cliente SIWC reiniciado; reparo do vínculo receipt no manifesto também reaproveitou arquivo existente por tarefa/tentativa. Testes locais/sintéticos comprovam apenas os estados cobertos, não homologação real de provedor.
 - Consultas SQLite de diagnóstico feitas com URI `mode=ro`. Nenhum registro, fonte ou pacote ENG-011 foi modificado.
 - Nenhuma chamada SIWC/Plus nem consulta pública foi realizada durante a implementação/validação; respostas arquivadas não foram repetidas.
@@ -46,15 +53,15 @@
 - **U01:** causa raiz comprovada nos registros, allowlist corrigida, falha técnica estruturada separada do packet e resultado Radar persistido com diagnóstico na fila.
 - **U02:** compatibilidade de envelope de resultado v1.0/v1.1 e recibo de uso persistido e ligado por hash.
 - **U03:** resposta/manifesto atômicos, recuperação local sem chamada externa, fronteira externa correta e operações genéricas de adoção/reconciliação/requeue; validado com 120 testes offline focados.
+- **U04:** SourceProfile v1.1 e compatibilidade v1.0, paths estritos, parser JSON por schema reconhecido, quotas persistentes, hash/bytes/request/profile version e recibos separados de transporte/parse/ingest; migração v7→v8 e integração local comprovadas com 46 testes focados e regressão cruzada de 134 testes. Não prova coleta pública.
 
 ## Próximo passo
 
-1. U04: modularizar/recuperar fetch→parse→ingest→evidência em Radar com registros locais e regressões offline, sem consultas públicas.
-2. U05–U07: completar handoffs da pauta entre triagem, investigador, editor, jornalista, pedido de pesquisa, fact-check e revisor, vinculados à story/revision/persona corretas.
-3. U08: localizar draft e imagem existentes com direitos demonstráveis; servir preview HTTP local e comprovar visualmente texto e imagem no navegador.
-4. U09: provar isolamento multipauta e agregação de orçamento sem duplicidade; uma pauta bloqueada não interrompe as demais.
-5. Registrar matriz/checkpoint e commits/push a cada unidade revisável; manter PR #44 draft, sem merge. U10 fica bloqueada até autorização específica para novas consultas públicas.
+1. U05–U07: completar handoffs da pauta entre triagem, investigador, editor, jornalista, pedido de pesquisa, fact-check e revisor, vinculados à story/revision/persona corretas.
+2. U08: localizar draft e imagem existentes com direitos demonstráveis; servir preview HTTP local e comprovar visualmente texto e imagem no navegador.
+3. U09: provar isolamento multipauta e agregação de orçamento sem duplicidade; uma pauta bloqueada não interrompe as demais.
+4. Registrar matriz/checkpoint e commits/push a cada unidade revisável; manter PR #44 draft, sem merge. U10 fica bloqueada até autorização específica para novas consultas públicas.
 
 ## Critérios ainda abertos
 
-Arquitetura Radar offline U04, handoffs U05–U07, preview real em navegador U08, isolamento multipauta U09 e nova homologação U10 (bloqueada por autorização de pesquisa esgotada). A missão não está concluída enquanto algum critério obrigatório permanecer aberto.
+Handoffs U05–U07, preview real em navegador U08, isolamento multipauta U09 e nova homologação U10 (bloqueada por autorização de pesquisa esgotada). A missão não está concluída enquanto algum critério obrigatório permanecer aberto.

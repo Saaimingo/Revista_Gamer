@@ -4,6 +4,7 @@ import socket
 import tempfile
 import threading
 import unittest
+from dataclasses import replace
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -17,6 +18,7 @@ from motor_editorial.radar_connectors import (
     RadarConnectorService,
     SourceProfile,
     parse_public_html,
+    parse_public_api_records,
     parse_public_json,
     parse_rss_atom,
 )
@@ -52,6 +54,55 @@ def make_profile(
     }
     if kind == "rss_atom":
         mapping["feed_url"] = f"https://{host}/feed"
+    return SourceProfile.from_mapping(mapping)
+
+
+def make_profile_v11(
+    *, source_id: str = "news-v11", kind: str = "rss_atom",
+    host: str = "news.example.invalid", source_class: str = "independent",
+    path: str | None = None, rights_status: str = "unknown",
+    reuse_policy: str = "metadata_only", authenticated: bool = False,
+    parser_schema_id: str | None = None,
+) -> SourceProfile:
+    path = path or {"rss_atom": "/feed", "public_api": "/api/releases", "public_html": "/article"}[kind]
+    if parser_schema_id is None:
+        parser_schema_id = {
+            "rss_atom": "rss_atom_v1",
+            "public_api": "metadata_records_v1",
+            "public_html": "public_html_metadata_v1",
+        }[kind]
+    root_url = f"https://{host}{path}"
+    mapping: dict[str, Any] = {
+        "source_id": source_id,
+        "connector_kind": kind,
+        "root_url": root_url,
+        "allowed_hosts": [host],
+        "allowed_operations": [{"rss_atom": "feed_read", "public_api": "api_metadata_read", "public_html": "page_metadata_read"}[kind]],
+        "access_policy": "allowed",
+        "terms_checked_at": "2026-10-24",
+        "robots_policy": "allowed",
+        "robots_checked_at": "2026-10-24",
+        "robots_rules_by_host": {host: "User-agent: *\\nAllow: /"},
+        "schema_version": "1.1",
+        "profile_version": "source-profile-test-1",
+        "source_name": f"Fonte {source_id}",
+        "source_owner": "Editora Exemplo",
+        "source_class": source_class,
+        "channel": kind,
+        "allowed_path_prefixes": [path],
+        "terms_evidence_url": f"https://{host}/terms",
+        "authenticated": authenticated,
+        "reuse_policy": reuse_policy,
+        "rights_status": rights_status,
+        "language": "pt-BR",
+        "quota_per_host_day": 3,
+        "quota_per_mission": 2,
+        "parser_schema_id": parser_schema_id,
+        "adapter_version": "adapter-test-1",
+        "min_poll_interval_seconds": 1,
+    }
+    if kind == "rss_atom":
+        mapping["feed_url"] = root_url
     return SourceProfile.from_mapping(mapping)
 
 
@@ -91,24 +142,152 @@ class RadarConnectorTests(unittest.TestCase):
     ) -> RadarConnectorService:
         return RadarConnectorService(transport=transport, resolver=resolver or FakeResolver(), limiter=limiter)
 
+    def test_profile_v11_captures_source_classes_rights_and_unauthed_access(self) -> None:
+        for source_class in ("official", "independent", "community", "replicator"):
+            with self.subTest(source_class=source_class):
+                profile = make_profile_v11(source_id=f"source-{source_class}", source_class=source_class)
+                self.assertEqual(profile.source_class, source_class)
+                self.assertEqual(profile.authenticated, False)
+                self.assertEqual(profile.reuse_policy, "metadata_only")
+                profile.validate_for_fetch(now=datetime.fromisoformat(NOW))
+
+        with self.assertRaisesRegex(ConnectorPolicyError, "n\u00e3o aceita perfil autenticado"):
+            make_profile_v11(authenticated=True)
+        with self.assertRaisesRegex(ConnectorPolicyError, "short_excerpt exige"):
+            make_profile_v11(reuse_policy="short_excerpt", rights_status="pending")
+        with self.assertRaisesRegex(ConnectorPolicyError, "segmento amb\u00edguo"):
+            make_profile_v11(path="/feed/../private")
+        valid = make_profile_v11()
+        with self.assertRaisesRegex(ConnectorPolicyError, "n\u00e3o aceita perfil autenticado"):
+            replace(valid, authenticated=True).validate_for_fetch(now=datetime.fromisoformat(NOW))
+        with self.assertRaisesRegex(ConnectorPolicyError, "schema_version"):
+            replace(valid, schema_version="2.0").validate_for_fetch(now=datetime.fromisoformat(NOW))
+
+    def test_profile_v11_path_and_mission_quotas_block_before_http(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store = RadarStore(Path(directory) / "radar-v11-quota.sqlite3")
+            guard = PersistentDomainQuotaGuard(
+                store,
+                quotas={"news.example.invalid": 3, "community.example.invalid": 3},
+                timezone_name="America/Sao_Paulo",
+            )
+            resolver = FakeResolver()
+            transport = FakeTransport(HttpResponse(
+                200, {"content-type": "application/rss+xml"},
+                b"<rss><channel><item><title>Release</title><link>https://story.example.invalid/1</link></item></channel></rss>",
+            ))
+            service = RadarConnectorService(
+                transport=transport, resolver=resolver, domain_quota_guard=guard,
+            )
+            profile = make_profile_v11(host="news.example.invalid")
+
+            for wrong_url in (
+                "https://news.example.invalid/private",
+                "https://news.example.invalid/feed-private",
+                "https://news.example.invalid/feed/%252e%252e/private",
+            ):
+                with self.subTest(wrong_url=wrong_url):
+                    wrong_path = service.fetch(
+                        profile, url=wrong_url, now=NOW,
+                        mission_id="mission-v11", mission_request_limit=1,
+                    )
+                    self.assertEqual(wrong_path.error_code, "path_not_allowed")
+            self.assertEqual(resolver.calls, [])
+            self.assertEqual(transport.calls, [])
+            self.assertEqual(store.mission_quota_usage(mission_id="mission-v11"), 0)
+
+            first = service.fetch(
+                profile, now=NOW, mission_id="mission-v11", mission_request_limit=1,
+            )
+            self.assertEqual(first.status, "observed")
+            self.assertEqual(len(transport.calls), 1)
+            second_profile = make_profile_v11(
+                source_id="community-1", host="community.example.invalid", source_class="community",
+            )
+            second = service.fetch(
+                second_profile, now=NOW, mission_id="mission-v11", mission_request_limit=1,
+            )
+            self.assertEqual(second.status, "blocked")
+            self.assertEqual(second.error_code, "quota_limit_reached")
+            self.assertEqual(len(transport.calls), 1)
+            self.assertEqual(store.mission_quota_usage(mission_id="mission-v11"), 1)
+
+    def test_public_api_schema_preserves_human_url_and_reports_parse_failures(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store = RadarStore(Path(directory) / "radar-v11-api.sqlite3")
+            guard = PersistentDomainQuotaGuard(
+                store,
+                quotas={"api.example.invalid": 3, "bad-api.example.invalid": 3},
+                timezone_name="America/Sao_Paulo",
+            )
+            body = (
+                b'{"id":42,"tag_name":"v1.2.0","name":"Patch 1.2",'
+                b'"html_url":"https://game.example.invalid/releases/42",'
+                b'"api_url":"https://api.example.invalid/repos/game/releases/42",'
+                b'"body":"Texto longo que nao pode ser reutilizado sem permissao."}'
+            )
+            profile = make_profile_v11(
+                source_id="official-api", kind="public_api", host="api.example.invalid",
+                source_class="official", parser_schema_id="github_release_v1",
+            )
+            result = RadarConnectorService(
+                transport=FakeTransport(HttpResponse(200, {"content-type": "application/json"}, body)),
+                resolver=FakeResolver(), domain_quota_guard=guard,
+            ).fetch(profile, now=NOW, mission_id="mission-api", mission_request_limit=3)
+            self.assertEqual(result.status, "observed")
+            self.assertEqual(result.parse_status, "parsed")
+            self.assertEqual(result.candidate_count, 1)
+            self.assertEqual(result.feed_items[0].url, "https://game.example.invalid/releases/42")
+            self.assertEqual(result.feed_items[0].technical_url, "https://api.example.invalid/repos/game/releases/42")
+            self.assertNotIn("body_excerpt", result.metadata)
+
+            unsupported_json = b'{"name":"Patch 1.2","html_url":"https://game.example.invalid/releases/42"}'
+            unsupported = RadarConnectorService(
+                transport=FakeTransport(HttpResponse(
+                    200, {"content-type": "application/json"}, unsupported_json,
+                )),
+                resolver=FakeResolver(), domain_quota_guard=guard,
+            ).fetch(
+                make_profile_v11(
+                    source_id="bad-api", kind="public_api", host="bad-api.example.invalid",
+                    source_class="official", parser_schema_id="github_release_v1",
+                ), now=NOW, mission_id="mission-api", mission_request_limit=3,
+            )
+            self.assertEqual(unsupported.http_status, 200)
+            self.assertEqual(unsupported.status, "error")
+            self.assertEqual(unsupported.parse_status, "unsupported")
+            self.assertEqual(unsupported.error_code, "parser_unsupported")
+            self.assertEqual(unsupported.feed_items, ())
+
+            with self.assertRaises(ConnectorPolicyError) as raised:
+                parse_public_api_records(body, schema_id="unregistered_schema")
+            self.assertEqual(raised.exception.code, "parser_unsupported")
+
+        legacy = self.service(FakeTransport(HttpResponse(
+            200, {"content-type": "application/json"},
+            b'{"tag_name":"v1.0","name":"Legacy release","body":"excerpt unavailable without rights"}',
+        ))).fetch(make_profile(kind="public_api", source_id="legacy-api"), now=NOW)
+        self.assertEqual(legacy.status, "observed")
+        self.assertNotIn("body_excerpt", legacy.metadata)
+
     def test_profile_requires_explicit_access_terms_robots_and_operation(self) -> None:
         profile = make_profile(access_policy="unreviewed")
         transport = FakeTransport(HttpResponse(200, {"content-type": "application/rss+xml"}, b""))
         resolver = FakeResolver()
         result = RadarConnectorService(transport=transport, resolver=resolver).fetch(profile, now=NOW)
         self.assertEqual(result.status, "blocked")
-        self.assertIn("access_policy", result.error_code or "")
+        self.assertEqual(result.error_code, "access_policy_required")
         self.assertEqual(transport.calls, [])
         self.assertEqual(resolver.calls, [])
 
         missing_terms = make_profile(terms_checked_at=None)
         result = self.service(FakeTransport(), FakeResolver()).fetch(missing_terms, now=NOW)
         self.assertEqual(result.status, "blocked")
-        self.assertIn("Termos", result.error_code or "")
+        self.assertEqual(result.error_code, "terms_unverified")
         future_terms = make_profile(source_id="future", terms_checked_at="2026-10-26")
         result = self.service(FakeTransport(), FakeResolver()).fetch(future_terms, now=NOW)
         self.assertEqual(result.status, "blocked")
-        self.assertIn("futuro", result.error_code or "")
+        self.assertEqual(result.error_code, "policy_check_date_in_future")
         missing_operation = SourceProfile.from_mapping({
             "source_id": "no-op", "connector_kind": "rss_atom", "root_url": "https://news.example.invalid/feed",
             "feed_url": "https://news.example.invalid/feed", "allowed_hosts": ["news.example.invalid"],
@@ -117,7 +296,7 @@ class RadarConnectorTests(unittest.TestCase):
             "robots_rules_by_host": {"news.example.invalid": "User-agent: *\nAllow: /"},
         })
         result = self.service(FakeTransport(), FakeResolver()).fetch(missing_operation, now=NOW)
-        self.assertIn("allowlist", result.error_code or "")
+        self.assertEqual(result.error_code, "operation_not_allowed")
 
     def test_robots_rules_block_disallowed_paths_before_fetch_and_redirect(self) -> None:
         rules = "User-agent: *\nDisallow: /private\nAllow: /"
@@ -128,7 +307,7 @@ class RadarConnectorTests(unittest.TestCase):
             profile, url="https://news.example.invalid/private/article", now=NOW,
         )
         self.assertEqual(result.status, "blocked")
-        self.assertIn("Robots.txt bloqueia", result.error_code or "")
+        self.assertEqual(result.error_code, "robots_disallowed")
         self.assertEqual(resolver.calls, [])
         self.assertEqual(transport.calls, [])
 
@@ -226,7 +405,7 @@ class RadarConnectorTests(unittest.TestCase):
         resolver = FakeResolver()
         result = RadarConnectorService(transport=transport, resolver=resolver).fetch(make_profile(), now=NOW)
         self.assertEqual(result.status, "blocked")
-        self.assertIn("fora da allowlist", result.error_code or "")
+        self.assertEqual(result.error_code, "redirect_host_not_allowed")
         self.assertEqual(len(transport.calls), 1)
 
         resolution_number = [0]
@@ -241,7 +420,7 @@ class RadarConnectorTests(unittest.TestCase):
             make_profile(source_id="rebinding"), now=NOW,
         )
         self.assertEqual(rebound.status, "blocked")
-        self.assertIn("SSRF", rebound.error_code or "")
+        self.assertEqual(rebound.error_code, "ssrf_blocked")
         self.assertEqual(len(rebinding_transport.calls), 1)
 
     def test_allowed_cross_origin_redirect_obeys_each_origin_rate_limit(self) -> None:
@@ -283,7 +462,7 @@ class RadarConnectorTests(unittest.TestCase):
         private_transport = FakeTransport(HttpResponse(200, {"content-type": "application/rss+xml"}, b""))
         result = RadarConnectorService(transport=private_transport, resolver=private_resolver).fetch(make_profile(), now=NOW)
         self.assertEqual(result.status, "blocked")
-        self.assertIn("SSRF", result.error_code or "")
+        self.assertEqual(result.error_code, "ssrf_blocked")
         self.assertEqual(private_transport.calls, [])
 
         secret_profile = make_profile(kind="public_html")
@@ -303,7 +482,7 @@ class RadarConnectorTests(unittest.TestCase):
         profile = make_profile(kind="public_html", max_bytes=100)
         result = self.service(oversized).fetch(profile, now=NOW)
         self.assertEqual(result.status, "blocked")
-        self.assertIn("max_response_bytes", result.error_code or "")
+        self.assertEqual(result.error_code, "response_too_large")
 
         timeout = FakeTransport(
             TimeoutError("private network detail"), TimeoutError("private network detail"),

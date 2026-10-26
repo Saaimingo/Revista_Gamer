@@ -16,6 +16,7 @@ from motor_editorial.radar_connectors import (
     SourceProfile,
 )
 from motor_editorial.radar_incremental import IncrementalRadarService, canonicalize_content_url
+from motor_editorial.radar_policy import PersistentDomainQuotaGuard
 from motor_editorial.radar_store import RadarStore, RadarStoreError
 
 
@@ -107,6 +108,106 @@ class RadarIncrementalTests(unittest.TestCase):
             canonicalize_content_url("https://news.example.invalid/story?api_key=private")
         with self.assertRaises(RadarStoreError):
             canonicalize_content_url("https://news.example.invalid/story?key=private")
+
+    def test_v11_source_fetch_to_parse_and_ingest_receipts_are_linked(self) -> None:
+        host = "official.example.invalid"
+        source_id = "official-source"
+        source_name = "Fonte Oficial"
+        self.store.register_source(
+            source_id=source_id, display_name=source_name, canonical_url=f"https://{host}/",
+            source_type="official", access_policy="allowed", rights_status="unknown", language="pt-BR",
+            metadata={
+                "source_class": "official", "source_owner": "Studio Exemplo",
+                "profile_version": "founder-profile-1",
+            }, now=NOW,
+        )
+        profile = SourceProfile.from_mapping({
+            "source_id": source_id, "connector_kind": "public_api",
+            "root_url": f"https://{host}/api/releases", "allowed_hosts": [host],
+            "allowed_operations": ["api_metadata_read"], "access_policy": "allowed",
+            "terms_checked_at": "2026-10-24", "robots_policy": "allowed", "robots_checked_at": "2026-10-24",
+            "robots_rules_by_host": {host: "User-agent: *\\nAllow: /"},
+            "schema_version": "1.1", "profile_version": "founder-profile-1",
+            "source_name": source_name, "source_owner": "Studio Exemplo", "source_class": "official",
+            "channel": "public_api", "allowed_path_prefixes": ["/api/releases"],
+            "terms_evidence_url": f"https://{host}/terms", "authenticated": False,
+            "reuse_policy": "metadata_only", "rights_status": "unknown", "language": "pt-BR",
+            "quota_per_host_day": 4, "quota_per_mission": 3,
+            "parser_schema_id": "metadata_records_v1", "adapter_version": "official-json-v1",
+            "min_poll_interval_seconds": 1,
+        })
+        payload = (
+            b'{"items":[{"id":"patch-11","title":"Patch 11",'
+            b'"html_url":"https://game.example.invalid/news/11",'
+            b'"api_url":"https://official.example.invalid/api/releases/11",'
+            b'"published_at":"2026-10-25"}]}'
+        )
+        empty_payload = b'{"items":[]}'
+        unsupported_payload = b'{"unexpected":[{"title":"Patch 12"}]}'
+        transport = FakeTransport(
+            HttpResponse(200, {"content-type": "application/json"}, payload),
+            HttpResponse(200, {"content-type": "application/json"}, empty_payload),
+            HttpResponse(200, {"content-type": "application/json"}, unsupported_payload),
+        )
+        guard = PersistentDomainQuotaGuard(
+            self.store, quotas={host: 4}, timezone_name="America/Sao_Paulo",
+        )
+        connector = RadarConnectorService(
+            transport=transport, resolver=FakeResolver(),
+            limiter=PerOriginLimiter(monotonic=lambda: self.monotonic[0]),
+            domain_quota_guard=guard,
+        )
+        service = IncrementalRadarService(store=self.store, connector=connector)
+
+        result = service.fetch(
+            profile, now=NOW, mission_id="eng012-offline-integration", mission_request_limit=3,
+        )
+        self.assertEqual(result.fetch.status, "observed")
+        self.assertEqual(result.fetch.parse_status, "parsed")
+        self.assertEqual(result.ingest_status, "ingested")
+        self.assertEqual(result.documents_persisted, 1)
+        self.assertEqual(result.documents[0].canonical_url, "https://game.example.invalid/news/11")
+        fetch = self.store.list_rows(
+            "radar_fetch_events", where_column="fetch_event_id", where_value=result.fetch_event_id,
+        )[0]
+        self.assertEqual(fetch["http_status"], 200)
+        self.assertEqual(fetch["payload_bytes"], len(payload))
+        self.assertEqual(fetch["response_sha256"], hashlib.sha256(payload).hexdigest())
+        self.assertEqual(fetch["source_profile_hash"], profile.policy_sha256())
+        self.assertEqual(fetch["profile_version"], "founder-profile-1")
+        self.assertEqual(fetch["transport_status"], "response_received")
+        self.assertEqual(fetch["parse_status"], "not_attempted")
+        events = self.store.list_fetch_processing_events(fetch_event_id=str(result.fetch_event_id))
+        self.assertEqual([event["stage"] for event in events], ["parse", "ingest"])
+        self.assertEqual([event["status"] for event in events], ["parsed", "ingested"])
+        self.assertEqual(events[0]["candidate_count"], 1)
+        self.assertEqual(events[1]["documents_persisted"], 1)
+        self.assertIn(result.documents[0].document_id, events[1]["artifact_refs_json"])
+        self.assertNotIn("raw_body", " ".join(fetch.keys()) + " ".join(events[0].keys()))
+
+        self.monotonic[0] += 3
+        empty = service.fetch(
+            profile, now="2026-10-25T18:01:00+00:00",
+            mission_id="eng012-offline-integration", mission_request_limit=3,
+        )
+        self.assertEqual(empty.fetch.http_status, 200)
+        self.assertEqual(empty.fetch.status, "observed")
+        self.assertEqual(empty.fetch.parse_status, "parsed_empty")
+        self.assertEqual(empty.ingest_status, "no_new_story")
+        self.assertEqual(empty.outcome_code, "no_candidate_records")
+        self.assertEqual(empty.documents, ())
+
+        self.monotonic[0] += 3
+        unsupported = service.fetch(
+            profile, now="2026-10-25T18:02:00+00:00",
+            mission_id="eng012-offline-integration", mission_request_limit=4,
+        )
+        self.assertEqual(unsupported.fetch.http_status, 200)
+        self.assertEqual(unsupported.fetch.status, "error")
+        self.assertEqual(unsupported.fetch.parse_status, "unsupported")
+        self.assertEqual(unsupported.ingest_status, "not_attempted")
+        self.assertEqual(unsupported.outcome_code, "parser_unsupported")
+        self.assertEqual(unsupported.documents, ())
 
     def test_conditional_cache_shared_across_profiles_and_changes_update_one_document(self) -> None:
         host = "news.example.invalid"
