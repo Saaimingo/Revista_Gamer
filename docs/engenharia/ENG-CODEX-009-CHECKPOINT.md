@@ -1,66 +1,80 @@
 # ENG-CODEX-009 — checkpoint operacional
 
-**Atualizado:** 2026-10-26, após retomada da Direção
-**Fase:** Carranca reconciliada; Beto concluído com pesquisa pendente; próxima execução: Nina.
-**Missão:** Issue #37, segunda bateria investigativa de Carranca, Beto e Nina.
+**Setor:** Engenharia e Codex
+**Identificador:** ENG-CODEX-009
+**Versão:** v1.0
+**Status técnico:** implementado e validado por testes automatizados; avaliação editorial humana e verificação factual independente pendentes.
+**Atualizado:** 2026-10-26
+**Dependências:** Issue #37, Issue #35 (decisão index-only), Issue #33/PR #34 (H05), PR documental #36, `docs/operacao/CONTRATO-ENTREGAS.md`.
+**Aprovador:** Direção, para escopo e execução.
 
-## Estado vivo conferido
+## Objetivo e limites
 
-- Revalidação na retomada: branch `codex/eng-codex-009-evidence-metering`, HEAD `f8a222e`, upstream `origin/codex/eng-codex-009-evidence-metering`; worktree limpo antes da execução e SHA remoto conferido. PR #36 continua aberta/draft, sem reviews, na branch documental do Fundador 2.
-- Saldo informado pela Direção: 76% às 01:07 e, depois, 95% durante a chamada Carranca. O percentual posterior à execução continua `not_available`; não converter tokens em percentual ou custo Plus.
+Executar uma matéria investigativa completa por jornalista usando o DNA aprovado e o pacote local de evidências; medir consumo/tempo por pessoa; preservar JSON original, texto integral e revisões em arquivos separados; validar a ponte opcional com a fábrica.
 
-## DNAs e dossiês travados
+Foram feitas três chamadas SIWC reais, uma por pessoa, após ordem explícita da Direção e relato de 95% de franquia durante a chamada de Carranca. Não foram repetidos os seis casos reais H04. Não houve API paga, pesquisa externa, publicação, merge ou deploy. A rodada B do protocolo longitudinal não foi executada.
 
-- Carranca / `ranzinza` v1.0: refs aprovadas Bloco 02, commit `3d651fe1951818767b4a6b935732857f08cb7849`, quatro documentos do DNA integral.
-- Beto Cartucho v0.2 e Nina Prisma v1.0: refs aprovadas Bloco 02, commit `21381c0975bef1da048d7887cbdfbd0dd97bed96`, cinco documentos por personagem.
-- Snapshot privado conferido: Carranca 66.315 caracteres, Beto 35.229, Nina 25.245; hash do composto confere com o manifesto de cada persona. Os arquivos fonte permanecem byte-a-byte nos commits aprovados; exemplos editoriais não entram no prompt. O limite do catálogo para DNA foi elevado a 80.000 caracteres para não truncar Carranca.
-- Pacotes regenerados em `motor_editorial/evidence_packages/eng_codex_009/`: Carranca 12 candidatas/11 notas elegíveis; Beto 14/12; Nina 11/10. São notas curatoriais e URLs; corpos das fontes não foram obtidos e direitos não foram revalidados. Logo, os resultados podem ser avaliados como raciocínio sobre o dossiê, mas não como apuração independente nem publicação pronta.
+## Estado vivo revalidado
 
-## Implementação preparada
+- Branch: `codex/eng-codex-009-evidence-metering`; upstream: `origin/codex/eng-codex-009-evidence-metering`; HEAD validado antes deste checkpoint: `21ec16d663341f0cf1750c0520b5e4393a1679a3`; worktree limpo antes das alterações deste documento. A ref remota correspondia ao mesmo SHA.
+- Base técnica: `codex/eng-codex-008-siwc-validation`, SHA `8d43a6c855807b2229a8e1eb620a31c6bb6e28e2`.
+- Issue #37 estava aberta, sem comentários; PR #36 estava aberta/draft, com zero reviews, na branch documental `fundador2/eng-codex-009-dossies-editoriais-2026-10-25`. O texto e comentário anteriores diziam aguardar ordem e franquia; a ordem posterior da Direção para continuar e o relato de 95% substituíram essa espera.
+- Issue #33 segue aberta e PR #34 segue aberta/draft, sem reviews. A H05 da 008 avançou offline e depende da ponte/revisão conforme os estados registrados em #35.
+- Decisão viva de Issue #35, comentário `6406250653`: pedidos ambíguos ou sem mapeamento determinístico ficam em hold; somente `read:radar_index` com `ResearchService(provider=None)` pode executar sem rede. Não existe autorização para pesquisa em fontes públicas ao vivo.
+- A observação mais recente de franquia é 95% durante a chamada de Carranca. Não foi observada franquia posterior às três chamadas; tokens não são convertidos em percentagem nem em custo Plus.
 
-- `usage_meter.py` registra uso por jornalista/papel/tarefa, modelo/effort, input/output/reasoning/total, cache, chamadas, latência, tamanho de contexto, status e origem da medição; custo faturado e quota de interface ficam `null` quando indisponíveis.
-- `StoryVersionArchive` preserva saída bruta e texto legível integral, manifests e SHA-256; originais e revisões têm diretórios/IDs distintos. Revisão só será criada após avaliação humana, sem sobrescrever original.
-- `agent_siwc.py` captura recibo de uso mesmo em validações malsucedidas/estados incertos. O runner permite no máximo uma chamada por jornalista e não repete tarefas iniciadas ou concluídas.
-- `research_mediation.py` converte solicitações tipadas para escopo local aprovado; a ponte opcional da fábrica reutiliza a mesma `AgentQueue`/`TaskDispatcher`, cria somente rascunho, exige revisão humana e mantém fact-check/publicação desligados.
-- `eng_codex_009.py` prepara snapshots/dossiês em `%USERPROFILE%\\.codex\\Revista_Gamer\\ensaios-009`; prepara uma chamada por jornalista; não imprime o texto. ACL privada verificada para a conta do projeto, `SYSTEM` e Administradores.
+## Referências aprovadas e pacotes
 
-## Validação desta etapa
+- Carranca / `ranzinza` v1.0: DNA aprovado do Bloco 02 no commit `3d651fe1951818767b4a6b935732857f08cb7849`, 4 documentos; snapshot integral de 66.315 caracteres; hash `1f66f0ffbf323823e908cedcc7002aac6551fb5f28d3b309d29602ea94f70191`.
+- Beto Cartucho v0.2 e Nina Prisma v1.0: DNA aprovado do Bloco 02 no commit `21381c0975bef1da048d7887cbdfbd0dd97bed96`, 5 documentos por persona; snapshots de 35.229 e 25.245 caracteres. Hashes: Beto `de815e0827b4fae5c30d1ec9e4aecac829b3298474c6fd737d2b4c67cfd5fc67`; Nina `6b60f719de00a91503a411d4e146d41c31ccfe1fa4055177091eb3a0b878e4bc`.
+- Os arquivos-fonte e os hashes dos DNAs foram preservados; exemplos editoriais não foram usados como instruções. O limite para carregar DNA foi aumentado a 80.000 caracteres para não truncar Carranca.
+- Pacotes locais: `motor_editorial/evidence_packages/eng_codex_009/`; Carranca 12 candidatas/11 notas, Beto 14/12, Nina 11/10. São notas curatoriais e URLs, não corpos de fonte lidos pelo Motor. O índice Radar local não contém tabelas `radar_*`.
 
-- `python -m unittest motor_editorial.tests.test_evidence_packages motor_editorial.tests.test_research_mediation motor_editorial.tests.test_usage_meter motor_editorial.tests.test_h05_integration motor_editorial.tests.test_eng_codex_009_runner motor_editorial.tests.test_agent_siwc_executor motor_editorial.tests.test_factory_role_draft_bridge -q` — **42 testes OK**.
-- `python -m unittest motor_editorial.tests.test_eng_codex_009_runner motor_editorial.tests.test_h05_integration motor_editorial.tests.test_usage_meter motor_editorial.tests.test_evidence_packages motor_editorial.tests.test_research_mediation -q` — **24 testes OK**, após incluir o registro atualizado de 76% informado.
-- `python -m compileall -q motor_editorial` — OK. `git diff --check` — exit 0.
-- Uma validação ampliada de 99 testes terminou com **5 erros e 1 skip**; pelo menos um erro foi causado pela ausência da dependência `tzdata` necessária para `ZoneInfo("America/Sao_Paulo")` no Python global usado (`CPython 3.11.9`). Não houve instalação de dependências. As suítes focalizadas acima passaram.
-- `python -m motor_editorial.eng_codex_009 prepare --franchise-percent-reported 76` — OK. Registrou o saldo como relato do usuário, os três hashes de DNA e zero repetição H04.
+## Implementação
 
-## Pausa noturna
+- `motor_editorial/usage_meter.py`: recibo por jornalista/papel/tarefa com modelo, effort, tokens de entrada/saída/raciocínio/total, cache, chamadas, latência, bytes de contexto, status e fonte da medição. Custo faturado e quota ficam indisponíveis sem evidência própria.
+- `motor_editorial/story_version_archive.py`: preserva resposta JSON bruta, render integral, manifesto e SHA-256; originais e revisões ficam em caminhos/IDs separados. Os originais desta rodada estão sob `original/initial/`; não há revisões porque ainda não houve avaliação humana.
+- `motor_editorial/agent_siwc.py` e `motor_editorial/eng_codex_009.py`: recibo mesmo para estados incertos, snapshot do DNA, no máximo uma chamada por jornalista e sem replay de tarefas iniciadas/concluídas.
+- `motor_editorial/research_mediation.py`: converte apenas sugestões determinísticas e tipadas no escopo local aprovado; sugestões sem par question/purpose mapeável ficam em hold.
+- Ponte opcional da fábrica reusa `AgentQueue`/`TaskDispatcher`, produz apenas rascunho e conserva revisão humana/fact-check/publicação desligados. O fluxo sintético padrão continua intacto.
+- A raiz privada é `%USERPROFILE%\.codex\Revista_Gamer\ensaios-009`; respostas e artigos integrais não foram adicionados ao GitHub. O índice privado `INDICE-LEITURA-INTEGRAL-ENG-CODEX-009.md` reúne links aos originais, hashes e métricas. A gravação do índice foi feita em UTF-8 e validada sem caracteres de substituição; hashes de render e JSON foram conferidos contra os manifestos.
 
-Às 01:07, a Direção pediu para concluir o checkpoint e deixar os ensaios para a manhã. A pausa terminou quando a Direção disse para continuar. A chamada única de Carranca abaixo é o primeiro ensaio desta missão.
+## Execuções reais da ENG-CODEX-009
 
-## Retomada e primeira resposta — Carranca
+| Jornalista | Estado | Tokens entrada / saída / raciocínio / total | Latência | Contexto | Texto | Validação / pesquisa / fábrica |
+|---|---|---:|---:|---:|---:|---|
+| Carranca | `uncertain` no ledger após exceção local de pós-processamento; resposta do provedor concluída | 20.534 / 5.793 / 2.324 / 26.327 | 106.969 ms | 85.258 B | 1.974 palavras | Schema e refs revalidados offline; pesquisa em hold; fábrica não executada por estado incerto |
+| Beto | `succeeded_needs_research` | 12.949 / 7.153 / 2.979 / 20.102 | 130.625 ms | 53.372 B | 2.562 palavras | `role_schema_valid`; sugestão de pesquisa em hold; fábrica `held_pending_research_or_review` |
+| Nina | `succeeded_needs_research` | 10.071 / 4.312 / 1.471 / 14.383 | 81.391 ms | 40.966 B | 1.726 palavras | `role_schema_valid`; sugestão de pesquisa em hold; fábrica `held_pending_research_or_review` |
 
-- Foi feita uma chamada real para Carranca (`gpt-6-luna/max`), com uma tentativa no ledger (`attempts=1`, `max_attempts=1`). A resposta do provedor chegou completa: 20.534 tokens de entrada, 5.793 de saída (2.324 de raciocínio), 26.327 total, 106.969 ms, 85.258 bytes de contexto; 1.974 palavras no render.
-- SHA-256 do JSON bruto: `48e3b5a16b034406358803fd62713f6eeb0cfd6d8e2879e574eba2be5f0a0445`. SHA-256 do texto legível: `cc8a6bec0ef134651049d5adced0a2f8c91abacf69c4026dbe112aff47a15e70`. Ambos e o recibo estão no armazenamento privado.
-- O task ficou `uncertain` após o retorno por uma `ValueError` de pós-processamento. Reprodução offline identificou que `StoryVersionArchive` rejeitava `/` no `story_id`, embora o diretório seja derivado por SHA-256. O schema do papel e as referências de evidência passaram na revalidação offline. Corrigida a validação do identificador e acrescentada regressão; `test_usage_meter`, `test_h05_integration` e `test_eng_codex_009_runner`: **9 testes OK**.
-- A resposta não foi reenviada. O JSON bruto original foi reconciliado para `story-versions/.../original/...`; o estado incerto do ledger foi preservado. A mediação da sugestão retornou `hold_unmapped_suggestions` porque a saída não trouxe o par question/purpose válido. Pesquisa não executada; nenhuma chamada externa. O Radar local permanece sem tabelas `radar_*`.
-- A resposta não passou pelo adaptador da fábrica porque o task do ledger continua incerto. `fact_check_status=not_run`, direitos pendentes, revisão humana obrigatória e publicação `false`.
-- A Direção informou 95% enquanto a chamada ainda estava em execução. Isso foi registrado como observação durante o ensaio; uma observação posterior à chamada continua indisponível.
+**Totais observados:** 60.812 tokens e 318.985 ms de latência acumulada, em três chamadas, sem retry. Estes números medem só os recibos SIWC disponíveis, não a quota da interface ou preço da assinatura.
 
-## Beto — primeira execução
+- Carranca: tarefa `0cc6663c-2df8-563c-926a-d087b87ec2be`; bruto SHA `48e3b5a16b034406358803fd62713f6eeb0cfd6d8e2879e574eba2be5f0a0445`; render SHA `cc8a6bec0ef134651049d5adced0a2f8c91abacf69c4026dbe112aff47a15e70`.
+- Beto: tarefa `d6bf9d8e-3bd7-59c3-bc9d-91aff746ac16`; bruto SHA `f936a3a4cb341f5d447ae400aa89f6d6cf353d5c462e8bcbc264a7a868269a96`; render SHA `c42b31b48f662a8a7bc0b0b30ccb09f2a34620803e7d273e8fa5786acf662ea3`.
+- Nina: tarefa `f004be7b-1047-5d6d-825a-83b535978893`; bruto SHA `afd5ef25f5146fde5bfc34c8ac706f8fdb7401aa58146fafd3b1c90b16b558c1`; render SHA `6f9a7c4a338ff169e657043e45c749b73de8765bea07652540f222136aa2acc7`.
+- Carranca ficou `uncertain` porque o pós-processamento rejeitou `/` no `story_id` depois da resposta completa. O defeito foi reproduzido offline e corrigido: o caminho é derivado por hash e não deve proibir identificador namespaced. A matéria foi recuperada do JSON já existente e arquivada; ledger incerto preservado e chamada não repetida. O status `json_object` capturado na hora foi separado da revalidação offline de schema de papel e referências, ambas aprovadas.
+- Beto e Nina concluíram uma chamada cada. Ambos solicitaram pesquisa que não pôde ser mapeada de forma determinística; a mediação respondeu `hold_unmapped_suggestions`, nenhuma consulta local ou externa foi executada e os drafts não foram liberados pela ponte da fábrica.
 
-- Uma chamada concluída (`gpt-6-luna/max`, `attempts=1`, `max_attempts=1`, provider response `completed`): 12.949 tokens de entrada, 7.153 de saída (2.979 de raciocínio), 20.102 total, 130.625 ms, 53.372 bytes de contexto e 2.562 palavras em oito seções.
-- SHA-256 do JSON bruto: `f936a3a4cb341f5d447ae400aa89f6d6cf353d5c462e8bcbc264a7a868269a96`; SHA-256 do texto renderizado: `c42b31b48f662a8a7bc0b0b30ccb09f2a34620803e7d273e8fa5786acf662ea3`. Original, recibo e manifesto estão no arquivo privado; `output_validation=role_schema_valid`.
-- O jornalista pediu uma consulta `read:radar_index`, mas a mediação ficou `hold_unmapped_suggestions`; não houve consulta executada. O task terminou `succeeded_needs_research` e a ponte da fábrica ficou `held_pending_research_or_review`. Publicação `false`; verificação independente e direitos continuam pendentes.
-- Corrigido no runner o resumo de status do schema: usa a validação final do metadata; mantém em campo separado o status capturado no momento do recibo de uso. Regressão offline incluída; `test_eng_codex_009_runner`, `test_h05_integration` e `test_usage_meter`: **10 testes OK**.
+## Factualidade e avaliação humana
 
-## Persistência
+Esta rodada permite avaliar como cada persona raciocina sobre os dossiês disponíveis, a voz e a temperatura narrativa. Não representa apuração independente: corpos de fontes não foram obtidos, direitos não foram revalidados e nenhum fact-check humano foi feito. Avaliação P/T/J/F está pendente para leitura humana integral. Nenhum texto foi publicado. Expansão para fontes externas requer decisão de escopo e autorização próprias; manter `read:radar_index` como limite atual.
 
-- Implementação, pacotes e checkpoint foram commitados em `2b09b5c` (`feat(eng): prepare codex 009 journalist trials`) e enviados para `origin/codex/eng-codex-009-evidence-metering`.
-- A limpeza do whitespace final e o checkpoint da pausa ficaram nos commits `f189b20` e `f8a222e`, enviados à branch dedicada.
-- A correção do identificador do arquivo de matérias foi enviada em `e6fccf2` (`fix(eng): archive namespaced journalist stories`). A correção do status final de schema e este checkpoint atualizado ainda estão em andamento.
+## Validação executada
 
-## Limites e próxima ação
+- Suíte focalizada da instrumentação, mediação, runner, H05 e ponte da fábrica: **42 testes OK**.
+- Regressões após o registro de franquia: **24 testes OK**.
+- Regressões após corrigir o identificador namespaced: **9 testes OK**.
+- Regressões após corrigir o resumo de schema final: **10 testes OK**.
+- Suíte ampliada dos módulos de contratos, catálogo, fábrica, multipauta, orquestração e workflow: **99 testes OK** em 90,565 s usando ` .venv/Scripts/python.exe ` (CPython 3.11.9). Uma execução anterior com Python global terminou com 5 erros e 1 skip, inclusive por falta de `tzdata` para `America/Sao_Paulo`; a mesma suíte no ambiente do projeto passou.
+- `python -m compileall -q motor_editorial` — OK. `git diff --check` — OK.
 
-1. Commitar e enviar a correção de status do schema e este checkpoint; manter Carranca `uncertain` no ledger sem replay e Beto `succeeded_needs_research`.
-2. Próxima chamada real: `python -m motor_editorial.eng_codex_009 run eng-codex-009-nina`. Uma chamada e uma tentativa; conferir hash, recibo, schema final, pacote de pesquisa e ponte da fábrica. Em estado incerto, recuperar somente artefatos locais e não repetir a tarefa.
-3. Manter os originais integrais privados; não editar DNAs aprovados, não criar revisão sem parecer humano, não publicar, não fazer merge ou deploy.
-4. Em todos os textos, distinguir raciocínio sobre notas curatoriais de apuração independente. Limitar pesquisa a `read:radar_index`; sem tabelas locais disponíveis, manter a lacuna explícita e não acionar a fábrica para tarefa incerta ou pendente de pesquisa.
+## Persistência e próxima ação
+
+Commits enviados para `origin/codex/eng-codex-009-evidence-metering`: `2b09b5c` (preparação da bateria), `f189b20` (checkpoint da manhã), `f8a222e` (pausa), `e6fccf2` (identificador namespaced no arquivo) e `21ec16d` (estado final de schema). O branch e seus checkpoints são versionados em commits regulares e enviados ao upstream dedicado.
+
+1. Revisar a PR draft técnica desta branch, baseada em `codex/eng-codex-008-siwc-validation`; manter sem merge.
+2. Fazer leitura humana dos três originais pelo índice privado e registrar P/T/J/F em artefato separado, sem modificar DNA ou original.
+3. Tratar fact-check, direitos e eventual expansão da pesquisa como pendências de escopo/editoriais. Não fazer nova chamada, não repetir Carranca e não executar pesquisa além do índice local sem nova decisão explícita.
+4. Revalidar GitHub/Git e registrar um novo checkpoint antes de qualquer etapa futura.
+
+**Sem merge, publicação ou deploy.**
