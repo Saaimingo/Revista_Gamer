@@ -178,7 +178,7 @@ class UsageMeterTests(unittest.TestCase):
             revised_raw = b'{"title":"Revision","body":"Complete revised text."}'
             original = archive.write(
                 task=task("task-story-original"),
-                envelope=envelope(task_id="task-story-original", story_id="story-full"),
+                envelope=envelope(task_id="task-story-original", story_id="eng-codex-009/persona/story-full"),
                 raw_response=original_raw,
                 structured_story={
                     "title": "Original",
@@ -190,7 +190,7 @@ class UsageMeterTests(unittest.TestCase):
             )
             revised = archive.write(
                 task=task("task-story-revision"),
-                envelope=envelope(task_id="task-story-revision", story_id="story-full"),
+                envelope=envelope(task_id="task-story-revision", story_id="eng-codex-009/persona/story-full"),
                 raw_response=revised_raw,
                 structured_story={
                     "title": "Revision",
@@ -212,6 +212,7 @@ class UsageMeterTests(unittest.TestCase):
             self.assertIn("Every revised paragraph is stored separately.", Path(temporary, revised["full_text_ref"]).read_text(encoding="utf-8"))
             index_path = next((Path(temporary) / "story-versions").glob("*/INDEX.json"))
             index = json.loads(index_path.read_text(encoding="utf-8"))
+            self.assertEqual(index["story_id"], "eng-codex-009/persona/story-full")
             self.assertEqual({item["version_kind"] for item in index["versions"]}, {"original", "revision"})
 
     def test_summary_is_grouped_by_persona_without_filling_missing_metrics(self) -> None:

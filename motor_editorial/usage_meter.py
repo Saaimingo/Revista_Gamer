@@ -213,7 +213,14 @@ class StoryVersionArchive:
             raise ValueError("Somente saída de persona_writer pode entrar no arquivo de matérias.")
         if _sha256(raw_response) != response_ref.get("sha256"):
             raise ValueError("Hash da resposta bruta diverge do artefato original SIWC.")
-        story_id = _safe_id(envelope.story_id, "story_id")
+        story_id = envelope.story_id
+        if (
+            not isinstance(story_id, str)
+            or not story_id.strip()
+            or len(story_id) > 512
+            or any(ord(character) < 32 for character in story_id)
+        ):
+            raise ValueError("story_id invÃ¡lido para armazenamento privado.")
         task_id = _safe_id(task.task_id, "task_id")
         story_key = _sha256(story_id.encode("utf-8"))[:32]
         story_dir = (self.directory / story_key).resolve()
