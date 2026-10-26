@@ -1,9 +1,10 @@
 # ENG-CODEX-010 — fábrica fictícia ponta a ponta com imagem
 
-**Status:** implementado e validado localmente em branch isolada; revisão/PR pendente neste checkpoint.
+**Status:** implementado, validado localmente e enviado para revisão em PR draft; sem merge.
 **Data:** 26/10/2026.
 **Branch:** `codex/eng-codex-010-factory-fictional-e2e`.
 **Base:** `codex/eng-codex-008-siwc-validation` em `8d43a6c855807b2229a8e1eb620a31c6bb6e28e2`.
+**PR draft:** [#40 — Prévia local com imagem sintética na fábrica](https://github.com/Saaimingo/Revista_Gamer/pull/40), base `codex/eng-codex-008-siwc-validation`.
 **Direção:** pedido do diretor para criar uma pauta fictícia ilustrada e testar a fábrica até o último gate.
 
 ## Objetivo e limites
@@ -48,4 +49,9 @@ Validação executada:
 
 ## Estado e próximo passo
 
-O código e a evidência local foram concluídos nesta branch; o trabalho ainda não foi commitado ou enviado no momento deste checkpoint. Próximo passo: reler o diff, commit/push regular e abrir PR draft baseada na branch `codex/eng-codex-008-siwc-validation`, sem merge. Depois atualizar este checkpoint com commit e URL da PR.
+Commits principais da branch:
+
+- `1f48458219e7881fd936f7547d833b85a0099c57` — implementação, fixture, imagem e validação.
+- `ac6793ef75e2c3d483314b10338ec91bc5493f09` — checkpoint sem trailing whitespace.
+
+A atualização do checkpoint com a URL da PR foi registrada no commit seguinte. A branch foi enviada ao `origin` e está limpa; PR #40 está aberta como draft. Próximo passo: revisão humana do PR. Não houve merge; nenhum trabalho adicional é necessário antes dessa revisão.

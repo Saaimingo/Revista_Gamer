@@ -105,4 +105,4 @@ Uma pauta real -> investigação com fonte -> texto com persona -> revisão -> e
 
 ## ENG-CODEX-010 — ensaio fictício ilustrado da fábrica
 
-- [Checkpoint e relatório E2E](ENG-CODEX-010-FACTORY-E2E-CHECKPOINT.md): pauta fictícia com revisão/correção, imagem sintética local, composição/render e gate interno simulado; suíte integral 218/218. Branch isolada, sem merge ou publicação.
+- [Checkpoint e relatório E2E](ENG-CODEX-010-FACTORY-E2E-CHECKPOINT.md): pauta fictícia com revisão/correção, imagem sintética local, composição/render e gate interno simulado; suíte integral 218/218. [PR draft #40](https://github.com/Saaimingo/Revista_Gamer/pull/40), empilhada na ENG-CODEX-008, aberta sem merge ou publicação.
