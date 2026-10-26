@@ -129,3 +129,15 @@ H01/H02 estão implementadas e enviadas (`60c4c0f`, `7256db1`), validadas por 10
 **Limite do ensaio:** todas as entidades e fontes do caso são fictícias; o teste avalia resposta a um pacote controlado, não apuração de fatos reais. Não houve edição ou revisão textual. Texto bruto permanece privado e não foi copiado para Issue/PR.
 
 **Próximo passo:** após este checkpoint, executar somente Beto T13; confirmar seu hash de resposta, schema, uso reportado e texto integral. Nina T13 continua na mesma primeira leva se o consumo e o orçamento observado permitirem. Casos de correção Carranca T06, Beto T09 e Nina T08 continuam pendentes; nenhuma chamada incerta será repetida.
+
+## H04 — Beto T13 concluído e runner recuperado (2026-10-25 21:56 BRT)
+
+**Evidência real SIWC:** Beto T13 concluiu em gpt-6-luna/max pelo papel persona_writer v1.0.0, usando GAMER.md v0.2 do commit 21381c0975bef1da048d7887cbdfbd0dd97bed96. response.completed=true, estado succeeded, role_schema_valid, consumo reportado de 2.692 input + 3.214 output = 5.906 tokens, incluindo 2.044 de raciocínio; duração 59.391 ms. human_review_required=true; publication_state=not_published.
+
+**Integridade e texto integral:** a resposta bruta tem 4.715 bytes UTF-8, SHA-256 54f2f0c3c25032ccceba02f39c3b9de9b5315022075c67f63edd7c22b0c1d01f, conferido com o manifesto. Render legível, request, input UTF-8 e manifesto estão preservados em C:\Users\saimi\.codex\Revista_Gamer\ensaios-008\h04-isolated-batch-20261026\cases\beto-cartucho\T13 e no armazenamento SIWC privado; todos têm links no índice privado. Avaliação Codex separada e provisória: P=9/12, com acolhimento/calor insuficientes; J=11/12, com boa atribuição e limites, mas sem menção explícita de que não há pacote visual. Avaliação humana e aceite da direção continuam pendentes.
+
+**Recuperação sem replay:** após o dispatcher registrar o sucesso e gravar resposta, render e resultado, o runner parou somente ao tratar o agregado execution-summary.json como imutável. A resposta SIWC não foi repetida. O SHA foi conferido, índice e agregado reconciliados localmente e uma nota de recuperação ficou no diretório privado. A linha de Beto no mesmo h04-motor.sqlite3 está succeeded; nenhuma fila ou banco novo foi criado.
+
+**Consumo observado:** as duas inferências concluídas reportaram 13.159 tokens SIWC no total (Carranca 7.253 + Beto 5.906). O percentual restante da franquia Codex não foi informado após a leva; tokens SIWC não são convertidos em porcentagem de franquia.
+
+**Próximo passo:** usar o mesmo banco/ledger privado e despachar somente Nina T13, após confirmar que seu task_id ainda está queued e que Carranca/Beto continuam succeeded. Não reenviar nenhuma tarefa concluída. Depois da saída Nina, gravar checkpoint e reavaliar o orçamento antes dos casos de correção Carranca T06, Beto T09 e Nina T08.
