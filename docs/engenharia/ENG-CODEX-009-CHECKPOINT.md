@@ -78,7 +78,7 @@ Esta rodada permite avaliar como cada persona raciocina sobre os dossiês dispon
 
 ## Persistência e próxima ação
 
-Commits enviados para `origin/codex/eng-codex-009-evidence-metering`: `2b09b5c` (preparação da bateria), `f189b20` (checkpoint da manhã), `f8a222e` (pausa), `e6fccf2` (identificador namespaced no arquivo), `21ec16d` (estado final de schema), `12f7b0a` (checkpoint das três execuções), `22f05dc` (link da PR draft) e `400d765` (registro da Issue #37). O pacote integral e as atualizações correspondentes estão sendo enviados em commit dedicado. PR #38 permanece draft, sem merge.
+Commits enviados para `origin/codex/eng-codex-009-evidence-metering`: `2b09b5c` (preparação da bateria), `f189b20` (checkpoint da manhã), `f8a222e` (pausa), `e6fccf2` (identificador namespaced no arquivo), `21ec16d` (estado final de schema), `12f7b0a` (checkpoint das três execuções), `22f05dc` (link da PR draft) e `400d765` (registro da Issue #37). O pacote integral e o checkpoint atualizado foram enviados no commit `ee71108`. A descrição da PR #38 e a [Issue #37](https://github.com/Saaimingo/Revista_Gamer/issues/37#issuecomment-6416544973) agora apontam para o índice e os três textos. PR #38 permanece draft, sem merge.
 
 1. Revisar a PR #38 técnica, baseada na branch documental do Fundador 2; manter sem merge.
 2. Fazer leitura humana dos três originais pelo índice privado e registrar P/T/J/F em artefato separado, sem modificar DNA ou original.
