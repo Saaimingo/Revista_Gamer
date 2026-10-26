@@ -5,6 +5,7 @@ import unittest
 from motor_editorial.eng_codex_011 import (
     EDITOR_HANDOFF_LANES,
     _candidate_matches_triage_refs,
+    _canonicalize_investigator_claim_ids,
     _map_persisted_live_items,
 )
 
@@ -23,6 +24,20 @@ class PersistedTriageResumeTests(unittest.TestCase):
     def test_monitoramento_is_forwarded_to_editor_for_decision(self) -> None:
         self.assertIn("monitoramento", EDITOR_HANDOFF_LANES)
         self.assertNotIn("descartada", EDITOR_HANDOFF_LANES)
+
+    def test_natural_language_investigator_claim_id_is_normalized_and_label_preserved(self) -> None:
+        source_label = "Proton 11.0-2e release metadata: title and published date"
+        normalized, mapping = _canonicalize_investigator_claim_ids({
+            "claims": [{"claim_id": source_label, "evidence_ids": ["radar://document/" + "a" * 32],
+                        "epistemic_status": "official_statement"}],
+            "blockers": [],
+        })
+
+        claim = normalized["claims"][0]
+        self.assertRegex(claim["claim_id"], r"^claim-[a-f0-9]{24}$")
+        self.assertEqual(claim["source_claim_label"], source_label)
+        self.assertEqual(mapping[0]["source_claim_label"], source_label)
+        self.assertEqual(mapping[0]["canonical_claim_id"], claim["claim_id"])
 
     def test_persisted_document_rebuilds_release_tag_and_source_fields(self) -> None:
         document_id = "a" * 32

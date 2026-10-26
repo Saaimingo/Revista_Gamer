@@ -28,18 +28,22 @@ from urllib.parse import quote, unquote, urlsplit
 
 from .agent_contracts import (
     AGENT_TASK_ENVELOPE_SCHEMA_VERSION,
+    AgentResultEnvelope,
     AgentRoleCatalog,
     AgentRoleProfile,
     AgentTaskEnvelope,
     ResearchPacket,
+    canonical_material_claim_id,
     enqueue_contract_task,
     envelope_from_payload,
     load_builtin_role_catalog,
+    validate_json_schema,
 )
 from .agent_siwc import (
     SIWCResponseArtifactStore,
     SIWC_ROLE_EXECUTOR_ID,
     SIWC_ROLE_EXECUTOR_PROFILE,
+    _validate_output_references,
     register_siwc_role_executor,
 )
 from .agent_workflow import (
@@ -257,6 +261,30 @@ class Checkpoint:
         checkpoint.state["status"] = "running"
         checkpoint.event("resume_after_triage", "started", reused_task_id=last.get("task_id"),
                          repeated_siwc_calls=0, repeated_public_requests=0)
+        return checkpoint
+
+    @classmethod
+    def resume_after_investigator(cls, root: Path, run_id: str) -> "Checkpoint":
+        checkpoint = cls.__new__(cls)
+        checkpoint.root = root
+        checkpoint.run_id = run_id
+        checkpoint.path = root / "checkpoint.json"
+        checkpoint.state = _load_json(checkpoint.path)
+        events = checkpoint.state.get("events", [])
+        last = events[-1] if isinstance(events, list) and events else {}
+        if checkpoint.state.get("run_id") != run_id or checkpoint.state.get("stage") != "investigator_agent":
+            raise RunBlocked("resume_checkpoint_is_not_at_investigator_boundary")
+        if (last.get("stage") != "investigator_agent" or last.get("status") != "blocked"
+                or last.get("error_code") != "siwc_result_envelope_invalid"
+                or last.get("task_state") != "blocked"):
+            raise RunBlocked("resume_requires_the_known_investigator_envelope_blocker")
+        usage_ref = last.get("usage_record_ref")
+        if not isinstance(usage_ref, str) or not (root / usage_ref).is_file():
+            raise RunBlocked("resume_investigator_usage_receipt_missing")
+        checkpoint.state["status"] = "running"
+        checkpoint.event("resume_after_investigator", "started", reused_task_id=last.get("task_id"),
+                         repeated_siwc_calls=0, repeated_public_requests=0,
+                         recovery="validate_and_adopt_persisted_response")
         return checkpoint
 
 
@@ -936,6 +964,138 @@ def _claim_records_for_candidate(investigator_output: Mapping[str, Any], candida
     return rows
 
 
+def _canonicalize_investigator_claim_ids(output: Mapping[str, Any]) -> tuple[dict[str, Any], list[dict[str, str]]]:
+    normalized = dict(output)
+    claims = output.get("claims")
+    if not isinstance(claims, list):
+        raise RunBlocked("investigator_claims_are_not_a_list")
+    mapping: list[dict[str, str]] = []
+    normalized_claims: list[dict[str, Any]] = []
+    for index, claim in enumerate(claims):
+        if not isinstance(claim, Mapping):
+            raise RunBlocked("investigator_claim_is_not_an_object")
+        source_label = claim.get("claim_id")
+        evidence_ids = claim.get("evidence_ids")
+        epistemic_status = claim.get("epistemic_status")
+        canonical_id = canonical_material_claim_id(source_label, evidence_ids, epistemic_status)
+        normalized_claim = dict(claim)
+        normalized_claim["claim_id"] = canonical_id
+        if canonical_id != source_label:
+            normalized_claim["source_claim_label"] = source_label
+        normalized_claims.append(normalized_claim)
+        mapping.append({"claim_index": str(index), "source_claim_label": str(source_label),
+                        "canonical_claim_id": canonical_id})
+    normalized["claims"] = normalized_claims
+    return normalized, mapping
+
+
+def _recover_completed_investigator_output(
+    *, task_id: str, queue: AgentQueue, role_catalog: AgentRoleCatalog,
+    response_store: SIWCResponseArtifactStore, root: Path, checkpoint: Checkpoint,
+) -> tuple[dict[str, Any], dict[str, Any], str]:
+    task = queue.get(task_id)
+    task_events = queue.events(task_id) if task is not None else []
+    last_task_event = task_events[-1] if task_events else {}
+    last_task_detail = last_task_event.get("detail", {})
+    if (task is None or task.state != "blocked" or last_task_event.get("action") != "blocked"
+            or last_task_detail.get("error_code") != "siwc_result_envelope_invalid"
+            or not task.external_request_started or task.attempts != 1 or task.max_attempts != 1):
+        raise RunBlocked("persisted_investigator_task_is_not_recoverable")
+    envelope = envelope_from_payload(task.payload)
+    if envelope.role_id != "evidence_investigator":
+        raise RunBlocked("persisted_recovery_task_is_not_the_investigator")
+    metadata_path = root / "siwc-role-responses" / f"{task_id}.metadata.json"
+    request_path = root / "siwc-role-responses" / f"{task_id}.request.json"
+    structured_path = root / "structured-outputs" / f"{task_id}.json"
+    if not metadata_path.is_file() or not request_path.is_file() or not structured_path.is_file():
+        raise RunBlocked("persisted_investigator_artifacts_are_incomplete")
+    metadata = _load_json(metadata_path)
+    output_container = _load_json(structured_path)
+    request_ref = metadata.get("request_artifact_ref")
+    request_digest = metadata.get("request_artifact_sha256")
+    response_ref = metadata.get("response_artifact_ref")
+    response_digest_expected = metadata.get("response_artifact_sha256")
+    if (metadata.get("output_validation") != "result_envelope_rejected"
+            or metadata.get("response_completed") is not True or metadata.get("store") is not False
+            or metadata.get("stream") is not True or metadata.get("model") != MODEL_ID
+            or metadata.get("reasoning_effort") != REASONING_EFFORT
+            or not isinstance(request_ref, str) or not isinstance(request_digest, str)
+            or not isinstance(response_ref, str) or not isinstance(response_digest_expected, str)):
+        raise RunBlocked("investigator_provider_completion_metadata_not_recoverable")
+    request_bytes = response_store.read_response(request_ref, request_digest)
+    response_bytes = response_store.read_response(response_ref, response_digest_expected)
+    request_record = json.loads(request_bytes.decode("utf-8"))
+    response_digest = _sha(response_bytes)
+    if (response_digest != output_container.get("raw_response_sha256")
+            or response_digest != metadata.get("response_sha256")
+            or not isinstance(metadata.get("usage"), Mapping)):
+        raise RunBlocked("investigator_response_integrity_check_failed")
+    raw_output = json.loads(response_bytes.decode("utf-8"))
+    if not isinstance(raw_output, Mapping):
+        raise RunBlocked("investigator_persisted_response_is_not_an_object")
+    prompt_input = request_record.get("prompt_input")
+    if not isinstance(prompt_input, Mapping):
+        raise RunBlocked("investigator_persisted_request_has_no_controlled_input")
+    task_input = prompt_input.get("task_input_data")
+    task_input_data = task_input.get("data") if isinstance(task_input, Mapping) else None
+    if not isinstance(task_input_data, Mapping) or dict(task_input_data) != task.payload.get("input"):
+        raise RunBlocked("investigator_persisted_request_does_not_match_queue_input")
+    role_catalog.validate_task(envelope, input_payload=task.payload.get("input"))
+    profile = role_catalog.resolve(envelope.role_id, envelope.role_version, envelope.role_hash)
+    validate_json_schema(raw_output, profile.output_schema, "$output")
+    _validate_output_references(envelope.role_id, prompt_input, raw_output)
+    structured_in_request = output_container.get("structured_output")
+    if not isinstance(structured_in_request, Mapping) or dict(structured_in_request) != dict(raw_output):
+        raise RunBlocked("investigator_structured_output_differs_from_raw_response")
+
+    normalized_output, claim_id_mapping = _canonicalize_investigator_claim_ids(raw_output)
+    material_claims = [{
+        "claim_id": claim["claim_id"],
+        "evidence_ids": list(claim["evidence_ids"]),
+        "epistemic_status": claim["epistemic_status"],
+    } for claim in normalized_output["claims"]]
+    result_mapping = AgentResultEnvelope.from_mapping({
+        "schema_version": "1.0",
+        "task_id": task_id,
+        "status": "completed",
+        "output_schema_version": str(profile.output_schema.get("version", profile.output_schema.get("schema_version", "1.0"))),
+        "artifact_ref": {"ref": response_ref, "sha256": response_digest},
+        "material_claims": material_claims,
+        "requested_research": None,
+        "open_questions": list(raw_output.get("blockers", [])),
+        "observed_constraints": [
+            "human_review_required", "publication_state=not_published",
+            "siwc_store=false", "siwc_stream=true", "response_completed=true",
+        ],
+        "input_hash": envelope.input_hash,
+        "output_hash": response_digest,
+        "created_at": metadata.get("completed_at") or metadata.get("request_started_at"),
+        "model_used": metadata.get("model"),
+        "model_effort": metadata.get("reasoning_effort"),
+        "usage_reported": metadata.get("usage"),
+        "next_action_suggestion": "human_review_required",
+    }).to_dict()
+    role_catalog.validate_result(envelope, result_mapping)
+    if not queue.recover_completed_external_output(task_id, result_mapping, response_sha256=response_digest):
+        raise RunBlocked("investigator_queue_recovery_transition_rejected")
+    normalized_hash = stable_hash(json_dumps(normalized_output))
+    _atomic_json(root / "dossier" / "investigator-output-recovery.json", {
+        "schema_version": "ENG-CODEX-011-InvestigatorRecovery.v1",
+        "task_id": task_id,
+        "response_sha256": response_digest,
+        "normalized_output_sha256": normalized_hash,
+        "claim_id_mapping": claim_id_mapping,
+        "normalized_output": normalized_output,
+        "transformation": "invalid natural-language claim_id values receive deterministic contract-safe IDs; source labels and raw response remain preserved",
+        "provider_calls_repeated": 0,
+    })
+    checkpoint.event("investigator_output_recovered", "succeeded", task_id=task_id,
+                     original_error_code="siwc_result_envelope_invalid", response_sha256=response_digest,
+                     normalized_output_sha256=normalized_hash, normalized_claim_count=len(material_claims),
+                     provider_calls_repeated=0)
+    return normalized_output, dict(metadata), response_digest
+
+
 def _make_med_policy(source_id: str, source: Mapping[str, str], tag: str, story_revision_id: str, known_evidence_ids: list[str]) -> dict[str, Any]:
     return {
         "schema_version": POLICY_SCHEMA_VERSION,
@@ -1244,12 +1404,13 @@ def _serve(preview_root: Path, port_file: Path) -> int:
     return 0
 
 
-def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_after_triage: bool = False) -> dict[str, Any]:
+def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = False) -> dict[str, Any]:
     root = root.expanduser().resolve()
     root.mkdir(parents=True, exist_ok=True)
     active_path = root / "active-run.json"
     branch = _ensure_git_branch()
-    if resume_after_triage:
+    resume_after_investigator = False
+    if resume_existing_run:
         if not active_path.exists():
             raise RunBlocked("resume_requires_an_existing_blocked_run")
         active = _load_json(active_path)
@@ -1259,7 +1420,17 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_after_triage: bool = F
         if not isinstance(run_id, str) or not run_id.startswith("eng-codex-011-"):
             raise RunBlocked("resume_run_id_invalid")
         run_token = run_id.rsplit("-", 1)[-1]
-        checkpoint = Checkpoint.resume_after_triage(root, run_id)
+        checkpoint_state = _load_json(root / "checkpoint.json")
+        checkpoint_events = checkpoint_state.get("events", [])
+        last_checkpoint_event = checkpoint_events[-1] if isinstance(checkpoint_events, list) and checkpoint_events else {}
+        resume_after_investigator = (
+            checkpoint_state.get("stage") == "investigator_agent"
+            and last_checkpoint_event.get("stage") == "investigator_agent"
+            and last_checkpoint_event.get("status") == "blocked"
+            and last_checkpoint_event.get("error_code") == "siwc_result_envelope_invalid"
+        )
+        checkpoint = (Checkpoint.resume_after_investigator(root, run_id) if resume_after_investigator
+                      else Checkpoint.resume_after_triage(root, run_id))
         _atomic_json(active_path, {**active, "status": "running", "updated_at": _now(), "branch": branch})
     else:
         if active_path.exists():
@@ -1274,7 +1445,7 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_after_triage: bool = F
     role_catalog = load_builtin_role_catalog()
     profiles = _role_profiles(role_catalog)
     client = SIWCClient(CredentialStore())
-    if resume_after_triage:
+    if resume_existing_run:
         visible_models = {MODEL_ID}
         if not any(event.get("stage") == "model_preflight" and event.get("status") == "succeeded"
                    and event.get("model") == MODEL_ID for event in checkpoint.state.get("events", [])):
@@ -1299,7 +1470,7 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_after_triage: bool = F
     quota_guard = PersistentDomainQuotaGuard(radar_store, quotas={GITHUB_DOMAIN: DAILY_QUOTA}, timezone_name="America/Sao_Paulo")
     connector = RadarConnectorService(domain_quota_guard=quota_guard)
     incremental = IncrementalRadarService(store=radar_store, connector=connector)
-    if resume_after_triage:
+    if resume_existing_run:
         source_profiles = []
         source_by_id = {source["source_id"]: dict(source) for source in SOURCE_CANDIDATES}
     else:
@@ -1331,7 +1502,7 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_after_triage: bool = F
     )
     dispatcher.executors[RADAR_RESEARCH_EXECUTOR_ID] = ResearchTaskExecutor(research_service, role_catalog)
     dispatcher.profiles[(RADAR_RESEARCH_PROFILE.profile_id, RADAR_RESEARCH_PROFILE.version)] = RADAR_RESEARCH_PROFILE
-    if resume_after_triage:
+    if resume_existing_run:
         public_log = _load_json(root / "public-research-log.json")
         request_rows = public_log.get("requests", [])
         if (public_log.get("mission") != "ENG-CODEX-011" or public_log.get("run_id") != run_id
@@ -1484,18 +1655,52 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_after_triage: bool = F
             ],
         },
     }
-    investigator_task, investigator_envelope = _new_role_task(
-        queue=queue, catalog=role_catalog, profiles=profiles, run_id=run_id,
-        run_token=run_token, story_id=f"discovery-{scan.batch.batch_id}",
-        role_id="evidence_investigator", stage="live-dossier", input_payload=investigator_input,
-        source_snapshot_ids=snapshot_ids, root=root, research_packet=initial_packet,
-        dependencies=(scan.triage_task_id,),
-    )
-    investigator_output, _, _ = _dispatch_role(
-        dispatcher=dispatcher, queue=queue, task_id=investigator_task, envelope=investigator_envelope,
-        root=root, response_store=response_store, usage_store=usage_store,
-        checkpoint=checkpoint, stage="investigator_agent",
-    )
+    if resume_after_investigator:
+        previous_investigator_event = next((event for event in reversed(checkpoint.state.get("events", []))
+                                            if event.get("stage") == "investigator_agent"
+                                            and event.get("status") == "blocked"), None)
+        investigator_task = previous_investigator_event.get("task_id") if previous_investigator_event else None
+        if not isinstance(investigator_task, str):
+            raise RunBlocked("resume_investigator_task_id_missing_from_checkpoint")
+        existing_investigator_task = queue.get(investigator_task)
+        if existing_investigator_task is None or existing_investigator_task.payload.get("input") != investigator_input:
+            raise RunBlocked("resume_investigator_input_differs_from_persisted_task")
+        investigator_envelope = envelope_from_payload(existing_investigator_task.payload)
+        investigator_output, investigator_meta, investigator_response_sha = _recover_completed_investigator_output(
+            task_id=investigator_task, queue=queue, role_catalog=role_catalog,
+            response_store=response_store, root=root, checkpoint=checkpoint,
+        )
+        checkpoint.event("investigator_reused", "succeeded", task_id=investigator_task,
+                         response_sha256=investigator_response_sha, repeated_siwc_calls=0)
+    else:
+        investigator_task, investigator_envelope = _new_role_task(
+            queue=queue, catalog=role_catalog, profiles=profiles, run_id=run_id,
+            run_token=run_token, story_id=f"discovery-{scan.batch.batch_id}",
+            role_id="evidence_investigator", stage="live-dossier", input_payload=investigator_input,
+            source_snapshot_ids=snapshot_ids, root=root, research_packet=initial_packet,
+            dependencies=(scan.triage_task_id,),
+        )
+        investigator_output, investigator_meta, investigator_usage = _dispatch_role(
+            dispatcher=dispatcher, queue=queue, task_id=investigator_task, envelope=investigator_envelope,
+            root=root, response_store=response_store, usage_store=usage_store,
+            checkpoint=checkpoint, stage="investigator_agent",
+        )
+        investigator_output, claim_id_mapping = _canonicalize_investigator_claim_ids(investigator_output)
+        investigator_task_result = queue.get(investigator_task)
+        if investigator_task_result is None or not isinstance(investigator_task_result.result, Mapping):
+            raise RunBlocked("investigator_result_not_persisted_after_dispatch")
+        investigator_response_ref = investigator_task_result.result.get("artifact_ref")
+        if not isinstance(investigator_response_ref, Mapping):
+            raise RunBlocked("investigator_response_reference_missing_after_dispatch")
+        _atomic_json(root / "dossier" / "investigator-output-normalized.json", {
+            "schema_version": "ENG-CODEX-011-InvestigatorNormalization.v1",
+            "task_id": investigator_task,
+            "response_sha256": investigator_response_ref.get("sha256"),
+            "normalized_output_sha256": stable_hash(json_dumps(investigator_output)),
+            "claim_id_mapping": claim_id_mapping,
+            "normalized_output": investigator_output,
+            "provider_calls_repeated": 0,
+        })
     _atomic_json(root / "dossier" / "initial-investigation.json", {
         "packet": initial_packet.to_dict(),
         "evidence_records": initial_evidence,
@@ -2065,7 +2270,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.image_path is not None:
             os.environ["ENGCODEX011_IMAGE_PATH"] = str(args.image_path.expanduser().resolve())
-        report = run_live_factory(resume_after_triage=args.command == "resume")
+        report = run_live_factory(resume_existing_run=args.command == "resume")
     except RunBlocked as error:
         root = PRIVATE_ROOT.expanduser().resolve()
         root.mkdir(parents=True, exist_ok=True)

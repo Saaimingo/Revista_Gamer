@@ -218,6 +218,25 @@ class SIWCAgentRoleExecutorTests(unittest.TestCase):
             self.assertTrue(manifest["response_completed"])
             self.assertNotIn(raw_by_role[role_id], json.dumps(result, ensure_ascii=False))
 
+    def test_natural_language_claim_label_is_kept_in_raw_response_and_wrapped_with_safe_id(self) -> None:
+        role = self._role("evidence_investigator")
+        fixture = self.fixtures["roles"][role.role_id]
+        output = json.loads(json.dumps(fixture["output"], ensure_ascii=False))
+        source_label = "Proton 11.0-2e: title, tag and published date"
+        output["claims"][0]["claim_id"] = source_label
+        task_id = self._enqueue(role, fixture["input"])
+        client = FakeRoleClient({role.role_id: output})
+
+        outcome = self._dispatcher(client).dispatch_one(task_id)
+
+        self.assertEqual(outcome.state, "succeeded")
+        task = self.queue.get(task_id)
+        claim_id = task.result["material_claims"][0]["claim_id"]
+        self.assertRegex(claim_id, r"^claim-[a-f0-9]{24}$")
+        raw_path = self.root / "private-artifacts" / "siwc-role-responses" / f"{task_id}.response.json"
+        self.assertIn(source_label, raw_path.read_text(encoding="utf-8"))
+        self.assertNotEqual(claim_id, source_label)
+
     def test_invalid_role_schema_keeps_complete_response_and_blocks_retry(self) -> None:
         role = self._role("assignment_editor")
         task_id = self._enqueue(role, self.fixtures["roles"][role.role_id]["input"])

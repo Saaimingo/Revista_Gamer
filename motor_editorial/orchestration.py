@@ -598,6 +598,58 @@ class AgentQueue:
             })
             return True
 
+    def recover_completed_external_output(
+        self,
+        task_id: str,
+        result: Mapping[str, Any],
+        *,
+        response_sha256: str,
+        now: datetime | str | None = None,
+    ) -> bool:
+        """Adopt an already completed SIWC response after a local result-envelope bug.
+
+        This narrow transition never dispatches or repeats the provider call. The
+        caller must verify the persisted response bytes, role schema, evidence
+        references, and result envelope before invoking it.
+        """
+        expected_error_code = "siwc_result_envelope_invalid"
+        if not isinstance(response_sha256, str) or not re.fullmatch(r"[a-f0-9]{64}", response_sha256):
+            raise ValueError("response_sha256 precisa ser SHA-256 hexadecimal minúsculo.")
+        artifact_ref = result.get("artifact_ref") if isinstance(result, Mapping) else None
+        if (not isinstance(artifact_ref, Mapping)
+                or artifact_ref.get("sha256") != response_sha256
+                or result.get("output_hash") != response_sha256):
+            raise ValueError("Resultado recuperado precisa apontar ao hash exato da resposta externa.")
+        _assert_no_credentials(result, "recovered_result")
+        encoded = json_dumps(dict(result))
+        if len(encoded.encode("utf-8")) > 1_000_000:
+            raise ValueError("Resultado recuperado excede o limite local de 1 MB.")
+        now_iso = _lease_iso(now)
+        with self.store.transaction() as connection:
+            row = connection.execute("SELECT * FROM agent_tasks WHERE id = ?", (task_id,)).fetchone()
+            if row is None:
+                return False
+            if (row["state"] != "blocked" or row["error_code"] != expected_error_code
+                    or not row["external_request_started"] or row["attempts"] != 1
+                    or row["max_attempts"] != 1 or row["result_json"] is not None):
+                return False
+            updated = connection.execute(
+                """UPDATE agent_tasks SET state = 'succeeded', result_json = ?, completed_at = ?,
+                       error_code = NULL, error_summary = NULL
+                   WHERE id = ? AND state = 'blocked' AND error_code = ?
+                     AND external_request_started = 1 AND attempts = 1 AND result_json IS NULL""",
+                (encoded, now_iso, task_id, expected_error_code),
+            )
+            if updated.rowcount != 1:
+                return False
+            self._event(connection, task_id, "external_output_recovered", row["attempts"], {
+                "original_error_code": expected_error_code,
+                "response_sha256": response_sha256,
+                "result_sha256": stable_hash(encoded),
+                "recovery": "validated_persisted_response_no_provider_retry",
+            })
+            return True
+
     def fail(
         self,
         task_id: str,

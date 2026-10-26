@@ -17,6 +17,7 @@ from .agent_contracts import (
     AgentTaskEnvelope,
     ContractValidationError,
     ResearchRequest,
+    canonical_material_claim_id,
     validate_json_schema,
 )
 from .db import json_dumps, stable_hash
@@ -531,7 +532,9 @@ class SIWCAgentRoleExecutor:
             for claim in claims:
                 if isinstance(claim, Mapping) and {"claim_id", "evidence_ids", "epistemic_status"}.issubset(claim):
                     material_claims.append({
-                        "claim_id": claim["claim_id"],
+                        "claim_id": canonical_material_claim_id(
+                            claim["claim_id"], claim["evidence_ids"], claim["epistemic_status"],
+                        ),
                         "evidence_ids": list(claim["evidence_ids"]),
                         "epistemic_status": claim["epistemic_status"],
                     })

@@ -136,6 +136,48 @@ class AgentOrchestrationTests(unittest.TestCase):
         independent = self.queue.claim_next(task_id=independent_id)
         self.assertIsNotNone(independent)
 
+    def test_completed_external_response_can_be_adopted_without_retry_after_envelope_bug(self) -> None:
+        task_id = self.enqueue(key="recover-completed-provider-output", max_attempts=1)
+        claimed = self.queue.claim_next(task_id=task_id)
+        self.assertIsNotNone(claimed)
+        self.assertTrue(self.queue.mark_external_started(task_id, claimed.lease_owner, claimed.lease_generation))
+        self.assertEqual(self.queue.fail(
+            task_id, claimed.lease_owner, claimed.lease_generation,
+            TaskFailure("siwc_result_envelope_invalid", "Local envelope adapter rejected a completed response.", blocked=True),
+        ), "blocked")
+        response_hash = "d" * 64
+        result = {
+            "artifact_ref": {"ref": "private://response.json", "sha256": response_hash},
+            "output_hash": response_hash,
+            "status": "completed",
+        }
+
+        self.assertTrue(self.queue.recover_completed_external_output(
+            task_id, result, response_sha256=response_hash,
+        ))
+        recovered = self.queue.get(task_id)
+        self.assertEqual(recovered.state, "succeeded")
+        self.assertEqual(recovered.attempts, 1)
+        self.assertEqual(recovered.result, result)
+        event = self.queue.events(task_id)[-1]
+        self.assertEqual(event["action"], "external_output_recovered")
+        self.assertEqual(event["detail"]["response_sha256"], response_hash)
+        child_id = self.queue.enqueue(
+            task_type="validation.child", payload={"role": "writer"},
+            profile=VALIDATION_PROFILE, executor_id="simulated",
+            idempotency_key="recover-completed-provider-child", dependencies=(task_id,),
+        )
+        self.assertIsNotNone(self.queue.claim_next(task_id=child_id))
+
+    def test_completed_external_output_recovery_requires_exact_response_hash(self) -> None:
+        response_hash = "e" * 64
+        with self.assertRaisesRegex(ValueError, "hash exato"):
+            self.queue.recover_completed_external_output(
+                "missing-task", {"artifact_ref": {"ref": "private://x", "sha256": response_hash},
+                                 "output_hash": "f" * 64},
+                response_sha256=response_hash,
+            )
+
     def test_dependency_idempotency_missing_edges_and_cycle_guard(self) -> None:
         first_id = self.enqueue(key="dependency-cycle-first")
         second_id = self.queue.enqueue(

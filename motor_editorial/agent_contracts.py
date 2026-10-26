@@ -42,6 +42,7 @@ EPISTEMIC_STATUSES = frozenset({
 
 _SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
 _ROLE_ID_RE = re.compile(r"^[a-z][a-z0-9_.-]{1,95}$")
+_MATERIAL_CLAIM_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:@/-]{0,255}$")
 _SCHEMA_TYPES = {"object", "array", "string", "integer", "number", "boolean", "null"}
 _SCHEMA_KEYS = {
     "type", "properties", "required", "additionalProperties", "items", "enum",
@@ -113,6 +114,23 @@ def _identifier(value: Any, name: str, *, optional: bool = False) -> str | None:
     if text is not None and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:@/-]{0,255}", text):
         raise ContractValidationError(f"Identificador inválido em {name}.")
     return text
+
+
+def canonical_material_claim_id(claim_id: Any, evidence_ids: Sequence[str], epistemic_status: str) -> str:
+    """Keep machine-safe claim IDs and deterministically key natural-language labels."""
+    label = _text(claim_id, "claim_id", maximum=2_000)
+    if _MATERIAL_CLAIM_ID_RE.fullmatch(label or ""):
+        return label  # type: ignore[return-value]
+    if not isinstance(evidence_ids, (list, tuple)) or any(not isinstance(item, str) for item in evidence_ids):
+        raise ContractValidationError("evidence_ids precisa ser uma lista de textos para canonicalizar claim_id.")
+    if not isinstance(epistemic_status, str) or epistemic_status not in EPISTEMIC_STATUSES:
+        raise ContractValidationError("epistemic_status inválido para canonicalizar claim_id.")
+    identity = {
+        "source_claim_label": label,
+        "evidence_ids": list(evidence_ids),
+        "epistemic_status": epistemic_status,
+    }
+    return f"claim-{stable_hash(json_dumps(identity))[:24]}"
 
 
 def _role_id(value: Any, name: str = "role_id") -> str:
