@@ -5,8 +5,10 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import struct
+import zlib
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, Mapping, Sequence
 
 from .db import Store, json_dumps, stable_hash
@@ -59,9 +61,12 @@ from .orchestration import (
 
 
 FACTORY_FIXTURE = Path(__file__).parent / "fixtures" / "factory-demo.json"
+FACTORY_FIXTURE_DIR = FACTORY_FIXTURE.parent
+FACTORY_FICTIONAL_IMAGE_FIXTURE = FACTORY_FIXTURE_DIR / "factory-fictional-image-e2e.json"
 FACTORY_E14_CASES_FIXTURE = Path(__file__).parent / "fixtures" / "factory-e14-cases.json"
 FACTORY_EXECUTOR_ID = "synthetic-factory"
 FACTORY_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{2,79}$")
+PREVIEW_IMAGE_PATH_RE = re.compile(r"^assets/[0-9a-f]{64}\.png$")
 LAYOUT_TASK_TYPE = "factory.layout_stage"
 MEDIA_TASK_TYPE = "factory.media_inventory"
 STORY_PACKAGE_TASK_TYPE = "factory.story_package"
@@ -147,6 +152,51 @@ def _build_factory_dispatcher(queue: AgentQueue) -> TaskDispatcher:
     )
 
 
+def _png_dimensions(data: bytes) -> dict[str, int]:
+    if (
+        len(data) < 33
+        or len(data) > 10_000_000
+        or data[:8] != b"\x89PNG\r\n\x1a\n"
+        or data[8:12] != b"\x00\x00\x00\r"
+        or data[12:16] != b"IHDR"
+    ):
+        raise FactoryFixtureError("Ativo sintético precisa ser um PNG válido com IHDR íntegro e até 10 MB.")
+    expected_crc = struct.unpack(">I", data[29:33])[0]
+    actual_crc = zlib.crc32(data[12:29]) & 0xFFFFFFFF
+    if expected_crc != actual_crc:
+        raise FactoryFixtureError("CRC do cabeçalho PNG não confere.")
+    width, height = struct.unpack(">II", data[16:24])
+    if width <= 0 or height <= 0 or width > 8192 or height > 8192 or width * height > 50_000_000:
+        raise FactoryFixtureError("Dimensões do PNG estão fora do limite da fixture.")
+    return {"width": width, "height": height}
+
+
+def _read_fixture_image(image_file: Any) -> tuple[Path, bytes, dict[str, int]]:
+    if not isinstance(image_file, str) or not image_file.strip() or "\\" in image_file:
+        raise FactoryFixtureError("image_file precisa ser caminho relativo POSIX dentro de fixtures.")
+    posix_path = PurePosixPath(image_file)
+    windows_path = PureWindowsPath(image_file)
+    if (
+        posix_path.is_absolute()
+        or windows_path.is_absolute()
+        or windows_path.drive
+        or any(part in {"", ".."} for part in posix_path.parts)
+        or posix_path.suffix.lower() != ".png"
+    ):
+        raise FactoryFixtureError("image_file precisa ser um PNG relativo sem travessia de diretório.")
+    fixture_root = FACTORY_FIXTURE_DIR.resolve()
+    image_path = (fixture_root / Path(*posix_path.parts)).resolve()
+    try:
+        image_path.relative_to(fixture_root)
+    except ValueError as error:
+        raise FactoryFixtureError("image_file saiu da pasta de fixtures.") from error
+    try:
+        data = image_path.read_bytes()
+    except OSError as error:
+        raise FactoryFixtureError("Ativo PNG da fixture não pôde ser lido.") from error
+    return image_path, data, _png_dimensions(data)
+
+
 def _load_fixture(path: Path | None = None) -> dict[str, Any]:
     fixture_path = path or FACTORY_FIXTURE
     with fixture_path.open("r", encoding="utf-8") as stream:
@@ -214,7 +264,9 @@ def _load_fixture(path: Path | None = None) -> dict[str, Any]:
         isinstance(figure.get(field), str) and figure[field].strip()
         for field in ("asset_id", "block_id_suffix", "caption", "alt_text")
     ):
-        raise FactoryFixtureError("A fixture precisa identificar um placeholder sintético completo.")
+        raise FactoryFixtureError("A fixture precisa identificar uma figura sintética completa.")
+    if figure.get("image_file") is not None:
+        _read_fixture_image(figure["image_file"])
     return value
 
 
@@ -572,22 +624,37 @@ def _build_media_inventory(payload: Mapping[str, Any]) -> dict[str, Any]:
     story_revision = int(payload.get("story_revision", 1))
     revision_prefix = f"{story_id}-r{story_revision}"
     rights_status = str(figure.get("test_rights_status", "synthetic_fixture"))
-    license_status = str(figure.get("test_license_status", "not_applicable_synthetic_placeholder"))
+    image_file = figure.get("image_file")
+    if image_file:
+        _, image_bytes, dimensions = _read_fixture_image(image_file)
+        media_kind = "synthetic_generated"
+        default_license_status = "not_applicable_synthetic_generated"
+        origin = "Imagem original gerada para fixture fictícia; nenhuma mídia de jogo real foi usada."
+        credit = "Imagem original gerada para validação interna; uso restrito à fixture."
+        asset_sha256 = hashlib.sha256(image_bytes).hexdigest()
+    else:
+        dimensions = None
+        media_kind = "placeholder"
+        default_license_status = "not_applicable_synthetic_placeholder"
+        origin = "Placeholder textual definido pela fixture; sem bytes de imagem."
+        credit = "Ativo fictício de validação interna; sem imagem binária."
+        asset_sha256 = None
+    license_status = str(figure.get("test_license_status", default_license_status))
     permitted_modes = list(figure.get("test_permitted_modes", ["internal_preview"]))
     inventory_payload = {
         "inventory_id": f"media-inventory-{fixture['run_id']}",
         "assets": [{
             "asset_id": figure["asset_id"],
-            "media_kind": "placeholder",
+            "media_kind": media_kind,
             "rights_status": rights_status,
             "rights_holder": "SyntheticFactoryFixture.v0",
-            "origin": "Placeholder textual definido pela fixture; sem bytes de imagem.",
-            "credit": "Ativo fictício de validação interna.",
+            "origin": origin,
+            "credit": credit,
             "permitted_transformations": [],
             "linked_block_ids": [f"{revision_prefix}-{figure['block_id_suffix']}"],
             "license": {"status": license_status},
-            "asset_sha256": None,
-            "dimensions": None,
+            "asset_sha256": asset_sha256,
+            "dimensions": dimensions,
             "permitted_modes": permitted_modes,
             "synthetic": rights_status == "synthetic_fixture",
         }],
@@ -765,19 +832,56 @@ class SyntheticFactoryExecutor:
             )
             return {"composition_validation": validate_composition_validation(validation)}
         if stage == "render":
+            run_id = str(payload.get("run_id", ""))
+            if not FACTORY_ID_RE.fullmatch(run_id):
+                raise TaskFailure("factory_run_id_invalid", "run_id inválido para ativos de prévia.", blocked=True)
+            media_inventory = validate_media_inventory(payload["media_inventory"])
+            fixture = payload.get("fixture")
+            if not isinstance(fixture, Mapping):
+                raise TaskFailure("factory_fixture_missing", "A fixture é necessária para resolver ativos sintéticos.", blocked=True)
+            figure = fixture.get("synthetic_figure", {})
+            asset_urls: dict[str, str] = {}
+            run_root = (self.artifact_dir / "factory-demo" / run_id).resolve()
+            for asset in media_inventory["payload"]["assets"]:
+                if asset["media_kind"] != "synthetic_generated":
+                    continue
+                if not isinstance(figure, Mapping) or asset["asset_id"] != figure.get("asset_id"):
+                    raise TaskFailure("factory_generated_asset_unlinked", "Imagem gerada não corresponde à figura da fixture.", blocked=True)
+                try:
+                    _, image_bytes, dimensions = _read_fixture_image(figure.get("image_file"))
+                except FactoryFixtureError as error:
+                    raise TaskFailure("factory_generated_asset_invalid", str(error), blocked=True) from error
+                digest = hashlib.sha256(image_bytes).hexdigest()
+                if digest != asset["asset_sha256"] or dimensions != asset["dimensions"]:
+                    raise TaskFailure("factory_generated_asset_changed", "Hash ou dimensões da imagem divergem do inventário.", blocked=True)
+                relative_path = f"assets/{digest}.png"
+                destination = (run_root / relative_path).resolve()
+                try:
+                    destination.relative_to(run_root)
+                except ValueError as error:
+                    raise TaskFailure("factory_preview_asset_path_invalid", "Caminho do ativo saiu da pasta desta execução.", blocked=True) from error
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                if destination.exists():
+                    if destination.read_bytes() != image_bytes:
+                        raise TaskFailure("factory_preview_asset_conflict", "Ativo content-addressed existente tem bytes diferentes.", blocked=True)
+                else:
+                    destination.write_bytes(image_bytes)
+                asset_urls[str(asset["asset_id"])] = relative_path
             html = render_preview(
                 payload["story_package"], payload["layout_plan"],
-                payload["composition_validation"],
+                payload["composition_validation"], asset_urls,
             )
             return {
                 "preview_html": html,
                 "preview_sha256": hashlib.sha256(html.encode("utf-8")).hexdigest(),
+                "preview_asset_paths": asset_urls,
                 "internal_only": True,
             }
         if stage == "render_validation":
             validation = validate_rendered_preview(
                 payload["story_package"], payload["layout_plan"],
                 payload["composition_validation"], payload["preview_html"],
+                payload.get("media_asset_urls"),
             )
             return {"composition_validation": validate_composition_validation(validation)}
         raise TaskFailure("factory_layout_stage_unknown", "Etapa de layout desconhecida.", blocked=True)
@@ -797,6 +901,35 @@ class SyntheticFactoryExecutor:
         run_id = str(payload["run_id"])
         if not FACTORY_ID_RE.fullmatch(run_id):
             raise TaskFailure("factory_run_id_invalid", "run_id inválido para artefatos.", blocked=True)
+        media_inventory = validate_media_inventory(payload["media_inventory"])
+        asset_paths = payload.get("preview_asset_paths", {})
+        if not isinstance(asset_paths, Mapping):
+            raise TaskFailure("factory_preview_asset_map_invalid", "Mapa de ativos da prévia inválido.", blocked=True)
+        generated_assets = [
+            asset for asset in media_inventory["payload"]["assets"]
+            if asset["media_kind"] == "synthetic_generated"
+        ]
+        if set(asset_paths) != {str(asset["asset_id"]) for asset in generated_assets}:
+            raise TaskFailure("factory_preview_asset_map_incomplete", "Mapa da prévia não corresponde ao inventário de imagens geradas.", blocked=True)
+        run_root = (self.artifact_dir / "factory-demo" / run_id).resolve()
+        for asset in generated_assets:
+            asset_id = str(asset["asset_id"])
+            relative_path = asset_paths[asset_id]
+            expected_path = f"assets/{asset['asset_sha256']}.png"
+            if not isinstance(relative_path, str) or relative_path != expected_path or not PREVIEW_IMAGE_PATH_RE.fullmatch(relative_path):
+                raise TaskFailure("factory_preview_asset_path_invalid", f"Caminho da imagem {asset_id} não é content-addressed.", blocked=True)
+            asset_path = (run_root / relative_path).resolve()
+            try:
+                asset_path.relative_to(run_root)
+                image_bytes = asset_path.read_bytes()
+                actual_dimensions = _png_dimensions(image_bytes)
+            except (OSError, ValueError, FactoryFixtureError) as error:
+                raise TaskFailure("factory_preview_asset_missing", f"Ativo local {asset_id} não pôde ser validado.", blocked=True) from error
+            if (
+                hashlib.sha256(image_bytes).hexdigest() != asset["asset_sha256"]
+                or actual_dimensions != asset["dimensions"]
+            ):
+                raise TaskFailure("factory_preview_asset_hash_mismatch", f"Bytes ou dimensões do ativo {asset_id} divergem do inventário.", blocked=True)
         preview_path = self.artifact_dir / "factory-demo" / run_id / f"internal-preview-{digest[:16]}.html"
         preview_path.parent.mkdir(parents=True, exist_ok=True)
         preview_path.write_text(preview_html, encoding="utf-8")
@@ -804,6 +937,7 @@ class SyntheticFactoryExecutor:
             "preview_path": str(preview_path),
             "preview_sha256": digest,
             "story_revision_sha256": story_hash,
+            "preview_asset_paths": dict(asset_paths),
             "internal_only": True,
             "published": False,
         }
@@ -1114,11 +1248,13 @@ def run_factory_demo(
         payload={
             "run_id": fixture["run_id"], "story_package": story_package,
             "layout_plan": layout_plan, "composition_validation": composition_validation,
+            "fixture": run_fixture, "media_inventory": media_inventory,
         },
         profile=LAYOUT_PROFILE,
     )
     tasks.append(render_task)
     preview_html = str(render_result["preview_html"])
+    preview_asset_paths = dict(render_result.get("preview_asset_paths", {}))
     render_validation_result, render_validation_task = _run_task(
         queue, dispatcher,
         task_type=LAYOUT_TASK_TYPE,
@@ -1126,7 +1262,7 @@ def run_factory_demo(
         payload={
             "run_id": fixture["run_id"], "story_package": story_package,
             "layout_plan": layout_plan, "composition_validation": composition_validation,
-            "preview_html": preview_html,
+            "preview_html": preview_html, "media_asset_urls": preview_asset_paths,
         },
         profile=LAYOUT_PROFILE,
     )
@@ -1142,6 +1278,7 @@ def run_factory_demo(
         payload={
             "run_id": fixture["run_id"], "preview_html": preview_html,
             "composition_validation": composition_validation, "story_package": story_package,
+            "media_inventory": media_inventory, "preview_asset_paths": preview_asset_paths,
         },
         profile=LAYOUT_PROFILE,
     )
@@ -1234,11 +1371,22 @@ def run_factory_demo(
             },
         },
         "media_inventory_sha256": media_inventory["content_sha256"],
+        "media_assets": [{
+            "asset_id": asset["asset_id"],
+            "media_kind": asset["media_kind"],
+            "rights_status": asset["rights_status"],
+            "license_status": asset["license"]["status"],
+            "asset_sha256": asset["asset_sha256"],
+            "dimensions": asset["dimensions"],
+            "internal_preview_path": preview_asset_paths.get(asset["asset_id"]),
+            "permitted_modes": asset["permitted_modes"],
+        } for asset in media_inventory["payload"]["assets"]],
         "reference_index_sha256": index_hash,
         "layout_plan_sha256": layout_plan["content_sha256"],
         "composition_validation_sha256": composition_validation["content_sha256"],
         "composition_status": composition_validation["payload"]["status"],
         "composition_checks": len(composition_validation["payload"]["checks"]),
+        "composition_check_results": list(composition_validation["payload"]["checks"]),
         "preview_sha256": internal_preview["preview_sha256"],
         "preview_path": internal_preview["preview_path"],
         "human_gate": gate_result,

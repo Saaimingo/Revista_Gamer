@@ -17,6 +17,7 @@ _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _SECTION_KINDS = {"heading", "paragraph", "figure_request", "comparison", "map_request"}
 _LICENSE_STATUSES = {
     "authorized", "pending", "blocked", "not_applicable_synthetic_placeholder",
+    "not_applicable_synthetic_generated",
 }
 
 
@@ -196,7 +197,9 @@ def validate_media_inventory(value: Any) -> dict[str, Any]:
         if asset_id in seen:
             raise ContractError(f"asset_id repetido: {asset_id}.")
         seen.add(asset_id)
-        if asset.get("media_kind") not in {"placeholder", "editorial", "advertising"}:
+        if asset.get("media_kind") not in {
+            "placeholder", "synthetic_generated", "editorial", "advertising"
+        }:
             raise ContractError(f"media_kind inválido para {asset_id}.")
         if asset.get("rights_status") not in {
             "authorized", "pending", "blocked", "synthetic_fixture"
@@ -221,6 +224,20 @@ def validate_media_inventory(value: Any) -> dict[str, Any]:
         if asset.get("media_kind") == "placeholder":
             if asset_sha256 is not None or dimensions is not None:
                 raise ContractError(f"Placeholder {asset_id} não pode fingir bytes ou dimensões de imagem.")
+        elif asset.get("media_kind") == "synthetic_generated":
+            if asset.get("rights_status") != "synthetic_fixture":
+                raise ContractError(f"Imagem gerada {asset_id} precisa manter rights_status=synthetic_fixture.")
+            if license_status != "not_applicable_synthetic_generated":
+                raise ContractError(f"Imagem gerada {asset_id} precisa da licença sintética específica.")
+            if asset.get("synthetic") is not True:
+                raise ContractError(f"Imagem gerada {asset_id} precisa marcar synthetic=true.")
+            if not isinstance(asset_sha256, str) or not _SHA256_RE.fullmatch(asset_sha256):
+                raise ContractError(f"Imagem gerada {asset_id} precisa ter SHA-256.")
+            if not isinstance(dimensions, Mapping) or not all(
+                isinstance(dimensions.get(key), int) and dimensions[key] > 0
+                for key in ("width", "height")
+            ):
+                raise ContractError(f"Imagem gerada {asset_id} precisa ter dimensões verificadas.")
         elif asset.get("rights_status") == "authorized":
             if not isinstance(asset_sha256, str) or not _SHA256_RE.fullmatch(asset_sha256):
                 raise ContractError(f"Mídia autorizada {asset_id} precisa ter SHA-256.")
@@ -232,6 +249,8 @@ def validate_media_inventory(value: Any) -> dict[str, Any]:
         modes = asset.get("permitted_modes")
         if not isinstance(modes, list) or any(not isinstance(mode, str) for mode in modes):
             raise ContractError(f"permitted_modes inválido para {asset_id}.")
+        if asset.get("media_kind") == "synthetic_generated" and modes != ["internal_preview"]:
+            raise ContractError(f"Imagem gerada {asset_id} só pode ser usada em prévia interna.")
         if asset.get("rights_status") == "synthetic_fixture" and asset.get("synthetic") is not True:
             raise ContractError(f"{asset_id} precisa marcar synthetic=true.")
     return artifact
