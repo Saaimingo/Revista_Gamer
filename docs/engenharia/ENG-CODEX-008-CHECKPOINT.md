@@ -168,3 +168,14 @@ H01/H02 estão implementadas e enviadas (`60c4c0f`, `7256db1`), validadas por 10
 As três entradas são especificações de caso, não resultados. Não existem saídas/revisões para elas, e nenhum texto está sendo apresentado como gerado. H04 continua parcialmente concluída; não avançar H05 antes da execução/evidência restante ou do registro explícito de bloqueio por orçamento.
 
 **Próximo passo:** quando houver franquia suficiente, revalidar branch/PR/Issue, estado do SQLite existente e os hashes acima; enfileirar somente tarefas de correção T06/T09/T08 com max_attempts=1, usar a mesma AgentQueue e executor versionado, executar uma por vez, arquivar texto original, manifesto e avaliação P/J e checkpoint após cada. Carranca/Beto/Nina T13 permanecem succeeded e não podem ser repetidos. A revisão humana do diretor continua pendente.
+## H04 — Carranca T06 concluído (2026-10-25 22:06 BRT)
+
+**Evidência real:** o caso de correção T06 do Carranca concluiu pelo executor SIWC no mesmo h04-motor.sqlite3. Modelo gpt-6-luna/max; estado succeeded; response.completed=true; role_schema_valid; uso 4.194 input + 851 output = 5.045 tokens, 413 raciocínio; duração 17.156 ms. human_review_required=true; published=false. SHA-256 bruto dfda02336e1b92330e5d949861acf43f49738e64ff2460fb11d796480007da86; resposta bruta UTF-8, manifesto, request e input com links privados no índice.
+
+**Avaliação Codex separada:** P=13/14 e J=12/12, provisórias. A resposta admite “Erramos”, diferencia TDP de limite de potência do pacote e de consumo medido, agradece o leitor, não usa ironia para evitar responsabilidade e pede medições independentes antes de ampliar a conclusão. A voz permanece discreta. Revisão humana pendente. Parâmetro técnico temperature não foi configurado nem reportado; isso fica separado da leitura de temperatura narrativa.
+
+**Complemento de integridade:** o render legível inicial do retorno não apresentou o campo estruturado requested_research, embora ele esteja intacto na resposta JSON bruta. O campo foi conferido e preservado em arquivo complementar local, sem sobrescrever o original nem alterar a redação. O índice agora liga o retorno bruto, o render, o complemento e a avaliação P/J.
+
+**Orçamento:** esta chamada ocorreu depois de o usuário informar 9% restante; não houve novo percentual informado após ela. O consumo medido foi 5.045 tokens SIWC, sem conversão para percentual Codex. Casos ainda não executados: Beto T09 e Nina T08. Nenhum caso T13 foi repetido.
+
+**Próximo passo:** reavaliar o saldo quando o usuário o informar ou quando a franquia se recuperar; prosseguir com Beto T09 e depois Nina T08 somente se houver orçamento suficiente. Atualizar checkpoint após cada inferência; não avançar para H05 sem fechar ou bloquear formalmente H04. A fila mantida é a mesma, sem replay automático; qualquer tarefa já succeeded deve ser pulada.
