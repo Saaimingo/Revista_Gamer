@@ -73,6 +73,13 @@ Após registrar a correção do hash de DNA, executar `& '.\.venv\Scripts\python
 - Exercício isolado em cópia temporária reutilizou as 10 alegações do investigador e a decisão do editor, confirmou hash do DNA, preparou o mesmo payload do jornalista e reabriu a fila com zero chamada de provedor. Regressões focadas no `.venv`: 121/121 OK; `py_compile` passou.
 - Próxima ação após commit/push: executar `resume --image-path` uma vez para o rascunho original. Esperados: uma chamada real do Carranca/Ranzinza; somente se ela solicitar pesquisa em linguagem natural, uma requisição pública final via Radar/Motor. Restam pendentes pesquisa complementar, fact-check, revisão editorial, eventual revisão pelo redator, arquivos integrais e prévia aberta no navegador.
 
+## Atualização técnica — retomada e fonte Radar já registrada, 2026-10-26
+
+- Quarta retomada reutilizou investigador/editor e confirmou DNA/payload, mas encontrou `RadarStoreError` ao registrar novamente a fonte de detalhes `github-api-proton-detail`, que havia sido registrada antes da tentativa de redação. A fila parou ainda antes do despacho SIWC; não há nova inferência, recibo de uso nem requisição pública. O pedido de escritor permanece na tentativa 1 com `external_request_started=false`.
+- Corrigido `_register_source` para reutilizar a fonte somente quando ID, URL oficial, estado de acesso/direitos e metadados de autorização coincidirem; rota divergente continua bloqueada. O checkpoint agora reconhece esse bloqueio exato após `persona_load` e retoma sem repetir papéis. Regressões focalizadas de runner/conectores/Radar: 41/41 OK; `py_compile` passou.
+- Exercício isolado em cópia temporária confirmou retomada do checkpoint, uma única linha da fonte de Proton após registro repetido, reuso dos resultados do investigador/editor, DNA íntegro, reabertura da tarefa do redator e zero chamada pública/SIWC.
+- Próximo passo: registrar este ajuste e executar `resume --image-path` novamente. O resume reutiliza as fontes, Radar, triagem, investigador e editor, então reabre apenas a tarefa bloqueada pré-SIWC do jornalista. A primeira chamada real de redação ainda está pendente; a pesquisa pública complementar continua dentro do saldo 3/4.
+
 ## Limites permanentes
 
 `published=false`; gate de aprovação humana final pendente. Sem texto integral de artigo público de terceiros no repositório, sem segredos/logs sensíveis no GitHub, sem alterações de DNA, sem repetição das baterias ENG-008/009/010, sem merge, deploy ou publicação.

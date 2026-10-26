@@ -1,16 +1,43 @@
 from __future__ import annotations
 
+import json
+import tempfile
 import unittest
+from pathlib import Path
 
 from motor_editorial.eng_codex_011 import (
     EDITOR_HANDOFF_LANES,
+    SOURCE_CANDIDATES,
+    Checkpoint,
+    RunBlocked,
     _candidate_matches_triage_refs,
     _canonicalize_investigator_claim_ids,
+    _make_radar_profile,
     _map_persisted_live_items,
+    _register_source,
 )
+from motor_editorial.radar_store import RadarStore
 
 
 class PersistedTriageResumeTests(unittest.TestCase):
+    def test_source_registration_resume_requires_the_exact_saved_blocker(self) -> None:
+        run_id = "eng-codex-011-fixture-run"
+        with tempfile.TemporaryDirectory(prefix="eng011-checkpoint-resume-") as temporary:
+            root = Path(temporary)
+            (root / "active-run.json").write_text(json.dumps({
+                "run_id": run_id, "status": "blocked", "blocker_code": "RadarStoreError",
+            }), encoding="utf-8")
+            (root / "checkpoint.json").write_text(json.dumps({
+                "run_id": run_id, "stage": "persona_load", "status": "running",
+                "events": [{"stage": "persona_load", "status": "succeeded"}],
+            }), encoding="utf-8")
+
+            checkpoint = Checkpoint.resume_after_source_registration_block(root, run_id)
+
+            self.assertEqual(checkpoint.state["stage"], "resume_after_source_registration")
+            self.assertEqual(checkpoint.state["events"][-1]["repeated_siwc_calls"], 0)
+            self.assertEqual(checkpoint.state["events"][-1]["repeated_public_requests"], 0)
+
     def test_event_reference_links_candidate_when_item_id_is_not_returned(self) -> None:
         candidate = {
             "item_id": "discovery-release-42",
@@ -81,6 +108,25 @@ class PersistedTriageResumeTests(unittest.TestCase):
         self.assertEqual(candidate["title"], "Proton 11.0-2e")
         self.assertEqual(candidate["body_excerpt"], "A short official release excerpt.")
         self.assertEqual(candidate["author"], "ivyl")
+
+    def test_radar_source_registration_is_idempotent_but_rejects_route_conflicts(self) -> None:
+        source = SOURCE_CANDIDATES[1]
+        detail_source_id = "github-api-proton-detail"
+        display_name = "ValveSoftware/Proton release detail"
+        with tempfile.TemporaryDirectory(prefix="eng011-source-registration-") as temporary:
+            store = RadarStore(Path(temporary) / "radar.sqlite3")
+            profile, endpoint = _make_radar_profile(source, detail_source_id, details=True, tag="proton-11.0-2e")
+
+            _register_source(store, profile, display_name, endpoint)
+            _register_source(store, profile, display_name, endpoint)
+
+            rows = store.list_rows("radar_sources")
+            self.assertEqual(len(rows), 1)
+            conflict_profile, conflict_endpoint = _make_radar_profile(
+                source, detail_source_id, details=True, tag="proton-11.0-3",
+            )
+            with self.assertRaisesRegex(RunBlocked, "persisted_radar_source_conflicts"):
+                _register_source(store, conflict_profile, display_name, conflict_endpoint)
 
 
 if __name__ == "__main__":

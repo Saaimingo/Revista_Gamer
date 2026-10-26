@@ -307,6 +307,27 @@ class Checkpoint:
                          recovery="correct_persona_hash_preservation_without_external_retry")
         return checkpoint
 
+    @classmethod
+    def resume_after_source_registration_block(cls, root: Path, run_id: str) -> "Checkpoint":
+        checkpoint = cls.__new__(cls)
+        checkpoint.root = root
+        checkpoint.run_id = run_id
+        checkpoint.path = root / "checkpoint.json"
+        checkpoint.state = _load_json(checkpoint.path)
+        active = _load_json(root / "active-run.json")
+        events = checkpoint.state.get("events", [])
+        last = events[-1] if isinstance(events, list) and events else {}
+        if (active.get("run_id") != run_id or active.get("status") != "blocked"
+                or active.get("blocker_code") != "RadarStoreError"
+                or checkpoint.state.get("run_id") != run_id or checkpoint.state.get("stage") != "persona_load"):
+            raise RunBlocked("resume_source_registration_block_not_confirmed")
+        if last.get("stage") != "persona_load" or last.get("status") != "succeeded":
+            raise RunBlocked("resume_source_registration_boundary_not_persisted")
+        checkpoint.state["status"] = "running"
+        checkpoint.event("resume_after_source_registration", "started", repeated_siwc_calls=0,
+                         repeated_public_requests=0, recovery="reuse_exact_persisted_source_route")
+        return checkpoint
+
 
 def _ensure_git_branch() -> str:
     branch = subprocess.check_output(
@@ -345,6 +366,26 @@ def _source_profile(source: Mapping[str, str], *, endpoint: str, source_id: str,
 
 
 def _register_source(store: RadarStore, profile: SourceProfile, display_name: str, endpoint: str) -> None:
+    metadata = {
+        "mission": "ENG-CODEX-011",
+        "connector_kind": "public_api",
+        "host_allowlist": [GITHUB_DOMAIN],
+        "access": "public unauthenticated release metadata",
+        "terms_provenance": TERMS_PROVENANCE,
+        "robots_provenance": ROBOTS_PROVENANCE,
+    }
+    existing = store.get_row("radar_sources", "source_id", profile.source_id)
+    if existing is not None:
+        try:
+            existing_metadata = json.loads(existing.get("metadata_json") or "{}")
+        except json.JSONDecodeError:
+            raise RunBlocked("persisted_radar_source_metadata_is_invalid") from None
+        if (existing.get("display_name") != display_name or existing.get("canonical_url") != endpoint
+                or existing.get("source_type") != "official" or existing.get("access_policy") != "allowed"
+                or existing.get("rights_status") != "unknown" or existing.get("language") != "en"
+                or existing_metadata != metadata):
+            raise RunBlocked("persisted_radar_source_conflicts_with_allowlisted_route")
+        return
     store.register_source(
         source_id=profile.source_id,
         display_name=display_name,
@@ -353,14 +394,7 @@ def _register_source(store: RadarStore, profile: SourceProfile, display_name: st
         access_policy="allowed",
         rights_status="unknown",
         language="en",
-        metadata={
-            "mission": "ENG-CODEX-011",
-            "connector_kind": "public_api",
-            "host_allowlist": [GITHUB_DOMAIN],
-            "access": "public unauthenticated release metadata",
-            "terms_provenance": TERMS_PROVENANCE,
-            "robots_provenance": ROBOTS_PROVENANCE,
-        },
+        metadata=metadata,
         now=_now(),
     )
 
@@ -1510,14 +1544,22 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
             and last_checkpoint_event.get("status") == "blocked"
             and last_checkpoint_event.get("error_code") == "siwc_result_envelope_invalid"
         )
+        resume_after_source_registration = (
+            active.get("blocker_code") == "RadarStoreError"
+            and checkpoint_state.get("stage") == "persona_load"
+            and last_checkpoint_event.get("stage") == "persona_load"
+            and last_checkpoint_event.get("status") == "succeeded"
+        )
         resume_after_pre_external_writer = (
             checkpoint_state.get("stage") == "journalist_original_agent"
             and last_checkpoint_event.get("stage") == "journalist_original_agent"
             and last_checkpoint_event.get("status") == "blocked"
             and last_checkpoint_event.get("error_code") == "agent_contract_invalid"
-        )
+        ) or resume_after_source_registration
         if resume_after_investigator:
             checkpoint = Checkpoint.resume_after_investigator(root, run_id)
+        elif resume_after_source_registration:
+            checkpoint = Checkpoint.resume_after_source_registration_block(root, run_id)
         elif resume_after_pre_external_writer:
             checkpoint = Checkpoint.resume_after_pre_external_writer_block(root, run_id)
         else:
