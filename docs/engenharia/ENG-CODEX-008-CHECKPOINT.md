@@ -1,6 +1,6 @@
 # ENG-CODEX-008 — checkpoint de execução
 
-**Atualizado:** 2026-10-25 21:35 -03:00
+**Atualizado:** 2026-10-25 21:39 -03:00
 **Issue de execução:** [#33](https://github.com/Saaimingo/Revista_Gamer/issues/33)
 **Ordem documental:** [PR #32](https://github.com/Saaimingo/Revista_Gamer/pull/32)
 **PR de implementação:** [#34](https://github.com/Saaimingo/Revista_Gamer/pull/34), draft, aberta, sem merge.
@@ -10,17 +10,17 @@
 - **H00:** concluída — estado remoto, base, fontes de persona, documentos obrigatórios, arquitetura e baseline conferidos.
 - **H01:** concluída — executor SIWC genérico, validação de papel/modelo/esforço/schema e retenção integral da resposta.
 - **H02:** concluída — testes offline de segurança, incerteza, lease, replay, fronteiras de evidência e falhas do provedor.
-- **H03:** em andamento — ACL e credencial existentes verificadas; uma consulta real ao catálogo concluiu, com `gpt-6-luna` listado.
-- **Próxima ação:** executar uma única inferência real curta de `assignment_editor`, com dados sintéticos, pelo mesmo queue/dispatcher e `gpt-6-luna/max` explícitos.
+- **H03:** concluída no gate técnico com ressalva do harness de entrada — catálogo e uma inferência real de `assignment_editor` concluíram; resposta integral privada, completa e válida pelo schema.
+- **Próxima ação:** H04 — rever os commits/decisões de identidade ao vivo, preparar fixtures de persona em JSON UTF-8 validado e iniciar os cenários autorizados de Carranca, Beto e Nina.
 - **Branch:** `codex/eng-codex-008-siwc-validation`, criada diretamente de `codex/eng-codex-007-factory-radar@cd71022ef3b3d60fa4c97beb6db5583a03856102`.
 - **Commits H00:** `b8e2dde` (checkpoint inicial), `05d3c8f` (vínculo à PR #34); ambos enviados para `origin/codex/eng-codex-008-siwc-validation`.
 - **Commits H01/H02:** `60c4c0f` (executor por papel, retenção SIWC e regressões offline) e `7256db1` (checkpoint); ambos enviados para `origin/codex/eng-codex-008-siwc-validation`.
 - **Comentários H00:** [Issue #33](https://github.com/Saaimingo/Revista_Gamer/issues/33#issuecomment-6405340231) · [PR #34](https://github.com/Saaimingo/Revista_Gamer/pull/34#issuecomment-6405340777).
 - **Comentários H01/H02:** [Issue #33](https://github.com/Saaimingo/Revista_Gamer/issues/33#issuecomment-6405551977) · [PR #34](https://github.com/Saaimingo/Revista_Gamer/pull/34#issuecomment-6405552335).
 - **Baseline:** sem alterações de código antes desta branch; suíte serial `198/198 OK` em CPython 3.11.9, 134,945 s.
-- **Chamadas SIWC/Plus nesta missão:** 1 consulta real a `/v1/models`; 0 inferências. O token expirado foi renovado pelo refresh existente suportado; nenhum login ou consentimento novo. As chamadas de teste de H01/H02 foram mockadas.
-- **Orçamento informado pelo usuário:** 24% da franquia Codex/Plus, compartilhada com esta execução segundo a confirmação do usuário; consumo SIWC ainda não foi medido. H03 começa com uma chamada curta e verifica o resultado antes de qualquer expansão.
-- **Saída editorial real:** 0; nenhum texto ou caso foi fabricado.
+- **Chamadas SIWC/Plus nesta missão:** 1 consulta real a `/v1/models`, 1 refresh suportado da credencial existente e 1 inferência real. Nenhum login ou consentimento novo. As chamadas de teste de H01/H02 foram mockadas.
+- **Orçamento informado pelo usuário antes de H03:** 24% da franquia compartilhada com Codex. A inferência H03 reportou 1.611 tokens (628 input, 983 output; 501 de raciocínio), sem medidor de percentual restante na resposta.
+- **Saída editorial real:** 1 briefing estruturado de `assignment_editor`, sintético e sem persona; não é `StoryDraft`, não teve avaliação P/J ou parecer humano, e `published=false`.
 - **Publicação/merge/deploy:** não realizados; `published=false`.
 
 ## Estado remoto verificado
@@ -29,7 +29,7 @@
 | --- | --- |
 | PR #30 / ENG-CODEX-007 | aberta, draft, sem reviews; head `cd71022ef3b3d60fa4c97beb6db5583a03856102`; base `4de16640e67bd16c61468955e96e4ffa850d4cab` |
 | PR #32 / contrato 008 | aberta, draft, sem reviews; head `a9aee221f1783d402bbed16ff13f1ea32042dae2`; base no head da #30 |
-| PR #34 / implementação 008 | aberta, draft, sem reviews; head `7256db1cb3d24967275c423d8238fa60eb6c2173`, base no head da #30; não mesclada |
+| PR #34 / implementação 008 | aberta, draft, sem reviews; sincronizada com a branch de execução, base no head da #30; não mesclada |
 | Issue #33 / ordem 008 | aberta; inclui adendo obrigatório de preservação integral das saídas textuais |
 | PR #13 / Ranzinza | aberta, draft, sem reviews; head `3d651fe1951818767b4a6b935732857f08cb7849` |
 | PR #19 / Beto e Nina | aberta, draft, sem reviews; head `21381c0975bef1da048d7887cbdfbd0dd97bed96` |
@@ -54,15 +54,17 @@ O repositório GitHub é público. PR #30 e os relatórios históricos E17–E19
 - Modelo e esforço são parâmetros obrigatórios; o modelo precisa estar no catálogo verificado, o perfil precisa autorizar o executor SIWC e fallback permanece proibido. O resultado exige `store=false`, `stream=true`, evento `response.completed`, modelo/esforço retornados e JSON válido.
 - Cada tarefa grava request, resposta bruta e manifesto local com hashes, role/persona, run/story/revision/case, snapshots, refs de evidência, modelo/esforço, uso/latência disponíveis e status. A resposta bruta não entra no resultado SQLite nem em logs; o envelope aponta para o artefato e conserva `input_hash`, `output_hash` e `human_review_required`.
 - Validação semântica bloqueia referências a evidência/claims ausentes, claims sem evidência, promoção de rumor apoiado só por fonte rumorosa e fact-check/revisão com `draft_hash` obsoleto. A saída nunca é aprovação humana nem publicação.
-- Artefatos dos testes ficaram em diretórios temporários de teste, removidos ao final. Ainda não existe saída real SIWC. O armazenamento real será escolhido fora do Git público e terá ACL verificada antes de H03.
+- Artefatos dos testes H01/H02 ficaram em diretórios temporários e foram removidos. No fechamento de H01/H02 não havia saída SIWC real; a primeira saída real foi produzida em H03 e permanece fora do Git público, sob ACL local verificada.
 
-## H03 — preflight local em andamento (sem rede)
+## H03 — E17 real controlada, concluída com ressalva do harness de entrada
 
-- ACL observada em `%LOCALAPPDATA%`: `ReadAndExecute` herdado por um principal além do usuário atual, SYSTEM e Administrators. O caminho proposto ali foi rejeitado; nenhum artefato foi gravado nele.
-- ACL observada em `%USERPROFILE%\\.codex`: proprietário usuário atual; regras de acesso observadas apenas para usuário atual, SYSTEM e Administrators. Este é o pai escolhido para o armazenamento privado; a ACL do diretório final será verificada depois da criação.
-- `%USERPROFILE%\\.codex\\Revista_Gamer\\ensaios-008` foi criado herdando a ACL do pai; conferência final encontrou apenas usuário atual, SYSTEM e Administrators com acesso. Nenhuma permissão foi alterada.
-- Pré-leitura local do CredentialStore, sem imprimir segredos: arquivo e access/refresh token presentes, escopo `chatgpt.tokens.use.direct` presente; access token expirado. `SIWCClient.models()` usou o refresh já armazenado pelo caminho suportado; expiração restante depois: 3599 s. Nenhum login ou consentimento novo.
-- Uma única chamada real `GET /v1/models` concluiu em 2875 ms: 9 modelos no catálogo, 7 listados e `gpt-6-luna` visível. Manifesto local sem lista bruta: `%USERPROFILE%\\.codex\\Revista_Gamer\\ensaios-008\\h03-model-catalog-c3d837d559d049bfbad3ef922507aac8.json`. Nenhuma inferência nem texto editorial produzido ainda.
+- ACL observada em `%LOCALAPPDATA%`: `ReadAndExecute` herdado por outro principal; caminho rejeitado. `%USERPROFILE%\\.codex\\Revista_Gamer\\ensaios-008` foi criado sob o pai privado e conferido com acesso de usuário atual, SYSTEM e Administrators apenas; nenhuma ACL foi alterada.
+- Pré-leitura local do CredentialStore sem segredos: credencial e access/refresh tokens presentes, escopo `chatgpt.tokens.use.direct` presente; access token expirado. A `SIWCClient.models()` usou o refresh existente suportado; expiração restante depois: 3599 s. Sem login ou novo consentimento.
+- Uma chamada real `GET /v1/models` concluiu em 2875 ms: 9 modelos, 7 listados, `gpt-6-luna` visível. Manifesto de metadados: `%USERPROFILE%\\.codex\\Revista_Gamer\\ensaios-008\\h03-model-catalog-c3d837d559d049bfbad3ef922507aac8.json`.
+- Uma inferência real foi despachada como `assignment_editor` (`role_version=1.0.0`, `role_hash=3b3db550015edd5fcf90aff8aa5ed781429efe9af7cc59e6b76504d9d3eb1810`), `gpt-6-luna/max`, `store=false`, `stream=true`, `response.completed=true`; o dispatcher concluiu `succeeded`, `role_schema_valid`, `human_review_required=true`, `publication_state=not_published`.
+- Uso reportado: 628 input, 983 output, 501 raciocínio, 1.611 total; duração 19.828 ms. `temperature` de amostragem não configurada. Texto original integral: 2.147 bytes UTF-8, SHA-256 `0e7f24d4b38d5ac4d194837fadc594871944015983d9ab3fed27fecc4f027f22`; conferido contra o manifesto.
+- Índice privado, com links diretos para original, manifesto e entrada: `%USERPROFILE%\\.codex\\Revista_Gamer\\ensaios-008\\INDICE-LEITURA-INTEGRAL.md`. A resposta encontrou dossier vazio, `needs_more_research=true` e 3 lacunas; não há claims nem evidências no resultado. Sem revisão/correção posterior.
+- **Ressalva:** o script de ensaio foi alimentado por pipeline PowerShell→Python, que converteu caracteres portugueses não ASCII da entrada sintética em `?`. O `.request.json` e manifesto preservam exatamente o que foi enviado; `test_only`, `no_external_sources` e `no_real_world_factual_claims` permaneceram intactos. Isso limita a evidência de fidelidade da entrada deste caso; não invalida a conclusão técnica do fluxo SIWC, da resposta completa nem da validação de schema. Nota privada: `%USERPROFILE%\\.codex\\Revista_Gamer\\ensaios-008\\h03-assignment-editor-20261026-0035z\\h03-operator-note.md`. H04 usará arquivos JSON UTF-8 lidos com `encoding="utf-8"` e validação dos bytes antes de inferir.
 
 ## Evidências executadas
 
@@ -83,16 +85,18 @@ O repositório GitHub é público. PR #30 e os relatórios históricos E17–E19
 | Inspeção ACL PowerShell de `%LOCALAPPDATA%`, `%USERPROFILE%\\.codex` e raiz de artefatos H03 recém-criada | `%LOCALAPPDATA%` rejeitado por `ReadAndExecute` de outro principal; raiz H03 privada, owner usuário atual e acessos herdados somente de usuário atual/SYSTEM/Administrators; sem alteração de ACL |
 | Pré-leitura local de `CredentialStore.default_path()`/`CredentialStore.load()` | Arquivo presente; `authenticated=true`; `direct_usage_scope=true`; access/refresh token presentes; access token expirado; valores sensíveis nunca impressos; nenhuma rede acessada |
 | Uma chamada `SIWCClient.models()` pelo CredentialStore existente | `GET /v1/models`, 1 request em 2875 ms; catálogo 9, listados 7, `gpt-6-luna` visível; refresh suportado concluiu; sem inferência; manifesto privado em `h03-model-catalog-c3d837d559d049bfbad3ef922507aac8.json` |
+| Uma execução real via `TaskDispatcher` e `SIWCAgentRoleExecutor` | 1 inferência `assignment_editor`; `succeeded`; `role_schema_valid`; resposta completa 2.147 bytes; SHA-256 conferido; 1.611 tokens; request/response/manifesto/índice preservados no storage privado; ressalva de encoding descrita acima |
+| Verificação local do `INDICE-LEITURA-INTEGRAL.md`, resposta e manifesto | três links diretos existentes; resposta UTF-8 de 2.147 bytes; SHA-256 do arquivo e `artifact_sha256` coincidem |
 
 ## Gates para H03 — E17 real controlada
 
 1. **Armazenamento:** não usar `%LOCALAPPDATA%` para texto bruto porque foi observada leitura por outro principal. A raiz `%USERPROFILE%\\.codex\\Revista_Gamer\\ensaios-008` já herda a ACL privada de `%USERPROFILE%\\.codex`; verificação final não encontrou outro principal com leitura/escrita. Não alterar permissões.
 2. **Conta e catálogo:** concluído — CredentialStore existente renovado pelo caminho suportado, sem login/consentimento novo; uma consulta única mostrou `gpt-6-luna` como listado.
-3. **Primeira inferência:** explicitar `gpt-6-luna` e `max`, sem fallback, executar uma chamada curta pelo SIWCClient existente e pelo mesmo dispatcher/fila. Salvar request, resposta bruta integral e manifesto fora do Git público antes do parse/schema. O usuário reportou 24% de orçamento compartilhado; medir o uso disponível na resposta e fazer no máximo duas chamadas adicionais no lote H03 apenas se a primeira concluir e qualidade/orçamento comportarem.
-4. **Parada segura:** parar em 401/403, 429, novo consentimento, modelo/esforço divergente, resposta incompleta/incerta ou orçamento insuficiente; não repetir chamadas incertas. Se a resposta for incompleta, marcá-la `incomplete`; nunca apresentar como texto integral.
+3. **Primeira inferência:** concluída — uma chamada curta `assignment_editor` em `gpt-6-luna/max`, sem fallback, via SIWCClient e dispatcher existentes. O resultado completou e passou schema; por controle de cota, não foram feitas chamadas H03 adicionais.
+4. **Parada segura:** 401/403, 429, novo consentimento, modelo/esforço divergente, resposta incompleta/incerta ou orçamento insuficiente interrompem o lote; não repetir chamadas incertas. Se incompleta, marcar `incomplete` e nunca apresentar como texto integral. Nenhuma dessas falhas ocorreu no piloto H03.
 5. **Trilhas de aceite:** qualquer texto editorial fica preservado integralmente, com metadados e hash, em storage local privado. Não gravar textos integrais de terceiros, tokens ou PII no Git/Issue/PR. `published=false`; revisão humana e critérios P/J continuam separados e pendentes.
 6. **Identidades:** manter commits/hashes fonte fixados para Carranca/Ranzinza, Beto, Nina e diretriz de apuração; não alterar DNA. Não editar os históricos E17–E19 da 007.
 
 ## Próximo passo exato
 
-H01/H02 estão implementadas e enviadas (`60c4c0f`, `7256db1`), validadas por 109 testes focados, repetição de 13 testes críticos, `compileall` e `git diff --check`; evidências registradas na Issue #33 e PR #34. H03 segue em andamento. O catálogo foi consultado uma vez, `gpt-6-luna` está listado e o refresh suportado da credencial existente concluiu sem consentimento novo. Próximo: uma única inferência real curta de `assignment_editor` via dispatcher, com entrada sintética e preservação integral no armazenamento privado. Chamadas nesta missão: 1 catálogo, 0 inferências.
+H01/H02 estão implementadas e enviadas (`60c4c0f`, `7256db1`), validadas por 109 testes focados, repetição de 13 testes críticos, `compileall` e `git diff --check`; evidências H01/H02 registradas na Issue #33 e PR #34. H03 concluiu o gate técnico: uma consulta ao catálogo, refresh suportado e uma inferência real concluída, sem login/consentimento novo. A resposta original e metadados estão preservados localmente e indexados; a ressalva de encoding está registrada e orienta o harness H04. Próximo: H04 — rever ao vivo as fontes de DNA e decisões, montar inputs UTF-8 com hash verificado e executar os cenários autorizados isolados de Carranca, Beto e Nina. P/J e avaliação humana continuam pendentes; nada foi publicado.
