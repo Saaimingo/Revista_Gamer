@@ -42,7 +42,7 @@
 ## Persistência
 
 - Implementação, pacotes e checkpoint foram commitados em `2b09b5c` (`feat(eng): prepare codex 009 journalist trials`) e enviados para `origin/codex/eng-codex-009-evidence-metering`.
-- A verificação do commit encontrou apenas whitespace final em três arquivos; a limpeza e uma atualização deste checkpoint serão registradas no commit seguinte. Nenhuma execução real ocorreu.
+- A limpeza do whitespace final e a atualização da pausa ficaram no commit `f189b20` (`docs(eng): persist codex 009 morning handoff`), também enviado à branch dedicada. `git diff --cached --check` passou após a limpeza. Nenhuma execução real ocorreu.
 
 ## Limites e próxima ação
 
