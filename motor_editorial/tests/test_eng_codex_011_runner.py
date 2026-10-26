@@ -38,6 +38,25 @@ class PersistedTriageResumeTests(unittest.TestCase):
             self.assertEqual(checkpoint.state["events"][-1]["repeated_siwc_calls"], 0)
             self.assertEqual(checkpoint.state["events"][-1]["repeated_public_requests"], 0)
 
+    def test_writer_preflight_resume_accepts_only_saved_persona_load_guard_blocker(self) -> None:
+        run_id = "eng-codex-011-fixture-run"
+        with tempfile.TemporaryDirectory(prefix="eng011-writer-checkpoint-") as temporary:
+            root = Path(temporary)
+            (root / "active-run.json").write_text(json.dumps({
+                "run_id": run_id, "status": "blocked",
+                "blocker_code": "existing_writer_task_is_not_a_safe_pre_external_recovery",
+            }), encoding="utf-8")
+            (root / "checkpoint.json").write_text(json.dumps({
+                "run_id": run_id, "stage": "persona_load", "status": "running",
+                "events": [{"stage": "persona_load", "status": "succeeded"}],
+            }), encoding="utf-8")
+
+            checkpoint = Checkpoint.resume_after_pre_external_writer_block(root, run_id)
+
+            self.assertEqual(checkpoint.state["stage"], "resume_after_writer_preflight")
+            self.assertEqual(checkpoint.state["events"][-1]["repeated_siwc_calls"], 0)
+            self.assertEqual(checkpoint.state["events"][-1]["repeated_public_requests"], 0)
+
     def test_event_reference_links_candidate_when_item_id_is_not_returned(self) -> None:
         candidate = {
             "item_id": "discovery-release-42",

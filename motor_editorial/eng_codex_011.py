@@ -294,12 +294,24 @@ class Checkpoint:
         checkpoint.run_id = run_id
         checkpoint.path = root / "checkpoint.json"
         checkpoint.state = _load_json(checkpoint.path)
+        active = _load_json(root / "active-run.json")
         events = checkpoint.state.get("events", [])
         last = events[-1] if isinstance(events, list) and events else {}
-        if checkpoint.state.get("run_id") != run_id or checkpoint.state.get("stage") != "journalist_original_agent":
-            raise RunBlocked("resume_checkpoint_is_not_at_writer_preflight_boundary")
-        if (last.get("stage") != "journalist_original_agent" or last.get("status") != "blocked"
-                or last.get("error_code") != "agent_contract_invalid" or last.get("task_state") != "blocked"):
+        direct_writer_boundary = (
+            checkpoint.state.get("stage") == "journalist_original_agent"
+            and last.get("stage") == "journalist_original_agent"
+            and last.get("status") == "blocked"
+            and last.get("error_code") == "agent_contract_invalid"
+            and last.get("task_state") == "blocked"
+        )
+        recovered_writer_boundary = (
+            checkpoint.state.get("stage") == "persona_load"
+            and last.get("stage") == "persona_load"
+            and last.get("status") == "succeeded"
+            and active.get("blocker_code") == "existing_writer_task_is_not_a_safe_pre_external_recovery"
+        )
+        if (checkpoint.state.get("run_id") != run_id or active.get("run_id") != run_id
+                or active.get("status") != "blocked" or not (direct_writer_boundary or recovered_writer_boundary)):
             raise RunBlocked("resume_requires_a_pre_external_writer_contract_block")
         checkpoint.state["status"] = "running"
         checkpoint.event("resume_after_writer_preflight", "started", reused_task_id=last.get("task_id"),
@@ -1550,12 +1562,18 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
             and last_checkpoint_event.get("stage") == "persona_load"
             and last_checkpoint_event.get("status") == "succeeded"
         )
+        resume_after_writer_guard = (
+            active.get("blocker_code") == "existing_writer_task_is_not_a_safe_pre_external_recovery"
+            and checkpoint_state.get("stage") == "persona_load"
+            and last_checkpoint_event.get("stage") == "persona_load"
+            and last_checkpoint_event.get("status") == "succeeded"
+        )
         resume_after_pre_external_writer = (
             checkpoint_state.get("stage") == "journalist_original_agent"
             and last_checkpoint_event.get("stage") == "journalist_original_agent"
             and last_checkpoint_event.get("status") == "blocked"
             and last_checkpoint_event.get("error_code") == "agent_contract_invalid"
-        ) or resume_after_source_registration
+        ) or resume_after_source_registration or resume_after_writer_guard
         if resume_after_investigator:
             checkpoint = Checkpoint.resume_after_investigator(root, run_id)
         elif resume_after_source_registration:
@@ -2035,7 +2053,7 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
                 or writer_envelope.persona_id != persona_id
                 or writer_envelope.persona_version != package["version"]
                 or writer_envelope.persona_hash != stable_hash(persona_text)
-                or dict(writer_envelope.research_mediation_policy or {}) != policy):
+                or writer_envelope.to_dict().get("research_mediation_policy") != policy):
             raise RunBlocked("existing_writer_task_is_not_a_safe_pre_external_recovery")
         persisted_packet = ResearchPacket.from_mapping(existing_writer_task.payload.get("research_packet"))
         role_catalog.prepare_invocation(

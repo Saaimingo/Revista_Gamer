@@ -80,6 +80,12 @@ Após registrar a correção do hash de DNA, executar `& '.\.venv\Scripts\python
 - Exercício isolado em cópia temporária confirmou retomada do checkpoint, uma única linha da fonte de Proton após registro repetido, reuso dos resultados do investigador/editor, DNA íntegro, reabertura da tarefa do redator e zero chamada pública/SIWC.
 - Próximo passo: registrar este ajuste e executar `resume --image-path` novamente. O resume reutiliza as fontes, Radar, triagem, investigador e editor, então reabre apenas a tarefa bloqueada pré-SIWC do jornalista. A primeira chamada real de redação ainda está pendente; a pesquisa pública complementar continua dentro do saldo 3/4.
 
+## Atualização técnica — comparação da política da tarefa de redação, 2026-10-26
+
+- Quinta retomada reaproveitou Radar, investigador, editor e DNA, depois bloqueou antes de SIWC em uma guarda local que comparava `dict(mappingproxy)` com JSON contendo listas. O payload, política, hash de DNA e tarefa do jornalista estavam corretos; a tarefa segue em tentativa 1 e `external_request_started=false`. Nenhuma inferência nem requisição pública adicional ocorreu.
+- Corrigida a comparação para usar a representação JSON imutável da própria envelope; foi adicionada retomada específica a partir do checkpoint `persona_load`/guarda `existing_writer_task_is_not_a_safe_pre_external_recovery`, sem repetir os papéis anteriores. Testes focados de runner, contrato, SIWC e fila: 82/82 OK; `py_compile` passou.
+- Próximo passo: commit/push e nova retomada. O fluxo poderá finalmente despachar uma única chamada real ao Carranca; se solicitar detalhes, a requisição pública restante permanece limitada a 1.
+
 ## Limites permanentes
 
 `published=false`; gate de aprovação humana final pendente. Sem texto integral de artigo público de terceiros no repositório, sem segredos/logs sensíveis no GitHub, sem alterações de DNA, sem repetição das baterias ENG-008/009/010, sem merge, deploy ou publicação.
