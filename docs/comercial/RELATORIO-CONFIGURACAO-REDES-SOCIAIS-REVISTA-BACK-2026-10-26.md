@@ -49,10 +49,7 @@ As configurações da Página permitiam comentários públicos. A classificaçã
 | Tipo da conta | Configurações profissionais disponíveis | Continua profissional; o subtipo não foi reapresentado pelo painel nesta auditoria e não foi alterado |
 | Categoria | Revista | Mantida |
 | Rótulo público da categoria | Oculto | Ativado; o perfil público passou a mostrar “Revista” |
-| Biografia | Vazia | Salva e confirmada no perfil público, com 124/150 caracteres:  
-  🎮 Games, hardware, tecnologia e nostalgia  
-  📰 Jornalismo digital com IA e fontes verificáveis  
-  📖 Revista gratuita • Em breve |
+| Biografia | Vazia | Salva e confirmada no perfil público (124/150 caracteres):<br>🎮 Games, hardware, tecnologia e nostalgia<br>📰 Jornalismo digital com IA e fontes verificáveis<br>📖 Revista gratuita • Em breve |
 | E-mail profissional | As configurações profissionais mostravam revistaback@gmail.com; o editor de perfil do Business Suite mostrava “Nenhum e-mail” | E-mail comercial preenchido no Business Suite como revistaback@gmail.com |
 | Exibição de contato | Oculta | Continua oculta; o controle web combina e-mail, endereço e telefone, sem opção apresentada para mostrar somente o e-mail |
 | Link/site | Sem link; o campo Site no editor web estava desativado e informava que links são editados no aplicativo móvel | Nenhum link provisório foi adicionado |
