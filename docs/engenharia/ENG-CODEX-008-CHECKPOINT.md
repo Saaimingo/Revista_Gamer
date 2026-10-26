@@ -10,7 +10,8 @@
 - **H00:** concluída — estado remoto, base, fontes de persona, documentos obrigatórios, arquitetura e baseline conferidos.
 - **Próxima unidade:** H01 — executor SIWC genérico por papel, sem trocar o cliente SIWC nem o dispatcher.
 - **Branch:** `codex/eng-codex-008-siwc-validation`, criada diretamente de `codex/eng-codex-007-factory-radar@cd71022ef3b3d60fa4c97beb6db5583a03856102`.
-- **Commit H00:** `b8e2dde` — `docs: checkpoint ENG-CODEX-008 H00`; enviado para `origin/codex/eng-codex-008-siwc-validation`.
+- **Commits H00:** `b8e2dde` (checkpoint inicial), `05d3c8f` (vínculo à PR #34); ambos enviados para `origin/codex/eng-codex-008-siwc-validation`.
+- **Comentários H00:** [Issue #33](https://github.com/Saaimingo/Revista_Gamer/issues/33#issuecomment-6405340231) · [PR #34](https://github.com/Saaimingo/Revista_Gamer/pull/34#issuecomment-6405340777).
 - **Baseline:** sem alterações de código antes desta branch; suíte serial `198/198 OK` em CPython 3.11.9, 134,945 s.
 - **Chamadas SIWC/Plus nesta missão:** 0. Nenhum login, refresh, catálogo ou inferência foi iniciado.
 - **Saída editorial real:** 0; nenhum texto ou caso foi fabricado.
