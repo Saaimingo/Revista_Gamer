@@ -1,6 +1,6 @@
 # ENG-CODEX-008 — checkpoint de execução
 
-**Atualizado:** 2026-10-25 21:33 -03:00
+**Atualizado:** 2026-10-25 21:34 -03:00
 **Issue de execução:** [#33](https://github.com/Saaimingo/Revista_Gamer/issues/33)
 **Ordem documental:** [PR #32](https://github.com/Saaimingo/Revista_Gamer/pull/32)
 **PR de implementação:** [#34](https://github.com/Saaimingo/Revista_Gamer/pull/34), draft, aberta, sem merge.
@@ -10,8 +10,8 @@
 - **H00:** concluída — estado remoto, base, fontes de persona, documentos obrigatórios, arquitetura e baseline conferidos.
 - **H01:** concluída — executor SIWC genérico, validação de papel/modelo/esforço/schema e retenção integral da resposta.
 - **H02:** concluída — testes offline de segurança, incerteza, lease, replay, fronteiras de evidência e falhas do provedor.
-- **H03:** em andamento — preflight de ACL local; ainda sem leitura de credenciais, rede, catálogo ou inferência.
-- **Próxima ação:** inspecionar apenas presença, escopo e expiração da credencial existente, sem imprimir valores; depois fazer no máximo uma consulta ao catálogo.
+- **H03:** em andamento — ACL local validada e metadados locais da credencial verificados sem expor segredos; ainda sem acesso de rede, catálogo ou inferência.
+- **Próxima ação:** consultar o catálogo uma vez pela SIWCClient existente; o token de acesso local expirou, então a biblioteca pode usar apenas o refresh token já presente pelo fluxo suportado, sem login nem consentimento novo.
 - **Branch:** `codex/eng-codex-008-siwc-validation`, criada diretamente de `codex/eng-codex-007-factory-radar@cd71022ef3b3d60fa4c97beb6db5583a03856102`.
 - **Commits H00:** `b8e2dde` (checkpoint inicial), `05d3c8f` (vínculo à PR #34); ambos enviados para `origin/codex/eng-codex-008-siwc-validation`.
 - **Commits H01/H02:** `60c4c0f` (executor por papel, retenção SIWC e regressões offline) e `7256db1` (checkpoint); ambos enviados para `origin/codex/eng-codex-008-siwc-validation`.
@@ -60,7 +60,8 @@ O repositório GitHub é público. PR #30 e os relatórios históricos E17–E19
 
 - ACL observada em `%LOCALAPPDATA%`: `ReadAndExecute` herdado por um principal além do usuário atual, SYSTEM e Administrators. O caminho proposto ali foi rejeitado; nenhum artefato foi gravado nele.
 - ACL observada em `%USERPROFILE%\\.codex`: proprietário usuário atual; regras de acesso observadas apenas para usuário atual, SYSTEM e Administrators. Este é o pai escolhido para o armazenamento privado; a ACL do diretório final será verificada depois da criação.
-- `%USERPROFILE%\\.codex\\Revista_Gamer\\ensaios-008` foi criado herdando a ACL do pai; conferência final encontrou apenas usuário atual, SYSTEM e Administrators com acesso. Nenhuma permissão foi alterada. Nenhuma credencial foi lida, nenhum catálogo consultado e nenhuma chamada SIWC real foi feita.
+- `%USERPROFILE%\\.codex\\Revista_Gamer\\ensaios-008` foi criado herdando a ACL do pai; conferência final encontrou apenas usuário atual, SYSTEM e Administrators com acesso. Nenhuma permissão foi alterada.
+- Pré-leitura local do CredentialStore, sem imprimir segredos: arquivo e access/refresh token presentes, escopo `chatgpt.tokens.use.direct` presente; access token expirado. Não houve login, refresh, chamada de catálogo ou inferência. Próximo acesso de rede usará somente o refresh suportado já armazenado, sem abrir novo consentimento.
 
 ## Evidências executadas
 
@@ -79,11 +80,12 @@ O repositório GitHub é público. PR #30 e os relatórios históricos E17–E19
 | `& '.\\.venv\\Scripts\\python.exe' -m compileall -q motor_editorial` | exit 0 |
 | `git diff --check` e `git diff --cached --check` | exit 0, sem problemas de whitespace |
 | Inspeção ACL PowerShell de `%LOCALAPPDATA%`, `%USERPROFILE%\\.codex` e raiz de artefatos H03 recém-criada | `%LOCALAPPDATA%` rejeitado por `ReadAndExecute` de outro principal; raiz H03 privada, owner usuário atual e acessos herdados somente de usuário atual/SYSTEM/Administrators; sem alteração de ACL |
+| Pré-leitura local de `CredentialStore.default_path()`/`CredentialStore.load()` | Arquivo presente; `authenticated=true`; `direct_usage_scope=true`; access/refresh token presentes; access token expirado; valores sensíveis nunca impressos; nenhuma rede acessada |
 
 ## Gates para H03 — E17 real controlada
 
 1. **Armazenamento:** não usar `%LOCALAPPDATA%` para texto bruto porque foi observada leitura por outro principal. A raiz `%USERPROFILE%\\.codex\\Revista_Gamer\\ensaios-008` já herda a ACL privada de `%USERPROFILE%\\.codex`; verificação final não encontrou outro principal com leitura/escrita. Não alterar permissões.
-2. **Conta e catálogo:** usar somente o CredentialStore já existente; não iniciar login, relogin, consentimento novo ou refresh fora do caminho suportado. Não exibir identidade, token ou segredo. Consultar o catálogo no máximo uma vez se o modelo não estiver verificado por evidência vigente; bloquear se acesso/modelo não estiver elegível.
+2. **Conta e catálogo:** usar somente o CredentialStore já existente; não iniciar login, relogin ou consentimento novo. Como o access token está expirado e o refresh token existente tem escopo direto, permitir apenas a renovação automática pelo caminho suportado da SIWCClient. Não exibir identidade, token ou segredo. Consultar o catálogo uma vez; bloquear se renovação/acesso/modelo não estiver elegível.
 3. **Primeira inferência:** explicitar `gpt-6-luna` e `max`, sem fallback, executar uma chamada curta pelo SIWCClient existente e pelo mesmo dispatcher/fila. Salvar request, resposta bruta integral e manifesto fora do Git público antes do parse/schema. O usuário reportou 24% de orçamento compartilhado; medir o uso disponível na resposta e fazer no máximo duas chamadas adicionais no lote H03 apenas se a primeira concluir e qualidade/orçamento comportarem.
 4. **Parada segura:** parar em 401/403, 429, novo consentimento, modelo/esforço divergente, resposta incompleta/incerta ou orçamento insuficiente; não repetir chamadas incertas. Se a resposta for incompleta, marcá-la `incomplete`; nunca apresentar como texto integral.
 5. **Trilhas de aceite:** qualquer texto editorial fica preservado integralmente, com metadados e hash, em storage local privado. Não gravar textos integrais de terceiros, tokens ou PII no Git/Issue/PR. `published=false`; revisão humana e critérios P/J continuam separados e pendentes.
@@ -91,4 +93,4 @@ O repositório GitHub é público. PR #30 e os relatórios históricos E17–E19
 
 ## Próximo passo exato
 
-H01/H02 estão implementadas e enviadas (`60c4c0f`, `7256db1`), validadas por 109 testes focados, repetição de 13 testes críticos, `compileall` e `git diff --check`; evidências registradas na Issue #33 e PR #34. H03 está em andamento, sem rede. Próximo: inspecionar somente presença/escopo/expiração da credencial existente; sem login ou valores sensíveis. Se o estado permitir, consultar o catálogo uma vez e executar uma inferência real curta. Chamadas SIWC reais: 0.
+H01/H02 estão implementadas e enviadas (`60c4c0f`, `7256db1`), validadas por 109 testes focados, repetição de 13 testes críticos, `compileall` e `git diff --check`; evidências registradas na Issue #33 e PR #34. H03 está em andamento, sem inferência real. Próximo: consultar uma vez o catálogo pela SIWCClient existente, permitindo apenas refresh suportado da credencial existente; se `gpt-6-luna` estiver listado, executar uma inferência real curta via dispatcher. Nenhum login/consentimento novo. Chamadas de catálogo/inferência nesta missão: 0.
