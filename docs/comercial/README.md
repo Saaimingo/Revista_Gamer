@@ -23,3 +23,9 @@ Grade comercial identificada, mídia kit baseado em audiência real, catálogo d
 ## Redes sociais — contas, agendamento e integração (análise provisória)
 
 - [Proposta provisória: contas Meta, e-mail institucional, plugins/Codex, agendamento e APIs (25/10/2026)](PROPOSTA-PROVISORIA-OPERACAO-REDES-SOCIAIS-CONTAS-INTEGRACAO-2026-10-25.md) — submetida ao fundador; **sem aprovação de implementação, publicação ou criação de contas**.
+
+## Atualização operacional — 26/10/2026
+
+- **[Facebook e Instagram da Revista Back: contas criadas, associação Meta, plugin Metricool conectado ao ChatGPT, Work e pendências](REGISTRO-OPERACIONAL-REDES-SOCIAIS-META-METRICOOL-WORK-2026-10-26.md)** — **REGISTRO FACTUAL**, com verificações por telas e consultas de leitura reais; **não é autorização para publicar ou alterar configurações**.
+- **Situação sintética:** Instagram profissional `@revistaback2026` e Página Facebook `Revista Back` criados e associados; editor Meta reconhece os dois canais; Metricool conectado e consultável por aqui; sem posts agendados para 26/10–26/11/2026. **Pendências:** kit visual do Bloco 03; personalização definitiva dos perfis; Caixa de Entrada Meta com falha; segurança/permissões; teste Work; validação Codex local.
+- **Atenção:** a proposta de 25/10 tratava a criação das contas como futura; esse ponto foi atualizado pelo registro factual de 26/10. Não reabrir cadastros nem presumir que o Work já realizou qualquer alteração.
