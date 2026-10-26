@@ -1,5 +1,7 @@
 # Bloco 06 — proposta provisória de operação de redes sociais, contas e integração
 
+> **ATUALIZAÇÃO DE STATUS — 26/10/2026:** os atos previstos abaixo de criação de e-mail, Página Facebook, Instagram profissional, associação Meta e conexão Metricool **já aconteceram**. O documento permanece como **proposta histórica de arquitetura**, não como checklist atual. Para estado real, limitações e próximas pendências, consultar o [registro operacional 26/10](REGISTRO-OPERACIONAL-REDES-SOCIAIS-META-METRICOOL-WORK-2026-10-26.md). **ChatGPT Work e Codex local não foram testados em configuração/publicação automática.**
+
 **Data:** 25/10/2026  
 **Origem:** discussão direta do diretor com Bloco 06 — Comercial, Monetização e Divulgação  
 **Status:** **PROVISÓRIO — submetido à avaliação do Chat Fundador e da direção**  
