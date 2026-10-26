@@ -262,6 +262,29 @@ class SIWCAgentRoleExecutorTests(unittest.TestCase):
         self.assertEqual(client.calls, [])
         self.assertEqual(list((self.root / "private-artifacts" / "siwc-role-responses").iterdir()), [])
 
+    def test_complete_persona_instruction_above_legacy_limit_is_passed_verbatim(self) -> None:
+        role = self._role("persona_writer")
+        input_payload = self.fixtures["roles"][role.role_id]["input"]
+        persona_text = "BEGIN APPROVED DNA\n" + ("Approved persona DNA component.\n" * 900) + "END APPROVED DNA"
+        self.assertGreater(len(persona_text), 20_000)
+        envelope = _envelope(
+            role, input_payload, persona_id="ranzinza", persona_text=persona_text,
+        )
+        task_id = self._enqueue(role, input_payload, envelope=envelope)
+        client = FakeRoleClient({role.role_id: self.fixtures["roles"][role.role_id]["output"]})
+        dispatcher = self._dispatcher(client, persona_resolver=lambda _envelope: persona_text)
+
+        outcome = dispatcher.dispatch_one(task_id)
+
+        self.assertEqual(outcome.state, "blocked")
+        self.assertEqual(outcome.error_code, "siwc_output_unknown_evidence")
+        self.assertEqual(client.calls[0]["role_id"], "persona_writer")
+        self.assertIn(json.dumps(persona_text, ensure_ascii=False), client.calls[0]["instructions"])
+        metadata_path = self.root / "private-artifacts" / "siwc-role-responses" / f"{task_id}.metadata.json"
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        self.assertEqual(metadata["persona_hash"], envelope.persona_hash)
+        self.assertEqual(metadata["persona_instruction_sha256"], envelope.persona_hash)
+
     def test_hostile_source_remains_data_outside_trusted_instructions(self) -> None:
         role = self._role("assignment_editor")
         input_payload = dict(self.fixtures["roles"][role.role_id]["input"])

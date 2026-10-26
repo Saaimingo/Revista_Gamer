@@ -1,0 +1,63 @@
+# RX 9050: o que os 92 W contam — e o que ainda não provam
+
+As notas disponíveis descrevem duas versões da RX 9050 com diferenças além da memória e reúnem resultados de uma bateria independente para o modelo de 8 GB. Mas não trazem benchmark independente da versão de 4 GB, preços atuais no Brasil nem dados suficientes para fechar a comparação de FSR, latência ou consumo.
+
+## Uma apuração com limites à vista
+
+A pergunta sobre a Radeon RX 9050 parece simples: uma placa anunciada com consumo típico de 92 W é suficiente para jogar em 1080p, e para quem? A resposta honesta começa por uma ressalva menos vistosa que um gráfico: este relatório usa notas curatoriais do projeto, não os corpos das fontes. As notas identificam fichas oficiais, anúncios de fabricantes e veículos, além de uma bateria classificada como teste independente, mas não foram revalidadas nesta rodada. Portanto, os números abaixo são atribuídos aos respectivos registros; não são medições da Revista Gamer, nem confirmação direta de cada publicação (H01–H11).
+
+O material permite descrever diferenças de configuração e discutir resultados resumidos para a RX 9050 de 8 GB. Não permite fechar todas as perguntas de compra. Em particular, não há medição independente identificada para o modelo de 4 GB no conjunto H01–H11; não há coleta datada de preços brasileiros; e os resumos não fornecem resultados suficientes sobre FSR, geração de quadros, latência ou 1% low. O veredito, por isso, precisa ser dividido por cenário e por grau de evidência, não transformado em sentença universal.
+
+## Duas RX 9050 que não diferem só na capacidade
+
+Na ficha oficial resumida para a RX 9050 de 8 GB, a AMD declara arquitetura RDNA 4, 16 unidades computacionais, memória GDDR6 a 18 Gbps, barramento de 128 bits, até 288 GB/s de largura de banda e 32 MB de Infinity Cache. A mesma ficha indica 92 W de consumo típico, fonte recomendada de 450 W e um conector de 8 pinos. São declarações do fabricante, não confirmação por ensaio independente neste pacote (H01).
+
+A ficha da RX 9050 de 4 GB mantém, segundo outra nota oficial, 16 unidades computacionais, clocks máximos declarados iguais e os mesmos 92 W típicos. Mas também reduz o barramento a 64 bits, a largura de banda máxima a 144 GB/s e o Infinity Cache a 16 MB. A diferença, portanto, não é simplesmente guardar menos texturas na memória: os componentes de acesso e cache descritos na ficha também mudam (H02).
+
+Isso importa para a pergunta certa. É possível afirmar que as especificações listadas diferem; não é possível, com estas notas, quantificar o efeito combinado em jogos. Sem teste independente do modelo de 4 GB sob condições comparáveis, qualquer estimativa de FPS, perda percentual ou frequência de travamentos seria inventada. Tampouco se pode transferir para ele o resultado de uma RX 9050 de 8 GB: a configuração não é a mesma.
+
+## O que a bateria da versão de 8 GB mostra — e deixa em aberto
+
+A nota H07 atribui ao TechSpot/Hardware Unboxed uma bateria comparativa de dez jogos. Seu resumo registra médias de 49 FPS para a RX 9050 de 8 GB em 1080p, 59 FPS para a RTX 5050 e 86 FPS para a RX 9060 XT de 8 GB; em 1440p, registra 33 FPS para a RX 9050 e 53 FPS para a RX 9060 XT de 8 GB. Esses são resultados reportados pela fonte conforme o resumo curatorial, sob os jogos e condições selecionados por ela — não uma previsão para todo jogo ou sistema (H07).
+
+O pacote não inclui o procedimento completo, os gráficos originais ou os detalhes necessários para confirmar, caso a caso, jogo, versão, driver, configuração, preset, recursos de ray tracing ou uso de FSR. Por isso, não chamarei esses agregados de desempenho nativo, nem os tratarei como um comparativo perfeitamente controlado para qualquer comprador. A nota pede que o procedimento seja consultado antes de reproduzir os números; o corpo da publicação não foi obtido nesta rodada (H07).
+
+Há exemplos isolados no mesmo resumo: em Cyberpunk 2077: Phantom Liberty a 1080p High, são registrados 67 FPS para a RX 9050 e 111 para a RX 9060 XT de 8 GB; em Marvel’s Spider-Man Remastered a 1080p Very High, 104 e 182, respectivamente. São observações em cenários determinados, não médias universais nem autorização para misturar presets e extrapolar para títulos não testados (H07).
+
+## 9060 XT: mais desempenho no resumo, mas não um teste isolado de VRAM
+
+A comparação com a RX 9060 XT ajuda a dimensionar a diferença entre produtos, desde que não se atribua toda a distância a um único fator. Segundo as notas das fichas e do anúncio oficial, a 9060 XT tem 32 unidades computacionais, contra 16 na RX 9050; foi anunciada em versões de 8 GB e 16 GB, com barramento de 128 bits. A nota da ficha de 16 GB também registra 32 MB de Infinity Cache e 160 W típicos. Assim, um resultado 9050 contra 9060 XT compara placas com configurações de GPU diferentes, além de poder envolver outras condições do teste (H01, H09, H10).
+
+O exemplo mais forte sobre a diferença entre capacidades de memória vem de STALKER 2 a 1440p Epic: o resumo registra 8 FPS para a RX 9050 de 8 GB, 9 para a 9060 XT de 8 GB e 42 para a 9060 XT de 16 GB (H07). É uma disparidade importante naquele cenário. Não prova que toda placa de 8 GB falhará em todo jogo: um único título, resolução e preset não estabelecem regra universal.
+
+Também não isola o efeito da VRAM: o salto de 9050 para 9060 XT envolve uma GPU de outra configuração. A comparação entre 9060 XT de 8 e 16 GB é mais informativa sobre capacidade de memória, mas o resumo não fornece método e dados suficientes para diagnosticar causalidade ou generalizar. A conclusão prudente é que esse resultado justifica investigar limites em cargas específicas; não autoriza transformar um caso em lei para a categoria.
+
+## Um resultado preliminar não resolve a divergência
+
+Há outra referência a testes, mas ela não equivale a uma segunda bateria independente plenamente conferida. A nota H08 descreve uma matéria do Tom’s Hardware que relata medições feitas pelo outlet japonês GDM, com uma ASRock Challenger RX 9050 e uma Gigabyte Windforce RTX 5050 em um sistema com Ryzen 7 9800X3D. A chamada de cerca de 30% atrás da RTX 5050 pertence à amostra e às condições da GDM, segundo a cobertura secundária; o resumo também a caracteriza como preliminar e menciona resultados variados, incluindo inversões anômalas em DOOM (H08).
+
+Não há dados detalhados suficientes aqui para conciliar esse relato com a média de dez jogos atribuída a H07. Como amostras, fontes imediatas e condições podem ser diferentes, não é correto escolher uma manchete como vencedora ou declarar uma contradição comprovada. O corpo original da GDM tampouco foi obtido por meio destas notas. Para avançar, seria preciso comparar os procedimentos e os resultados jogo a jogo, além de verificar eventuais diferenças de upscaling e geração de quadros. Até lá, a divergência é uma questão de apuração, não uma oportunidade para selecionar o número mais conveniente.
+
+## Modelos de fabricantes, consumo e preço: sem equivalências fáceis
+
+Os nomes RX 9050 e 9060 XT não descrevem, sozinhos, cada placa vendida. A nota da PowerColor descreve uma Reaper RX 9050 de 8 GB com duas ventoinhas, duas posições de slot e dimensões de 200 × 100 × 40 mm; é um anúncio da fabricante parceira, não uma avaliação independente de temperatura, ruído ou compatibilidade com um gabinete específico (H03). A Sapphire declara clocks próprios para sua PULSE — game até 2260 MHz e boost até 2760 MHz —, enquanto a ASRock anuncia a série Challenger com boost de até 2600 MHz. Esses dados são de anúncios de modelos customizados e não bastam para declarar contradição com a ficha de referência da AMD. A comparação correta exige SKU e ficha exatos (H01, H04, H05).
+
+O mesmo cuidado vale para energia. Os 92 W são consumo típico declarado para a RX 9050 na nota oficial; os registros disponíveis não apresentam uma medição independente de consumo por jogo. Não cabe calcular eficiência real ou prometer que qualquer sistema terá o mesmo comportamento apenas a partir dessa cifra (H01).
+
+Também não há base para um veredito de valor no Brasil. Uma nota de cobertura menciona US$ 279 para a 9050 de 8 GB no contexto do anúncio, enquanto a AMD anunciou preços sugeridos nos EUA de US$ 299 e US$ 349 para a 9060 XT, conforme a versão. São referências de anúncio em dólares, não preços brasileiros atuais nem uma comparação de preço de rua na mesma data (H06, H09). Sem coleta datada e comparável, custo-benefício nacional permanece em aberto.
+
+## FSR, quadros gerados e métricas que faltam
+
+As perguntas sobre FSR e geração de quadros merecem resposta, mas os resumos disponíveis não a fornecem. Não há aqui medições detalhadas de latência, 1% low, qualidade visual ou diferenças entre FPS renderizado e quadros gerados para a RX 9050. Também não há informação suficiente para determinar se e como essas técnicas foram ativadas em cada resultado citado. Logo, não se pode afirmar que FSR compensa uma diferença específica, nem que os FPS apresentados sejam comparáveis entre tecnologias sem verificar os métodos (H07, H08).
+
+Essa falta muda o alcance do veredito. Uma média de FPS ajuda a descrever o conjunto medido pela fonte, mas não resume sozinha a experiência em todos os cenários. Para uma conclusão sobre uso com reconstrução ou geração de quadros, faltam resultados e condições correspondentes. A nota oficial da AMD lista exemplos de FPS a 1080p Medium, mas o próprio resumo os identifica como material promocional com condições, não como medições da Revista Gamer. Não usarei esses exemplos como confirmação independente do desempenho (H01).
+
+## Veredito: uma placa com caso de uso, não uma promessa universal
+
+Para 1080p, as notas de H07 sustentam que a RX 9050 de 8 GB foi medida em uma bateria de dez jogos, com média reportada de 49 FPS. Isso é evidência útil de desempenho nos cenários selecionados; sem procedimento completo e resultados jogo a jogo, não fecha uma recomendação universal, muito menos uma avaliação específica de desempenho nativo. A ficha oficial aponta um consumo típico de 92 W, mas esse dado declarado não substitui teste de consumo real (H01, H07).
+
+Para longevidade e VRAM, há um alerta localizado: o resultado de STALKER 2 a 1440p Epic separa bastante as duas capacidades da 9060 XT naquele cenário. É razão suficiente para pedir mais testes de jogos e configurações, não para declarar que 8 GB falhará sempre. Para a RX 9050 de 4 GB, a diferença de barramento, largura de banda e cache torna a extrapolação a partir do modelo de 8 GB ainda menos defensável; falta benchmark independente dessa versão no conjunto disponível (H02, H07).
+
+Para sistemas compactos, o anúncio da Reaper oferece dimensões concretas que podem orientar uma verificação de espaço, mas não substituem conferir o gabinete e o SKU exato. Para valor, não há preço brasileiro coletado nesta rodada. E para uma comparação justa com concorrentes, é preciso preço efetivamente documentado na mesma região e período, além de condições de teste compatíveis — justamente o que estas notas não entregam (H03, H06, H09).
+
+O mérito demonstrável é a existência de uma RX 9050 de 8 GB com especificações oficiais e resultados de uma bateria independente resumidos no pacote. A cobrança também é clara: não confundir ficha com experiência medida, nem um caso extremo com regra geral. Antes de fechar compra ou veredito de mercado, faltam benchmark independente da versão de 4 GB, procedimento original dos testes, coleta datada de preços no Brasil e dados comparáveis sobre FSR, latência e 1% low. Por ora, a resposta mais útil não é um número inventado: é separar o que foi reportado daquilo que ainda precisa ser testado.

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -26,7 +28,15 @@ from .editorial_handoffs import (
     build_handoff_artifact,
     validate_handoff_chain,
 )
-from .agent_contracts import ResearchPacket, load_builtin_role_catalog
+from .agent_contracts import (
+    AgentTaskEnvelope,
+    ResearchPacket,
+    envelope_from_payload,
+    load_builtin_role_catalog,
+    validate_json_schema,
+)
+from .agent_siwc import SIWCResponseArtifactStore
+from .usage_meter import StoryVersionArchive
 from .layout.contracts import (
     SCHEMA_MEDIA,
     SCHEMA_REFERENCE,
@@ -67,6 +77,8 @@ MEDIA_TASK_TYPE = "factory.media_inventory"
 STORY_PACKAGE_TASK_TYPE = "factory.story_package"
 PREVIEW_TASK_TYPE = "factory.internal_preview"
 HUMAN_GATE_TASK_TYPE = "factory.simulated_human_gate"
+PERSONA_DRAFT_BRIDGE_TASK_TYPE = "factory.persona_draft_bridge"
+PERSONA_DRAFT_BRIDGE_EXECUTOR_ID = "factory-persona-draft-bridge"
 FACTORY_TASK_ROUTES = {
     EDITORIAL_TASK_TYPE: FACTORY_EXECUTOR_ID,
     LAYOUT_TASK_TYPE: FACTORY_EXECUTOR_ID,
@@ -75,6 +87,14 @@ FACTORY_TASK_ROUTES = {
     PREVIEW_TASK_TYPE: FACTORY_EXECUTOR_ID,
     HUMAN_GATE_TASK_TYPE: FACTORY_EXECUTOR_ID,
 }
+PERSONA_DRAFT_BRIDGE_PROFILE = AgentProfile(
+    profile_id="persona-draft-factory-adapter",
+    version="1.0.0",
+    instructions=(
+        "Valida e adapta uma resposta persona_writer já persistida; não chama SIWC, "
+        "não pesquisa, não checa fatos, não aprova e não publica."
+    ),
+)
 
 LAYOUT_PROFILE = AgentProfile(
     profile_id="synthetic-layout-engine",
@@ -844,6 +864,282 @@ class SyntheticFactoryExecutor:
         }
 
 
+class PersonaDraftFactoryBridgeExecutor:
+    """Adapt a completed private persona draft without copying its text into SQLite."""
+
+    executor_id = PERSONA_DRAFT_BRIDGE_EXECUTOR_ID
+
+    def __init__(self, *, artifact_root: Path, role_catalog: Any):
+        self.artifact_root = Path(artifact_root).expanduser().resolve()
+        self.role_catalog = role_catalog
+
+    def execute(
+        self,
+        task: AgentTask,
+        profile: AgentProfile,
+        context: TaskExecutionContext,
+    ) -> Mapping[str, Any]:
+        if profile.content_hash != PERSONA_DRAFT_BRIDGE_PROFILE.content_hash:
+            raise TaskFailure("factory_persona_bridge_profile_mismatch", "Perfil do adaptador de persona divergiu.", blocked=True)
+        if task.task_type != PERSONA_DRAFT_BRIDGE_TASK_TYPE:
+            raise TaskFailure("factory_persona_bridge_route_mismatch", "Tipo fora da rota do adaptador de persona.", blocked=True)
+        payload = task.payload
+        if set(payload) != {"stage", "role_task_id", "evidence_rows", "valid_source_ids"} or payload.get("stage") != "draft":
+            raise TaskFailure("factory_persona_bridge_payload_invalid", "Payload precisa conter somente referências e IDs de evidência.", blocked=True)
+        role_task_id = payload.get("role_task_id")
+        if not isinstance(role_task_id, str) or not role_task_id:
+            raise TaskFailure("factory_persona_bridge_parent_missing", "role_task_id é obrigatório.", blocked=True)
+        parent = context.queue.get(role_task_id)
+        if parent is None or parent.state != "succeeded" or parent.task_type != "agent.role.persona_writer" or parent.result is None:
+            raise TaskFailure("factory_persona_bridge_parent_unavailable", "A tarefa persona_writer precisa estar concluída no mesmo ledger.", blocked=True)
+        try:
+            envelope: AgentTaskEnvelope = envelope_from_payload(parent.payload)
+            role = self.role_catalog.validate_task(envelope, input_payload=parent.payload.get("input"))
+            result = self.role_catalog.validate_result(envelope, parent.result, role).to_dict()
+        except (ValueError, TypeError, KeyError) as error:
+            raise TaskFailure("factory_persona_bridge_contract_invalid", f"Contrato original não pôde ser revalidado ({type(error).__name__}).", blocked=True) from None
+        if envelope.role_id != "persona_writer" or envelope.task_id != parent.task_id:
+            raise TaskFailure("factory_persona_bridge_role_mismatch", "A origem precisa ser o persona_writer registrado no catálogo.", blocked=True)
+        if result.get("status") != "completed" or result.get("requested_research") is not None:
+            raise TaskFailure("factory_persona_bridge_research_pending", "Rascunho com pesquisa solicitada ou pendente não pode seguir para a fábrica.", blocked=True)
+        artifact_ref = result.get("artifact_ref")
+        if not isinstance(artifact_ref, Mapping) or not isinstance(artifact_ref.get("ref"), str) or not isinstance(artifact_ref.get("sha256"), str):
+            raise TaskFailure("factory_persona_bridge_raw_ref_missing", "Resultado original não referencia resposta bruta com hash.", blocked=True)
+        try:
+            raw_response = SIWCResponseArtifactStore(self.artifact_root).read_response(
+                artifact_ref["ref"], artifact_ref["sha256"],
+            )
+            role_output = json.loads(raw_response.decode("utf-8"))
+            validate_json_schema(role_output, role.output_schema)
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError, TypeError) as error:
+            raise TaskFailure("factory_persona_bridge_raw_invalid", f"Resposta bruta não confere com o contrato ({type(error).__name__}).", blocked=True) from None
+        if not isinstance(role_output, Mapping) or role_output.get("requested_research") not in (None, []):
+            raise TaskFailure("factory_persona_bridge_research_pending", "Saída original contém pesquisa ainda não resolvida.", blocked=True)
+
+        story_id = envelope.story_id
+        story_key = hashlib.sha256(story_id.encode("utf-8")).hexdigest()[:32]
+        story_dir = (self.artifact_root / "story-versions" / story_key).resolve()
+        if not story_dir.is_relative_to(self.artifact_root) or not story_dir.is_dir():
+            raise TaskFailure("factory_persona_bridge_archive_missing", "Arquivo privado da matéria não existe sob a raiz configurada.", blocked=True)
+        manifests: list[tuple[Path, dict[str, Any]]] = []
+        for manifest_path in story_dir.glob("**/manifest.json"):
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if manifest.get("task_id") == parent.task_id:
+                manifests.append((manifest_path, manifest))
+        if len(manifests) != 1:
+            raise TaskFailure("factory_persona_bridge_archive_ambiguous", "A origem precisa ter exatamente um manifesto imutável no arquivo privado.", blocked=True)
+        manifest_path, manifest = manifests[0]
+        try:
+            raw_archive = (self.artifact_root / manifest["raw_response_ref"]).resolve()
+            full_text_path = (self.artifact_root / manifest["full_text_ref"]).resolve()
+            if not raw_archive.is_relative_to(self.artifact_root) or not full_text_path.is_relative_to(self.artifact_root):
+                raise ValueError("referência de arquivo fora da raiz")
+            archived_raw = raw_archive.read_bytes()
+            full_text = full_text_path.read_bytes()
+        except (KeyError, OSError, TypeError, ValueError) as error:
+            raise TaskFailure("factory_persona_bridge_archive_invalid", f"Arquivo privado incompleto ({type(error).__name__}).", blocked=True) from None
+        if (
+            manifest.get("schema_version") != "StoryVersionArtifact.v1"
+            or manifest.get("story_id") != story_id
+            or manifest.get("persona_id") != envelope.persona_id
+            or manifest.get("persona_version") != envelope.persona_version
+            or manifest.get("persona_hash") != envelope.persona_hash
+            or manifest.get("published") is not False
+            or manifest.get("human_evaluation_status") != "pending"
+            or manifest.get("raw_response_sha256") != hashlib.sha256(raw_response).hexdigest()
+            or hashlib.sha256(archived_raw).digest() != hashlib.sha256(raw_response).digest()
+            or manifest.get("full_text_sha256") != hashlib.sha256(full_text).hexdigest()
+            or StoryVersionArchive._render(role_output).encode("utf-8") != full_text
+            or artifact_ref.get("sha256") != result.get("output_hash")
+        ):
+            raise TaskFailure("factory_persona_bridge_identity_mismatch", "Hashes ou identidade persona_writer divergem do arquivo privado.", blocked=True)
+
+        evidence_rows = payload.get("evidence_rows")
+        valid_source_ids = payload.get("valid_source_ids")
+        if (
+            not isinstance(evidence_rows, list)
+            or any(not isinstance(row, Mapping) or set(row) != {"evidence_id", "source_id"} for row in evidence_rows)
+            or not isinstance(valid_source_ids, list)
+            or any(not isinstance(source_id, str) or not source_id for source_id in valid_source_ids)
+        ):
+            raise TaskFailure("factory_persona_bridge_evidence_invalid", "Mapeamento precisa conter somente evidence_id e source_id aprovados.", blocked=True)
+        try:
+            converted = role_story_draft_to_editorial_output(
+                role_output,
+                evidence_rows=evidence_rows,
+                valid_source_ids=set(valid_source_ids),
+            )
+        except TaskFailure:
+            raise
+        except (TypeError, ValueError) as error:
+            raise TaskFailure("factory_persona_bridge_conversion_failed", f"Conversão determinística falhou ({type(error).__name__}).", blocked=True) from None
+
+        draft_bytes = (json.dumps(converted, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode("utf-8")
+        draft_dir = (self.artifact_root / "factory-persona-drafts").resolve()
+        draft_dir.mkdir(parents=True, exist_ok=True)
+        if not draft_dir.is_relative_to(self.artifact_root):
+            raise TaskFailure("factory_persona_bridge_storage_invalid", "Saída da fábrica precisa permanecer na raiz privada.", blocked=True)
+        draft_path = draft_dir / f"{task.task_id}.article-draft.json"
+        self._write_idempotent(draft_path, draft_bytes)
+        draft_manifest = {
+            "schema_version": "FactoryPersonaDraftArtifact.v1",
+            "factory_task_id": task.task_id,
+            "role_task_id": parent.task_id,
+            "story_id": story_id,
+            "persona_id": envelope.persona_id,
+            "persona_version": envelope.persona_version,
+            "persona_hash": envelope.persona_hash,
+            "role_response_ref": dict(artifact_ref),
+            "story_version_manifest_ref": manifest_path.relative_to(self.artifact_root).as_posix(),
+            "story_version_manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            "original_full_text_ref": manifest["full_text_ref"],
+            "original_full_text_sha256": manifest["full_text_sha256"],
+            "article_draft_ref": draft_path.relative_to(self.artifact_root).as_posix(),
+            "article_draft_sha256": hashlib.sha256(draft_bytes).hexdigest(),
+            "source_ids": converted["source_ids"],
+            "human_review_required": True,
+            "fact_check_status": "not_run",
+            "editorial_review_status": "not_run",
+            "published": False,
+        }
+        manifest_bytes = (json.dumps(draft_manifest, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode("utf-8")
+        manifest_path_out = draft_dir / f"{task.task_id}.manifest.json"
+        self._write_idempotent(manifest_path_out, manifest_bytes)
+        return {
+            "status": "awaiting_human_review",
+            "factory_stage": "draft_adapter",
+            "story_id": story_id,
+            "persona_id": envelope.persona_id,
+            "persona_hash": envelope.persona_hash,
+            "role_task_id": parent.task_id,
+            "role_response_ref": dict(artifact_ref),
+            "story_version_manifest_ref": manifest_path.relative_to(self.artifact_root).as_posix(),
+            "story_version_manifest_sha256": draft_manifest["story_version_manifest_sha256"],
+            "original_full_text_ref": manifest["full_text_ref"],
+            "original_full_text_sha256": manifest["full_text_sha256"],
+            "article_draft_ref": draft_manifest["article_draft_ref"],
+            "article_draft_sha256": draft_manifest["article_draft_sha256"],
+            "source_ids": converted["source_ids"],
+            "human_review_required": True,
+            "fact_check_status": "not_run",
+            "editorial_review_status": "not_run",
+            "published": False,
+        }
+
+    @staticmethod
+    def _write_idempotent(path: Path, payload: bytes) -> None:
+        if path.exists():
+            if path.read_bytes() != payload:
+                raise TaskFailure("factory_persona_bridge_overwrite_blocked", "Artefato de fábrica existente diverge; sobrescrita bloqueada.", blocked=True)
+            return
+        temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+        try:
+            with temporary.open("xb") as stream:
+                stream.write(payload)
+                stream.flush()
+                os.fsync(stream.fileno())
+            temporary.replace(path)
+        finally:
+            temporary.unlink(missing_ok=True)
+
+
+def run_factory_persona_draft_bridge(
+    *,
+    queue: AgentQueue,
+    dispatcher: TaskDispatcher,
+    role_task_id: str,
+    artifact_root: Path,
+    evidence_rows: Sequence[Mapping[str, Any]],
+    valid_source_ids: Sequence[str] | set[str],
+) -> dict[str, Any]:
+    """Run only the draft adapter on an existing shared queue and dispatcher."""
+    if dispatcher.queue is not queue or queue.store is not dispatcher.queue.store:
+        raise FactoryFixtureError("O adaptador exige a AgentQueue original do dispatcher compartilhado.")
+    if dispatcher.role_catalog is None:
+        raise FactoryFixtureError("O dispatcher compartilhado precisa manter o AgentRoleCatalog original.")
+    if not isinstance(role_task_id, str) or not role_task_id.strip():
+        raise FactoryFixtureError("role_task_id precisa identificar uma tarefa existente.")
+    existing_executor = dispatcher.executors.get(PERSONA_DRAFT_BRIDGE_EXECUTOR_ID)
+    if existing_executor is None:
+        dispatcher.executors[PERSONA_DRAFT_BRIDGE_EXECUTOR_ID] = PersonaDraftFactoryBridgeExecutor(
+            artifact_root=artifact_root,
+            role_catalog=dispatcher.role_catalog,
+        )
+    elif (
+        not isinstance(existing_executor, PersonaDraftFactoryBridgeExecutor)
+        or existing_executor.artifact_root != Path(artifact_root).expanduser().resolve()
+        or existing_executor.role_catalog is not dispatcher.role_catalog
+    ):
+        raise FactoryFixtureError("Executor de integração existente diverge da raiz privada ou do catálogo do dispatcher.")
+    key = (PERSONA_DRAFT_BRIDGE_PROFILE.profile_id, PERSONA_DRAFT_BRIDGE_PROFILE.version)
+    existing_profile = dispatcher.profiles.get(key)
+    if existing_profile is not None and existing_profile.content_hash != PERSONA_DRAFT_BRIDGE_PROFILE.content_hash:
+        raise FactoryFixtureError("Perfil do adaptador de rascunho diverge do dispatcher.")
+    dispatcher.profiles[key] = PERSONA_DRAFT_BRIDGE_PROFILE
+    dispatcher.deterministic_task_routes[PERSONA_DRAFT_BRIDGE_TASK_TYPE] = PERSONA_DRAFT_BRIDGE_EXECUTOR_ID
+    if isinstance(evidence_rows, (str, bytes)) or not isinstance(evidence_rows, Sequence):
+        raise FactoryFixtureError("evidence_rows precisa ser uma sequência de referências tipadas.")
+    if isinstance(valid_source_ids, (str, bytes)) or not isinstance(valid_source_ids, (Sequence, set, frozenset)):
+        raise FactoryFixtureError("valid_source_ids precisa ser uma sequência de IDs.")
+    payload = {
+        "stage": "draft",
+        "role_task_id": role_task_id,
+        "evidence_rows": [dict(row) for row in evidence_rows],
+        "valid_source_ids": sorted(set(valid_source_ids)),
+    }
+    key_hash = stable_hash(json_dumps(payload))
+    idempotency_key = f"factory-persona-draft:{role_task_id}:{key_hash[:24]}"
+    task_id = str(uuid.uuid5(uuid.NAMESPACE_URL, idempotency_key))
+    factory_task_id = queue.enqueue(
+        task_type=PERSONA_DRAFT_BRIDGE_TASK_TYPE,
+        payload=payload,
+        profile=PERSONA_DRAFT_BRIDGE_PROFILE,
+        executor_id=PERSONA_DRAFT_BRIDGE_EXECUTOR_ID,
+        idempotency_key=idempotency_key,
+        max_attempts=1,
+        task_id=task_id,
+        dependencies=[role_task_id],
+    )
+    task = queue.get(factory_task_id)
+    if task is None:
+        raise RuntimeError("Tarefa de integração recém-enfileirada não foi encontrada.")
+    if task.state != "succeeded":
+        outcome = dispatcher.dispatch_one(factory_task_id)
+        task = queue.get(factory_task_id)
+        if outcome.state != "succeeded" or task is None or task.state != "succeeded" or task.result is None:
+            raise TaskFailure(
+                outcome.error_code or "factory_persona_bridge_dispatch_failed",
+                f"Adaptador terminou em {outcome.state}; artigo não avançou.",
+                blocked=True,
+            )
+    assert task.result is not None
+    return {
+        "workflow": "persona_draft_bridge",
+        "factory_task_id": task.task_id,
+        "role_task_id": role_task_id,
+        "status": task.result["status"],
+        "factory_stage": task.result["factory_stage"],
+        "story_id": task.result["story_id"],
+        "persona_id": task.result["persona_id"],
+        "persona_hash": task.result["persona_hash"],
+        "story_version_manifest_ref": task.result["story_version_manifest_ref"],
+        "story_version_manifest_sha256": task.result["story_version_manifest_sha256"],
+        "original_full_text_ref": task.result["original_full_text_ref"],
+        "original_full_text_sha256": task.result["original_full_text_sha256"],
+        "article_draft_ref": task.result["article_draft_ref"],
+        "article_draft_sha256": task.result["article_draft_sha256"],
+        "source_ids": list(task.result["source_ids"]),
+        "human_review_required": True,
+        "fact_check_status": "not_run",
+        "editorial_review_status": "not_run",
+        "publication_state": "not_published",
+        "published": False,
+    }
+
+
 def _run_task(
     queue: AgentQueue,
     dispatcher: TaskDispatcher,
@@ -899,8 +1195,35 @@ def run_factory_demo(
     dispatcher: TaskDispatcher | None = None,
     research_packet: ResearchPacket | Mapping[str, Any] | None = None,
     research_source_bindings: Mapping[str, str] | None = None,
+    persona_draft_task_id: str | None = None,
+    persona_draft_artifact_root: Path | None = None,
+    persona_draft_evidence_rows: Sequence[Mapping[str, Any]] | None = None,
+    persona_draft_valid_source_ids: Sequence[str] | set[str] | None = None,
 ) -> dict[str, Any]:
-    """Run one synthetic story, optionally composing it into a shared E2E queue."""
+    """Run the synthetic demo or adapt an existing persona draft on its shared queue."""
+    bridge_values = (
+        persona_draft_task_id,
+        persona_draft_artifact_root,
+        persona_draft_evidence_rows,
+        persona_draft_valid_source_ids,
+    )
+    if any(value is not None for value in bridge_values):
+        if any(value is None for value in bridge_values):
+            raise FactoryFixtureError("Integração persona_writer exige task_id, raiz privada e pacote de fontes completos.")
+        if (queue is None) != (dispatcher is None) or queue is None or dispatcher is None:
+            raise FactoryFixtureError("Integração persona_writer exige AgentQueue e TaskDispatcher compartilhados explícitos.")
+        result = run_factory_persona_draft_bridge(
+            queue=queue,
+            dispatcher=dispatcher,
+            role_task_id=persona_draft_task_id or "",
+            artifact_root=persona_draft_artifact_root or Path(),
+            evidence_rows=persona_draft_evidence_rows or (),
+            valid_source_ids=persona_draft_valid_source_ids or (),
+        )
+        report_path = store.artifact_dir / "factory-demo" / "persona-draft-bridge" / f"{result['factory_task_id']}.json"
+        result["report_path"] = str(report_path.resolve())
+        _write_json(report_path, result)
+        return result
     fixture = _load_fixture(fixture_path)
     if review_flow not in {"pass", "revise", "hold"}:
         raise FactoryFixtureError("review_flow deve ser pass, revise ou hold.")

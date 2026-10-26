@@ -1,0 +1,209 @@
+{
+  "schema_version": "EditorialEvidencePackage.v1",
+  "package_id": "eng-codex-009-carranca",
+  "journalist": "Arlindo Carranca",
+  "persona_reference": {
+    "persona_id": "ranzinza",
+    "persona_version": "v1.0",
+    "document": "docs/personagens/RANZINZA-DNA-CONCEITUAL-v1.0.md",
+    "source_documents": [
+      "docs/personagens/RANZINZA-DNA-CONCEITUAL-v1.0.md",
+      "docs/personagens/RANZINZA-DNA-OPERACIONAL-v0.2.md",
+      "docs/personagens/RANZINZA-DNA-EDITORIAL-v0.1.md",
+      "docs/personagens/RANZINZA-CONTRATO-CARREGAMENTO-AGENTE-v0.1.md"
+    ],
+    "source_ref": "bloco-02/ranzinza-dna-editorial-v01",
+    "source_commit": "3d651fe1951818767b4a6b935732857f08cb7849",
+    "must_remain_unchanged": true
+  },
+  "topic": "Radeon RX 9050 4/8 GB e RX 9060 XT 8/16 GB: limites, variantes e metodologia de benchmarks",
+  "requested_word_range": [
+    1400,
+    2000
+  ],
+  "curation_date": "2026-10-25",
+  "dossier_document": "docs/engenharia/ensaios-009/01-CARRANCA-RX9050-DOSSIE-INVESTIGATIVO.md",
+  "dossier_sha256": "4443e332d8aca85bb79d0544595dfb6c451bba87745df6b1eb7433d86ae4bfa9",
+  "source_candidates": [
+    {
+      "source_id": "H01",
+      "title": "AMD RX 9050 8 GB — ficha oficial, fabricante",
+      "url": "https://www.amd.com/en/products/graphics/desktops/radeon/9000-series/amd-radeon-rx-9050.html",
+      "source_type": "primary_or_official_material",
+      "curation_reference": "H01",
+      "source_body_status": "not_obtained",
+      "rights_review_status": "not_revalidated",
+      "access_scope": "read:radar_index",
+      "external_retrieval_authorized": false,
+      "curator_note": "AMD declara RDNA 4, 16 CUs, até 2600 MHz boost, 1920 MHz game, 1024 SP, 8 GB GDDR6 18 Gbps, BUS 128-bit, bandwidth máximo 288 GB/s, Infinity Cache 32 MB, 92 W típico, PSU sugerida 450 W, 1x8-pin, PCIe 5.0 x16. A vitrine traz exemplos de FPS a “1080p Medium”; tratar como MERCHANDISING COM CONDIÇÕES, não resultado medido pela Revista Gamer.",
+      "curator_note_status": "project_curated_summary"
+    },
+    {
+      "source_id": "H02",
+      "title": "AMD RX 9050 4 GB — ficha oficial, fabricante",
+      "url": "https://www.amd.com/en/products/graphics/desktops/radeon/9000-series/amd-radeon-rx-9050-4gb.html",
+      "source_type": "primary_or_official_material",
+      "curation_reference": "H02",
+      "source_body_status": "not_obtained",
+      "rights_review_status": "not_revalidated",
+      "access_scope": "read:radar_index",
+      "external_retrieval_authorized": false,
+      "curator_note": "Mesmos 16 CUs/boost e 92 W típicos, mas 4 GB, BUS 64-bit, largura de banda até 144 GB/s e Infinity Cache 16 MB. **Não é apenas a mesma placa com metade da VRAM:** barramento/bandwidth/cache também diferem. Não confundir ficha 4 GB com 8 GB ou atribuir a ambas as conclusões dos benchmarks 8 GB.",
+      "curator_note_status": "project_curated_summary"
+    },
+    {
+      "source_id": "H03",
+      "title": "PowerColor — release da AIB 28/07/2026",
+      "url": "https://www.powercolor.com/news-detail90.htm",
+      "source_type": "secondary_reporting_or_curated_candidate",
+      "curation_reference": "H03",
+      "source_body_status": "not_obtained",
+      "rights_review_status": "not_revalidated",
+      "access_scope": "read:radar_index",
+      "external_retrieval_authorized": false,
+      "curator_note": "Reaper RX 9050 8 GB, compacta 2-slot/duas ventoinhas, 200×100×40 mm, 1x8-pin, 8GB/128-bit/18Gbps, disponibilidade APJ/LATAM em parceiros selecionados a partir de 28/07. Release de marca, não comparação independente.",
+      "curator_note_status": "project_curated_summary"
+    },
+    {
+      "source_id": "H04",
+      "title": "Sapphire — anúncio de parceira 28/07/2026",
+      "url": "https://www.sapphirenation.net/rx-9050-release",
+      "source_type": "secondary_reporting_or_curated_candidate",
+      "curation_reference": "H04",
+      "source_body_status": "not_obtained",
+      "rights_review_status": "not_revalidated",
+      "access_scope": "read:radar_index",
+      "external_retrieval_authorized": false,
+      "curator_note": "PULSE RX 9050 8 GB, game até 2260/boost 2760 MHz conforme a própria Sapphire; isto é um modelo customizado, NÃO incoerência automática com clocks de referência AMD. Comparar variantes por modelo exato.",
+      "curator_note_status": "project_curated_summary"
+    },
+    {
+      "source_id": "H05",
+      "title": "ASRock — anúncio de parceira 28/07/2026",
+      "url": "https://www.asrock.com/news/index.us.asp?iD=5827",
+      "source_type": "secondary_reporting_or_curated_candidate",
+      "curation_reference": "H05",
+      "source_body_status": "not_obtained",
+      "rights_review_status": "not_revalidated",
+      "access_scope": "read:radar_index",
+      "external_retrieval_authorized": false,
+      "curator_note": "Série Challenger RX 9050, foco RDNA 4/FSR, versão 8 GB e até 2600 MHz boost declarados; confirmar SKU/ficha.",
+      "curator_note_status": "project_curated_summary"
+    },
+    {
+      "source_id": "H06",
+      "title": "PCWorld — notícia/reação de mercado 28/07/2026",
+      "url": "https://www.pcworld.com/article/3200962/amd-reveals-the-radeon-rx-9050-and-4gb-graphics-cards-are-back.html",
+      "source_type": "secondary_reporting_or_curated_candidate",
+      "curation_reference": "H06",
+      "source_body_status": "not_obtained",
+      "rights_review_status": "not_revalidated",
+      "access_scope": "read:radar_index",
+      "external_retrieval_authorized": false,
+      "curator_note": "Reporta 8 GB para venda avulsa e 4 GB em desktops pré-montados (OEM), cita US$ 279 para 8 GB no contexto de anúncio e limitação de mercado inicial. **Preço/região/canal/data importam**: não converter em preço atual do Brasil sem evidência.",
+      "curator_note_status": "project_curated_summary"
+    },
+    {
+      "source_id": "H07",
+      "title": "TechSpot / Hardware Unboxed — BENCHMARK independente extenso, 8 GB, 2026",
+      "url": "https://www.techspot.com/review/3162-amd-radeon-rx-9050-8gb/",
+      "source_type": "independent_test_or_review",
+      "curation_reference": "H07",
+      "source_body_status": "not_obtained",
+      "rights_review_status": "not_revalidated",
+      "access_scope": "read:radar_index",
+      "external_retrieval_authorized": false,
+      "curator_note": "Bateria comparativa de 10 jogos: média reportada RX 9050 8 GB = 49 FPS (1080p) vs RTX 5050 59 FPS e RX 9060 XT 8 GB 86 FPS; 1440p RX9050 33 FPS vs RX9060XT 8GB 53 FPS, agregados das condições/testes selecionados pela fonte. Exemplos ilustrativos isolados: Cyberpunk 2077 Phantom Liberty 1080p High RX9050 67 FPS vs RX9060XT8 111 FPS; Marvel’s Spider-Man Remastered 1080p Very High RX9050 104 vs RX9060XT8 182; STALKER 2 1440p Epic RX9050 8 FPS, 9060XT8 9 e 9060XT16 42 — **evidência de cenário/VRAM muito específico, não regra universal**. Ler procedimento, drivers, sistema, RT/FSR e gráficos originais antes de reproduzir números; não misturar presets de jogos nem interpolar novos.",
+      "curator_note_status": "project_curated_summary"
+    },
+    {
+      "source_id": "H08",
+      "title": "Tom’s Hardware — cobertura SECUNDÁRIA de teste de outlet japonês GDM 31/07/2026",
+      "url": "https://www.tomshardware.com/pc-components/gpus/amds-new-radeon-rx-9050-is-roughly-30-percent-slower-than-the-rtx-5050-in-games-early-testing-shows-the-cheapest-8gb-rdna-4-gpu-comfortably-handles-1080p-gaming-but-doesnt-impress",
+      "source_type": "secondary_reporting_or_curated_candidate",
+      "curation_reference": "H08",
+      "source_body_status": "not_obtained",
+      "rights_review_status": "not_revalidated",
+      "access_scope": "read:radar_index",
+      "external_retrieval_authorized": false,
+      "curator_note": "Narra medições feitas **pela GDM, não pelo Tom’s**: Ryzen 7 9800X3D, ASRock Challenger RX9050 vs Gigabyte Windforce RTX5050; comparações 1080/1440/4K, resultados variados e alguns anomalamente invertidos em DOOM. A manchete de “~30% atrás” se refere à amostra GDM/condições, não à média TechSpot. O texto avisa que é preliminar e de UMA fonte primária. Procurar e citar GDM original ao usar dados e verificar eventual diferença de frame generation/upscaling.",
+      "curator_note_status": "project_curated_summary"
+    },
+    {
+      "source_id": "H09",
+      "title": "AMD RX 9060 XT — PR oficial 20/05/2025",
+      "url": "https://ir.amd.com/news-events/press-releases/detail/1253/amd-introduces-new-radeon-graphics-cards-and-ryzen-threadripper-processors-at-computex-2025",
+      "source_type": "primary_or_official_material",
+      "curation_reference": "H09",
+      "source_body_status": "not_obtained",
+      "rights_review_status": "not_revalidated",
+      "access_scope": "read:radar_index",
+      "external_retrieval_authorized": false,
+      "curator_note": "RX 9060 XT com 32 CUs, 8/16 GB, 128-bit, 2530 MHz game/3130 MHz boost, 32 MB Infinity Cache, 150/160 W a partir do SKU; preços sugeridos DE ANÚNCIO nos EUA US$299/349, não preços nacionais atuais nem mesmo produto da 9050.",
+      "curator_note_status": "project_curated_summary"
+    },
+    {
+      "source_id": "H10",
+      "title": "AMD RX 9060 XT 16GB — ficha de GPU",
+      "url": "https://www.amd.com/en/products/graphics/desktops/radeon/9000-series/amd-radeon-rx-9060xt.html",
+      "source_type": "primary_or_official_material",
+      "curation_reference": "H10",
+      "source_body_status": "not_obtained",
+      "rights_review_status": "not_revalidated",
+      "access_scope": "read:radar_index",
+      "external_retrieval_authorized": false,
+      "curator_note": "Até 320 GB/s e 160 W típicos nesta ficha, 32 CUs, 2048 SP. Separar VRAM e quantidade de unidades computacionais de comparar 9050 vs 9060XT.",
+      "curator_note_status": "project_curated_summary"
+    },
+    {
+      "source_id": "H11",
+      "title": "Tom’s Hardware RX9060XT 16GB review — independente",
+      "url": "https://www.tomshardware.com/pc-components/gpus/amd-radeon-rx-9060-xt-16gb-review",
+      "source_type": "independent_test_or_review",
+      "curation_reference": "H11",
+      "source_body_status": "not_obtained",
+      "rights_review_status": "not_revalidated",
+      "access_scope": "read:radar_index",
+      "external_retrieval_authorized": false,
+      "curator_note": "Avalia 16 GB favoravelmente frente a placas de 8 GB, mas cita limitação de recursos frente ao ecossistema concorrente e preços de rua diferentes do preço sugerido. Não atribuir a este review benchmarks de RX9050.",
+      "curator_note_status": "project_curated_summary"
+    },
+    {
+      "source_id": "H12",
+      "title": "discussão Reddit/usuários — apenas hipótese e casos individuais",
+      "url": null,
+      "source_type": "individual_or_community_report",
+      "curation_reference": "H12",
+      "source_body_status": "unresolved_candidate",
+      "rights_review_status": "not_revalidated",
+      "access_scope": "read:radar_index",
+      "external_retrieval_authorized": false,
+      "curator_note": "Fontes de comunidade sobre compradores RX9050, problemas de drivers, 4GB/OEM e preço Brasil só entrarão após coleta explícita, timestamp e sistema/driver/SKU. Nenhum “consenso do Reddit” está comprovado neste pacote.",
+      "curator_note_status": "project_curated_summary"
+    }
+  ],
+  "coverage_questions": [
+    "O que uma placa RDNA4 de 92 W acrescenta ao 1080p, e para quem os limites são aceitáveis? A comparação correta deveria envolver concorrentes de preços efetivamente comprovados.",
+    "O modelo 4GB perde apenas capacidade de texturas ou também largura de banda/cache? Há algum benchmark INDEPENDENTE da versão 4GB em H01–H11? **Se não houver, não estimar FPS**.",
+    "9050 8GB versus 9060 XT 8GB/16GB: onde a discrepância vem de GPU maior, VRAM, settings, preço ou metodologia? Por que um benchmark de 1440p Epic não prova que 8GB falhará em todo jogo?",
+    "Quais mudanças de clocks/saídas/cooler dependem da fabricante e SKU? Onde marketing falha em descrever configuração?",
+    "Qual o papel de FSR e de frame generation, latência e 1% low? Se esses dados não estiverem em H07–H08, apontar a lacuna.",
+    "Qual o valor no Brasil **somente se houver coleta de preço datada na rodada**? Não inventar disponibilidade/preço atual.",
+    "Veredito dividido por 1080p nativo/FSR, longevidade/VRAM, sistemas compactos e comparação justa; elogie onde houver mérito, critique onde a amostra suportar."
+  ],
+  "readiness": {
+    "curated_notes_available": true,
+    "curated_note_only_trial_ready": true,
+    "source_bodies_obtained": false,
+    "rights_revalidated": false,
+    "external_retrieval_authorized": false,
+    "radar_index_population_verified": false,
+    "ready_for_article_generation": false,
+    "blockers": [
+      "source body is not locally obtained",
+      "source terms and rights have not been revalidated for this run",
+      "Issue #35 permits local Radar index reads only; no matching indexed evidence is present"
+    ]
+  },
+  "package_sha256": "8593ad05bff34234dbf7456c6d6fa3ab8d38fb958f8e654460a5ee56343567cb"
+}
