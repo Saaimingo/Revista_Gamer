@@ -155,3 +155,16 @@ H01/H02 estão implementadas e enviadas (`60c4c0f`, `7256db1`), validadas por 10
 **Runner e segurança:** a primeira execução do processo encerrou depois do sucesso Beto por erro local de atualização do resumo; o artefato íntegro foi reconciliado, sem replay. Nina foi despachada depois de validar que sua tarefa ainda estava queued e que Carranca/Beto continuavam succeeded, reutilizando o mesmo banco h04-motor.sqlite3. Nenhuma tarefa concluída foi executada novamente. O preflight não consultou novamente o catálogo nem iniciou login/consentimento.
 
 **Próximo passo exato:** depois que houver franquia suficiente, revalidar branch, PR/Issue, fila SQLite e hashes locais; executar em lote pequeno os casos de correção que faltam, primeiro Carranca T06, depois Beto T09 e Nina T08, sem replay dos T13 concluídos. Avaliar P/J separadamente, gravar originais/revisões e hashes no armazenamento privado, atualizar índice/checkpoint e evidência da PR/Issue. Revisão do diretor continua necessária antes de qualquer aceite editorial; nada foi publicado, mesclado ou implantado.
+
+## H04 — atualização de orçamento e fixtures de correção preparadas (2026-10-25 22:02 BRT)
+
+**Orçamento:** após os três T13, o usuário informou 9% restante da franquia Codex. Não foi feita nova chamada SIWC depois dessa informação. O uso SIWC reportado pelos três T13 é 19.167 tokens; isso não é conversível em percentual da franquia.
+
+**Preparação offline:** foram montadas três entradas curtas, inteiramente fictícias, em JSON UTF-8 no diretório privado h04-isolated-batch-20261026/cases, sem enfileirar nem executar: Carranca T06, Beto T09 e Nina T08. Os hashes dos documentos de persona correspondem aos source locks. SHA-256 das entradas:
+- Carranca T06: e150311d542a87c674dc226a82f33eda9025e48f6620db5059074176af446553
+- Beto T09: 44f379505b213e4cdf5db68c89b2031bab28c16b11d28cda15a504813ffe44f2
+- Nina T08: 098113afbcd43ad73a8437b5354bfbcf321503c8c8a6efe799e30e361bc9dd65
+
+As três entradas são especificações de caso, não resultados. Não existem saídas/revisões para elas, e nenhum texto está sendo apresentado como gerado. H04 continua parcialmente concluída; não avançar H05 antes da execução/evidência restante ou do registro explícito de bloqueio por orçamento.
+
+**Próximo passo:** quando houver franquia suficiente, revalidar branch/PR/Issue, estado do SQLite existente e os hashes acima; enfileirar somente tarefas de correção T06/T09/T08 com max_attempts=1, usar a mesma AgentQueue e executor versionado, executar uma por vez, arquivar texto original, manifesto e avaliação P/J e checkpoint após cada. Carranca/Beto/Nina T13 permanecem succeeded e não podem ser repetidos. A revisão humana do diretor continua pendente.
