@@ -1,6 +1,6 @@
 # ENG-CODEX-008 — checkpoint de execução
 
-**Atualizado:** 2026-10-25 21:31 -03:00
+**Atualizado:** 2026-10-25 21:33 -03:00
 **Issue de execução:** [#33](https://github.com/Saaimingo/Revista_Gamer/issues/33)
 **Ordem documental:** [PR #32](https://github.com/Saaimingo/Revista_Gamer/pull/32)
 **PR de implementação:** [#34](https://github.com/Saaimingo/Revista_Gamer/pull/34), draft, aberta, sem merge.
@@ -11,7 +11,7 @@
 - **H01:** concluída — executor SIWC genérico, validação de papel/modelo/esforço/schema e retenção integral da resposta.
 - **H02:** concluída — testes offline de segurança, incerteza, lease, replay, fronteiras de evidência e falhas do provedor.
 - **H03:** em andamento — preflight de ACL local; ainda sem leitura de credenciais, rede, catálogo ou inferência.
-- **Próxima ação:** criar/validar armazenamento privado sob `%USERPROFILE%\\.codex\\Revista_Gamer\\ensaios-008`, depois inspecionar metadados locais da credencial sem expor segredo.
+- **Próxima ação:** inspecionar apenas presença, escopo e expiração da credencial existente, sem imprimir valores; depois fazer no máximo uma consulta ao catálogo.
 - **Branch:** `codex/eng-codex-008-siwc-validation`, criada diretamente de `codex/eng-codex-007-factory-radar@cd71022ef3b3d60fa4c97beb6db5583a03856102`.
 - **Commits H00:** `b8e2dde` (checkpoint inicial), `05d3c8f` (vínculo à PR #34); ambos enviados para `origin/codex/eng-codex-008-siwc-validation`.
 - **Commits H01/H02:** `60c4c0f` (executor por papel, retenção SIWC e regressões offline) e `7256db1` (checkpoint); ambos enviados para `origin/codex/eng-codex-008-siwc-validation`.
@@ -60,7 +60,7 @@ O repositório GitHub é público. PR #30 e os relatórios históricos E17–E19
 
 - ACL observada em `%LOCALAPPDATA%`: `ReadAndExecute` herdado por um principal além do usuário atual, SYSTEM e Administrators. O caminho proposto ali foi rejeitado; nenhum artefato foi gravado nele.
 - ACL observada em `%USERPROFILE%\\.codex`: proprietário usuário atual; regras de acesso observadas apenas para usuário atual, SYSTEM e Administrators. Este é o pai escolhido para o armazenamento privado; a ACL do diretório final será verificada depois da criação.
-- `%USERPROFILE%\\.codex\\Revista_Gamer\\ensaios-008` ainda não foi criado. Nenhuma credencial foi lida, nenhum catálogo consultado e nenhuma chamada SIWC real foi feita.
+- `%USERPROFILE%\\.codex\\Revista_Gamer\\ensaios-008` foi criado herdando a ACL do pai; conferência final encontrou apenas usuário atual, SYSTEM e Administrators com acesso. Nenhuma permissão foi alterada. Nenhuma credencial foi lida, nenhum catálogo consultado e nenhuma chamada SIWC real foi feita.
 
 ## Evidências executadas
 
@@ -78,10 +78,11 @@ O repositório GitHub é público. PR #30 e os relatórios históricos E17–E19
 | `& '.\\.venv\\Scripts\\python.exe' -m unittest motor_editorial.tests.test_agent_siwc_executor motor_editorial.tests.test_orchestration.SIWCContractTests.test_editorial_raw_stream_sink_preserves_exact_complete_and_partial_text -q` | Repetição focada: `Ran 13 tests in 6.682s — OK` |
 | `& '.\\.venv\\Scripts\\python.exe' -m compileall -q motor_editorial` | exit 0 |
 | `git diff --check` e `git diff --cached --check` | exit 0, sem problemas de whitespace |
+| Inspeção ACL PowerShell de `%LOCALAPPDATA%`, `%USERPROFILE%\\.codex` e raiz de artefatos H03 recém-criada | `%LOCALAPPDATA%` rejeitado por `ReadAndExecute` de outro principal; raiz H03 privada, owner usuário atual e acessos herdados somente de usuário atual/SYSTEM/Administrators; sem alteração de ACL |
 
 ## Gates para H03 — E17 real controlada
 
-1. **Armazenamento:** não usar `%LOCALAPPDATA%` para texto bruto porque foi observada leitura por outro principal. Criar `%USERPROFILE%\\.codex\\Revista_Gamer\\ensaios-008` herdando a ACL privada de `%USERPROFILE%\\.codex`, sem alterar permissões; verificar a ACL final antes de qualquer rede. Se a ACL final ampliar leitura, não chamar SIWC.
+1. **Armazenamento:** não usar `%LOCALAPPDATA%` para texto bruto porque foi observada leitura por outro principal. A raiz `%USERPROFILE%\\.codex\\Revista_Gamer\\ensaios-008` já herda a ACL privada de `%USERPROFILE%\\.codex`; verificação final não encontrou outro principal com leitura/escrita. Não alterar permissões.
 2. **Conta e catálogo:** usar somente o CredentialStore já existente; não iniciar login, relogin, consentimento novo ou refresh fora do caminho suportado. Não exibir identidade, token ou segredo. Consultar o catálogo no máximo uma vez se o modelo não estiver verificado por evidência vigente; bloquear se acesso/modelo não estiver elegível.
 3. **Primeira inferência:** explicitar `gpt-6-luna` e `max`, sem fallback, executar uma chamada curta pelo SIWCClient existente e pelo mesmo dispatcher/fila. Salvar request, resposta bruta integral e manifesto fora do Git público antes do parse/schema. O usuário reportou 24% de orçamento compartilhado; medir o uso disponível na resposta e fazer no máximo duas chamadas adicionais no lote H03 apenas se a primeira concluir e qualidade/orçamento comportarem.
 4. **Parada segura:** parar em 401/403, 429, novo consentimento, modelo/esforço divergente, resposta incompleta/incerta ou orçamento insuficiente; não repetir chamadas incertas. Se a resposta for incompleta, marcá-la `incomplete`; nunca apresentar como texto integral.
@@ -90,4 +91,4 @@ O repositório GitHub é público. PR #30 e os relatórios históricos E17–E19
 
 ## Próximo passo exato
 
-H01/H02 estão implementadas e enviadas (`60c4c0f`, `7256db1`), validadas por 109 testes focados, repetição de 13 testes críticos, `compileall` e `git diff --check`; evidências registradas na Issue #33 e PR #34. H03 está em andamento, sem rede. Próximo: criar e verificar a ACL final de `%USERPROFILE%\\.codex\\Revista_Gamer\\ensaios-008`; inspecionar somente presença/escopo/expiração da credencial local e então decidir se o catálogo pode ser consultado sem consentimento novo. Chamadas SIWC reais: 0.
+H01/H02 estão implementadas e enviadas (`60c4c0f`, `7256db1`), validadas por 109 testes focados, repetição de 13 testes críticos, `compileall` e `git diff --check`; evidências registradas na Issue #33 e PR #34. H03 está em andamento, sem rede. Próximo: inspecionar somente presença/escopo/expiração da credencial existente; sem login ou valores sensíveis. Se o estado permitir, consultar o catálogo uma vez e executar uma inferência real curta. Chamadas SIWC reais: 0.
