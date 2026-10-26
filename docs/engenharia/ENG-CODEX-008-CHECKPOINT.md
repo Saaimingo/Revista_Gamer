@@ -117,3 +117,15 @@ H01/H02 estão implementadas e enviadas (`60c4c0f`, `7256db1`), validadas por 10
 **Hashes dos inputs T13:** Carranca 2cb680650abf0e79cacac5f280f5bcfec2cc96f03248bb59839e6b65cf87cf7f; Beto 6392334eddedadd861d40ca6c936927c35ef5173ef60c123fb911ad71a92ab0b; Nina 8b9b2e0e39eb436ae619d72fdc451de181c2e9e739ceb4793f08efeb6fa20cb1.
 
 **Próximo passo:** despachar apenas Carranca T13. Após cada inferência, verificar estado, resposta completa, schema, hash, consumo, original integral e link no índice privado. Parar o lote em 401/403, 429, novo consentimento, modelo/esforço divergente, saída incerta/incompleta, schema inválido ou orçamento insuficiente; não repetir uma chamada incerta. Não publicar texto bruto no GitHub.
+
+## H04 — Carranca T13 concluído (2026-10-25 21:53 BRT)
+
+**Evidência real SIWC:** tarefa de redação T13 do Carranca/Ranzinza passou pelo TaskDispatcher existente e persona_writer v1.0.0, usando a persona consolidada v1.0 travada no commit 3d651fe1951818767b4a6b935732857f08cb7849. Modelo gpt-6-luna, esforço max, resposta completa, succeeded, role_schema_valid, store=false, stream=true, gate humano requerido e published=false. Duração 51.187 ms. Uso reportado: 4.510 tokens de entrada, 2.743 de saída (1.744 raciocínio), 7.253 total.
+
+**Integridade e acesso ao texto:** original bruto UTF-8 preservado em C:\Users\saimi\.codex\Revista_Gamer\ensaios-008\h04-isolated-batch-20261026\artifacts\siwc-role-responses\69c60794-db84-58a0-bd05-d264ed109ccf.response.json; SHA-256 bb5901344f0187bc0800796bc07c696a288485e75de06d3a89986f3224d4e720, conferido com o manifesto. Índice privado C:\Users\saimi\.codex\Revista_Gamer\ensaios-008\INDICE-LEITURA-INTEGRAL.md agora tem links diretos para render legível integral, resposta bruta, manifesto, request e input UTF-8. Tamanho do render: 3.643 bytes. O relatório P/J desta amostra está em cases\ranzinza\T13\assessment.md, no mesmo diretório privado.
+
+**Avaliação separada, Codex e provisória:** P = 12/14; voz tecnicamente compatível, mas ainda próxima de análise neutra, com ironia/assinatura pouco marcadas. J = 11/12; boa atribuição, separação de alegação e medição, preservação das diferenças metodológicas e conclusão suspensa; cenário de custo/uso ficou parcial. As escalas de aceite da matriz são propostas, não aprovadas. Isso não é revisão humana nem aprovação da direção e não generaliza para a persona.
+
+**Limite do ensaio:** todas as entidades e fontes do caso são fictícias; o teste avalia resposta a um pacote controlado, não apuração de fatos reais. Não houve edição ou revisão textual. Texto bruto permanece privado e não foi copiado para Issue/PR.
+
+**Próximo passo:** após este checkpoint, executar somente Beto T13; confirmar seu hash de resposta, schema, uso reportado e texto integral. Nina T13 continua na mesma primeira leva se o consumo e o orçamento observado permitirem. Casos de correção Carranca T06, Beto T09 e Nina T08 continuam pendentes; nenhuma chamada incerta será repetida.
