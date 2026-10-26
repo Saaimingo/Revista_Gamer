@@ -14,6 +14,7 @@ from motor_editorial.eng_codex_011 import (
     _canonicalize_investigator_claim_ids,
     _make_radar_profile,
     _map_persisted_live_items,
+    _normalize_writer_claim_refs_against_section_evidence,
     _register_source,
 )
 from motor_editorial.radar_store import RadarStore
@@ -57,6 +58,31 @@ class PersistedTriageResumeTests(unittest.TestCase):
             self.assertEqual(checkpoint.state["events"][-1]["repeated_siwc_calls"], 0)
             self.assertEqual(checkpoint.state["events"][-1]["repeated_public_requests"], 0)
 
+    def test_writer_revision_resume_accepts_only_saved_unknown_claim_blocker(self) -> None:
+        run_id = "eng-codex-011-fixture-run"
+        with tempfile.TemporaryDirectory(prefix="eng011-revision-checkpoint-") as temporary:
+            root = Path(temporary)
+            (root / "agent-usage").mkdir()
+            (root / "agent-usage" / "revision.attempt-001.json").write_text("{}", encoding="utf-8")
+            (root / "active-run.json").write_text(json.dumps({
+                "run_id": run_id, "status": "blocked", "blocker_code": "persona_writer_call_blocked",
+            }), encoding="utf-8")
+            (root / "checkpoint.json").write_text(json.dumps({
+                "run_id": run_id, "stage": "journalist_correction_agent", "status": "running",
+                "events": [{
+                    "stage": "journalist_correction_agent", "status": "blocked",
+                    "task_id": "revision", "task_state": "blocked",
+                    "error_code": "siwc_output_unknown_claim",
+                    "usage_record_ref": "agent-usage/revision.attempt-001.json",
+                }],
+            }), encoding="utf-8")
+
+            checkpoint = Checkpoint.resume_after_writer_revision_failure(root, run_id)
+
+            self.assertEqual(checkpoint.state["stage"], "resume_after_writer_revision_failure")
+            self.assertEqual(checkpoint.state["events"][-1]["repeated_siwc_calls"], 0)
+            self.assertEqual(checkpoint.state["events"][-1]["repeated_public_requests"], 0)
+
     def test_event_reference_links_candidate_when_item_id_is_not_returned(self) -> None:
         candidate = {
             "item_id": "discovery-release-42",
@@ -84,6 +110,41 @@ class PersistedTriageResumeTests(unittest.TestCase):
         self.assertEqual(claim["source_claim_label"], source_label)
         self.assertEqual(mapping[0]["source_claim_label"], source_label)
         self.assertEqual(mapping[0]["canonical_claim_id"], claim["claim_id"])
+
+    def test_writer_claim_field_recovery_only_drops_evidence_refs_cited_in_sections(self) -> None:
+        prompt_input = {
+            "task_input_data": {"data": {"evidence_dossier": {
+                "claims": [], "evidence": [{"evidence_id": "radar://document/release-01"}],
+            }}},
+        }
+        output = {
+            "title": "Release",
+            "dek": "The official record confirms a date.",
+            "sections": [{"heading": "Record", "body": "The tag is listed.",
+                          "evidence_ids": ["radar://document/release-01"]}],
+            "claim_refs": ["radar://document/release-01"],
+        }
+
+        normalized, dropped = _normalize_writer_claim_refs_against_section_evidence(output, prompt_input)
+
+        self.assertEqual(dropped, ["radar://document/release-01"])
+        self.assertEqual(normalized["claim_refs"], [])
+        self.assertEqual(normalized["sections"][0]["evidence_ids"], ["radar://document/release-01"])
+        self.assertEqual(output["claim_refs"], ["radar://document/release-01"])
+
+    def test_writer_claim_field_recovery_rejects_unknown_claim_label(self) -> None:
+        prompt_input = {
+            "task_input_data": {"data": {"evidence_dossier": {
+                "claims": [], "evidence": [{"evidence_id": "evidence-01"}],
+            }}},
+        }
+        output = {
+            "sections": [{"evidence_ids": ["evidence-01"]}],
+            "claim_refs": ["unsupported-claim"],
+        }
+
+        with self.assertRaisesRegex(RunBlocked, "beyond_known_section_evidence"):
+            _normalize_writer_claim_refs_against_section_evidence(output, prompt_input)
 
     def test_persisted_document_rebuilds_release_tag_and_source_fields(self) -> None:
         document_id = "a" * 32

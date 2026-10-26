@@ -1028,6 +1028,7 @@ def enqueue_contract_task(
     max_attempts: int = 3,
     dependencies: Sequence[str] = (),
     research_packet: ResearchPacket | Mapping[str, Any] | None = None,
+    research_cycle_already_used: bool | None = None,
 ) -> str:
     """Persist a versioned role task in the existing AgentQueue/SQLite ledger."""
     catalog.validate_task(envelope, input_payload=input_payload)
@@ -1038,6 +1039,10 @@ def enqueue_contract_task(
     if research_packet is not None:
         packet = research_packet if isinstance(research_packet, ResearchPacket) else ResearchPacket.from_mapping(research_packet)
         payload["research_packet"] = packet.to_dict()
+    if research_cycle_already_used is not None:
+        if not isinstance(research_cycle_already_used, bool):
+            raise TypeError("research_cycle_already_used precisa ser booleano.")
+        payload["research_cycle_already_used"] = research_cycle_already_used
     return queue.enqueue(
         task_type=f"agent.role.{envelope.role_id}",
         payload=payload,

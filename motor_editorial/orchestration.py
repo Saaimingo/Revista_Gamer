@@ -650,6 +650,79 @@ class AgentQueue:
             })
             return True
 
+    def reconcile_completed_research_handoff(
+        self,
+        task_id: str,
+        result: Mapping[str, Any],
+        *,
+        response_sha256: str,
+    ) -> bool:
+        """Attach one validated Motor request to an already completed writer result.
+
+        This transition is for a local mediation bug discovered after a completed
+        external response. It preserves the task attempt and response hash and
+        changes only the previously missing research handoff.
+        """
+        if not isinstance(response_sha256, str) or not re.fullmatch(r"[a-f0-9]{64}", response_sha256):
+            raise ValueError("response_sha256 precisa ser SHA-256 hexadecimal minúsculo.")
+        _assert_no_credentials(result, "reconciled_result")
+        encoded = json_dumps(dict(result))
+        if len(encoded.encode("utf-8")) > 1_000_000:
+            raise ValueError("Resultado reconciliado excede o limite local de 1 MB.")
+        artifact_ref = result.get("artifact_ref") if isinstance(result, Mapping) else None
+        request = result.get("requested_research") if isinstance(result, Mapping) else None
+        if (
+            not isinstance(artifact_ref, Mapping)
+            or artifact_ref.get("sha256") != response_sha256
+            or result.get("output_hash") != response_sha256
+            or not isinstance(request, Mapping)
+            or request.get("parent_task_id") != task_id
+            or not isinstance(request.get("request_id"), str)
+        ):
+            raise ValueError("Handoff reconciliado precisa apontar à resposta e à tarefa de origem exatas.")
+        with self.store.transaction() as connection:
+            row = connection.execute("SELECT * FROM agent_tasks WHERE id = ?", (task_id,)).fetchone()
+            if row is None:
+                return False
+            old_result = json.loads(row["result_json"]) if row["result_json"] else None
+            payload = json.loads(row["payload_json"])
+            envelope = payload.get("agent_task_envelope") if isinstance(payload, Mapping) else None
+            policy = envelope.get("research_mediation_policy") if isinstance(envelope, Mapping) else None
+            if (
+                row["task_type"] != "agent.role.persona_writer"
+                or row["state"] != "succeeded"
+                or not row["external_request_started"]
+                or not isinstance(old_result, Mapping)
+                or old_result.get("requested_research") is not None
+                or not isinstance(envelope, Mapping)
+                or request.get("story_id") != envelope.get("story_id")
+                or request.get("requester_role_id") != envelope.get("role_id")
+                or request.get("requester_persona_id") != envelope.get("persona_id")
+                or not isinstance(policy, Mapping)
+                or request.get("story_revision_id") != policy.get("story_revision_id")
+            ):
+                return False
+            old_artifact = old_result.get("artifact_ref")
+            if not isinstance(old_artifact, Mapping) or old_artifact.get("sha256") != response_sha256:
+                return False
+            expected_result = dict(old_result)
+            expected_result["requested_research"] = dict(request)
+            if dict(result) != expected_result:
+                return False
+            updated = connection.execute(
+                "UPDATE agent_tasks SET result_json = ? WHERE id = ? AND state = 'succeeded' AND external_request_started = 1",
+                (encoded, task_id),
+            )
+            if updated.rowcount != 1:
+                return False
+            self._event(connection, task_id, "completed_research_handoff_reconciled", row["attempts"], {
+                "response_sha256": response_sha256,
+                "request_id": request["request_id"],
+                "result_sha256": stable_hash(encoded),
+                "provider_calls_repeated": 0,
+            })
+            return True
+
     def reopen_pre_external_contract_failure(self, task_id: str) -> bool:
         """Allow one corrected dispatch when a task was blocked before any provider call."""
         expected_error_code = "agent_contract_invalid"

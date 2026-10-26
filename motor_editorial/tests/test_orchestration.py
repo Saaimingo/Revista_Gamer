@@ -178,6 +178,93 @@ class AgentOrchestrationTests(unittest.TestCase):
                 response_sha256=response_hash,
             )
 
+    def test_completed_writer_can_reconcile_only_its_missing_research_handoff(self) -> None:
+        task_id = "writer-research-reconcile"
+        response_hash = "a" * 64
+        envelope = {
+            "task_id": task_id,
+            "story_id": "story-reconcile",
+            "role_id": "persona_writer",
+            "persona_id": "ranzinza",
+            "research_mediation_policy": {"story_revision_id": "story-revision-01"},
+        }
+        queued_id = self.queue.enqueue(
+            task_type="agent.role.persona_writer",
+            payload={"agent_task_envelope": envelope, "input": {"writing_constraints": {}}},
+            profile=VALIDATION_PROFILE,
+            executor_id="siwc-agent-role",
+            idempotency_key="writer-research-reconcile",
+            max_attempts=1,
+        )
+        claimed = self.queue.claim_next(task_id=queued_id)
+        self.assertIsNotNone(claimed)
+        self.assertTrue(self.queue.mark_external_started(queued_id, claimed.lease_owner, claimed.lease_generation))
+        original = {
+            "artifact_ref": {"ref": "private://writer-response", "sha256": response_hash},
+            "output_hash": response_hash,
+            "requested_research": None,
+            "status": "completed",
+        }
+        self.assertTrue(self.queue.complete(
+            queued_id, claimed.lease_owner, claimed.lease_generation, original,
+        ))
+        request = {
+            "request_id": "research-request-01",
+            "parent_task_id": queued_id,
+            "story_id": "story-reconcile",
+            "story_revision_id": "story-revision-01",
+            "requester_role_id": "persona_writer",
+            "requester_persona_id": "ranzinza",
+        }
+        reconciled = {**original, "requested_research": request}
+
+        self.assertTrue(self.queue.reconcile_completed_research_handoff(
+            queued_id, reconciled, response_sha256=response_hash,
+        ))
+        task = self.queue.get(queued_id)
+        self.assertEqual(task.state, "succeeded")
+        self.assertEqual(task.attempts, 1)
+        self.assertEqual(task.result, reconciled)
+        event = self.queue.events(queued_id)[-1]
+        self.assertEqual(event["action"], "completed_research_handoff_reconciled")
+        self.assertEqual(event["detail"]["provider_calls_repeated"], 0)
+
+    def test_completed_writer_research_reconciliation_rejects_changed_response(self) -> None:
+        task_id = "writer-research-wrong-response"
+        response_hash = "b" * 64
+        envelope = {
+            "task_id": task_id,
+            "story_id": "story-reconcile",
+            "role_id": "persona_writer",
+            "persona_id": "ranzinza",
+            "research_mediation_policy": {"story_revision_id": "story-revision-01"},
+        }
+        queued_id = self.queue.enqueue(
+            task_type="agent.role.persona_writer",
+            payload={"agent_task_envelope": envelope, "input": {}},
+            profile=VALIDATION_PROFILE,
+            executor_id="siwc-agent-role",
+            idempotency_key="writer-research-wrong-response",
+            max_attempts=1,
+        )
+        claimed = self.queue.claim_next(task_id=queued_id)
+        self.assertIsNotNone(claimed)
+        self.queue.mark_external_started(queued_id, claimed.lease_owner, claimed.lease_generation)
+        original = {
+            "artifact_ref": {"ref": "private://writer-response", "sha256": response_hash},
+            "output_hash": response_hash,
+            "requested_research": None,
+            "status": "completed",
+        }
+        self.queue.complete(queued_id, claimed.lease_owner, claimed.lease_generation, original)
+        changed = {**original, "output_hash": "c" * 64}
+
+        with self.assertRaisesRegex(ValueError, "resposta e à tarefa"):
+            self.queue.reconcile_completed_research_handoff(
+                queued_id, changed, response_sha256=response_hash,
+            )
+        self.assertIsNone(self.queue.get(queued_id).result["requested_research"])
+
     def test_pre_external_contract_failure_can_be_reopened_once_after_local_fix(self) -> None:
         task_id = self.queue.enqueue(
             task_type="agent.role.persona_writer", payload={"role": "persona_writer"},

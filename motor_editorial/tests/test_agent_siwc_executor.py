@@ -23,6 +23,7 @@ from motor_editorial.agent_siwc import (
     SIWC_ROLE_EXECUTOR_ID,
     SIWC_ROLE_EXECUTOR_PROFILE,
     SIWCResponseArtifactStore,
+    _research_cycle_already_used,
     register_siwc_role_executor,
 )
 from motor_editorial.db import Store, json_dumps, stable_hash
@@ -164,6 +165,22 @@ class SIWCAgentRoleExecutorTests(unittest.TestCase):
             reasoning_effort="max",
             catalog_models=catalog_models if catalog_models is not None else {"gpt-6-luna"},
         )
+
+    def test_initial_partial_packet_does_not_consume_complementary_research_cycle(self) -> None:
+        self.assertFalse(_research_cycle_already_used({
+            "research_packet": {"request_id": "initial-radar-0123456789abcdef", "status": "partial"},
+        }))
+        self.assertTrue(_research_cycle_already_used({
+            "research_packet": {"request_id": "research-uuid", "status": "found"},
+        }))
+        self.assertTrue(_research_cycle_already_used({
+            "research_cycle_already_used": True,
+            "research_packet": {"request_id": "initial-radar-0123456789abcdef", "status": "partial"},
+        }))
+        self.assertFalse(_research_cycle_already_used({
+            "research_cycle_already_used": False,
+            "research_packet": {"request_id": "research-uuid", "status": "partial"},
+        }))
 
     def test_two_functional_roles_use_one_queue_dispatcher_and_preserve_exact_response_bytes(self) -> None:
         output_by_role: dict[str, Any] = {}

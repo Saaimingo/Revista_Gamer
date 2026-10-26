@@ -54,6 +54,19 @@ def _plain_json(value: Any) -> Any:
     return value
 
 
+def _research_cycle_already_used(task_payload: Mapping[str, Any]) -> bool:
+    explicit = task_payload.get("research_cycle_already_used")
+    if isinstance(explicit, bool):
+        return explicit
+    packet = task_payload.get("research_packet")
+    if packet is None:
+        return False
+    request_id = packet.get("request_id") if isinstance(packet, Mapping) else None
+    # Initial Radar snapshots are allowed to be partial. They are not a
+    # journalist-requested complementary lookup and must not consume its slot.
+    return not (isinstance(request_id, str) and request_id.startswith("initial-radar-"))
+
+
 def _json_bytes(value: Any) -> bytes:
     _assert_no_credentials(value, "siwc_role_artifact")
     return (json.dumps(
@@ -514,7 +527,8 @@ class SIWCAgentRoleExecutor:
                 "Pesquisa sugerida foi preservada, mas nÃ£o passou pelo contrato do Motor.",
                 blocked=True,
             ) from None
-        if task.payload.get("research_packet") is not None and requested_research is not None:
+        research_cycle_already_used = _research_cycle_already_used(task.payload)
+        if research_cycle_already_used and requested_research is not None:
             mediation = {
                 **mediation,
                 "status": "hold_story_research_budget_exhausted",

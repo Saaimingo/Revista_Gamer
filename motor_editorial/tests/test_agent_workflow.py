@@ -245,6 +245,7 @@ class AgentWorkflowTests(unittest.TestCase):
         self.assertEqual(continuation_envelope.role_id, investigator_envelope.role_id)
         self.assertEqual(continuation_envelope.persona_id, investigator_envelope.persona_id)
         self.assertEqual(packet.request_id, request.request_id)
+        self.assertIs(continuation.payload["research_cycle_already_used"], True)
         self.assertEqual(queue.dependencies(continuation.task_id), (research_task.task_id,))
         self.assertEqual(dispatcher.dispatch_one(continuation.task_id).state, "succeeded")
 

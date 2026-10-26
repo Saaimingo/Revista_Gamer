@@ -232,4 +232,5 @@ class ResearchResultRouter:
             executor_id=parent.executor_id,
             dependencies=(task.task_id,),
             research_packet=packet,
+            research_cycle_already_used=True,
         )
