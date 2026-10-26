@@ -287,6 +287,26 @@ class Checkpoint:
                          recovery="validate_and_adopt_persisted_response")
         return checkpoint
 
+    @classmethod
+    def resume_after_pre_external_writer_block(cls, root: Path, run_id: str) -> "Checkpoint":
+        checkpoint = cls.__new__(cls)
+        checkpoint.root = root
+        checkpoint.run_id = run_id
+        checkpoint.path = root / "checkpoint.json"
+        checkpoint.state = _load_json(checkpoint.path)
+        events = checkpoint.state.get("events", [])
+        last = events[-1] if isinstance(events, list) and events else {}
+        if checkpoint.state.get("run_id") != run_id or checkpoint.state.get("stage") != "journalist_original_agent":
+            raise RunBlocked("resume_checkpoint_is_not_at_writer_preflight_boundary")
+        if (last.get("stage") != "journalist_original_agent" or last.get("status") != "blocked"
+                or last.get("error_code") != "agent_contract_invalid" or last.get("task_state") != "blocked"):
+            raise RunBlocked("resume_requires_a_pre_external_writer_contract_block")
+        checkpoint.state["status"] = "running"
+        checkpoint.event("resume_after_writer_preflight", "started", reused_task_id=last.get("task_id"),
+                         repeated_siwc_calls=0, repeated_public_requests=0,
+                         recovery="correct_persona_hash_preservation_without_external_retry")
+        return checkpoint
+
 
 def _ensure_git_branch() -> str:
     branch = subprocess.check_output(
@@ -675,7 +695,11 @@ def _new_role_task(
     task_id = _task_id(run_token, role_id, stage)
     input_bytes = (json.dumps(input_payload, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode("utf-8")
     input_ref = root / "task-inputs" / f"{task_id}.json"
-    _write_new(input_ref, input_bytes)
+    if input_ref.exists():
+        if input_ref.read_bytes() != input_bytes:
+            raise RunBlocked("persisted_task_input_conflicts_with_idempotent_task")
+    else:
+        _write_new(input_ref, input_bytes)
     persona_hash = stable_hash(persona_text) if persona_text is not None else None
     envelope_data: dict[str, Any] = {
         "schema_version": AGENT_TASK_ENVELOPE_SCHEMA_VERSION,
@@ -765,6 +789,61 @@ def _task_output(
     return structured, metadata, usage_ref
 
 
+def _load_succeeded_role_output(
+    *, task_id: str, queue: AgentQueue, role_catalog: AgentRoleCatalog,
+    response_store: SIWCResponseArtifactStore, root: Path,
+) -> tuple[dict[str, Any], dict[str, Any], str | None]:
+    task = queue.get(task_id)
+    if task is None or task.state != "succeeded" or task.attempts < 1 or not isinstance(task.result, Mapping):
+        raise RunBlocked("persisted_role_task_is_not_succeeded")
+    envelope = envelope_from_payload(task.payload)
+    role_catalog.validate_task(envelope, input_payload=task.payload.get("input"))
+    role_catalog.validate_result(envelope, task.result)
+    metadata_path = root / "siwc-role-responses" / f"{task_id}.metadata.json"
+    request_path = root / "siwc-role-responses" / f"{task_id}.request.json"
+    output_path = root / "structured-outputs" / f"{task_id}.json"
+    if not metadata_path.is_file() or not request_path.is_file() or not output_path.is_file():
+        raise RunBlocked("persisted_role_output_artifacts_are_incomplete")
+    metadata = _load_json(metadata_path)
+    output_container = _load_json(output_path)
+    response_ref = task.result.get("artifact_ref")
+    if not isinstance(response_ref, Mapping):
+        raise RunBlocked("persisted_role_result_has_no_response_reference")
+    response_bytes = response_store.read_response(str(response_ref.get("ref")), str(response_ref.get("sha256")))
+    response_digest = _sha(response_bytes)
+    if (response_digest != metadata.get("response_sha256")
+            or response_digest != output_container.get("raw_response_sha256")
+            or metadata.get("response_completed") is not True
+            or metadata.get("store") is not False or metadata.get("stream") is not True
+            or metadata.get("model") != MODEL_ID or metadata.get("reasoning_effort") != REASONING_EFFORT):
+        raise RunBlocked("persisted_role_response_integrity_check_failed")
+    recovered = any(event.get("action") == "external_output_recovered" for event in queue.events(task_id))
+    if metadata.get("output_validation") != "role_schema_valid" and not (
+        recovered and metadata.get("output_validation") == "result_envelope_rejected"
+    ):
+        raise RunBlocked("persisted_role_output_validation_state_not_accepted")
+    structured_output = json.loads(response_bytes.decode("utf-8"))
+    if not isinstance(structured_output, dict) or output_container.get("structured_output") != structured_output:
+        raise RunBlocked("persisted_role_structured_output_differs_from_raw_response")
+    request_ref = metadata.get("request_artifact_ref")
+    request_digest = metadata.get("request_artifact_sha256")
+    if not isinstance(request_ref, str) or not isinstance(request_digest, str):
+        raise RunBlocked("persisted_role_request_reference_missing")
+    request_record = json.loads(response_store.read_response(request_ref, request_digest).decode("utf-8"))
+    prompt_input = request_record.get("prompt_input")
+    if not isinstance(prompt_input, Mapping):
+        raise RunBlocked("persisted_role_request_input_missing")
+    task_input_data = prompt_input.get("task_input_data", {}).get("data")
+    if not isinstance(task_input_data, Mapping) or dict(task_input_data) != task.payload.get("input"):
+        raise RunBlocked("persisted_role_request_does_not_match_task_input")
+    profile = role_catalog.resolve(envelope.role_id, envelope.role_version, envelope.role_hash)
+    validate_json_schema(structured_output, profile.output_schema, "$output")
+    _validate_output_references(envelope.role_id, prompt_input, structured_output)
+    usage_path = root / "agent-usage" / f"{task_id}.attempt-{task.attempts:03d}.json"
+    usage_ref = usage_path.relative_to(root).as_posix() if usage_path.is_file() else None
+    return structured_output, dict(metadata), usage_ref
+
+
 def _dispatch_role(
     *, dispatcher: TaskDispatcher, queue: AgentQueue, task_id: str, envelope: AgentTaskEnvelope,
     root: Path, response_store: SIWCResponseArtifactStore, usage_store: AgentUsageArtifactStore,
@@ -796,6 +875,7 @@ def _dispatch_role(
         role_id=envelope.role_id,
         task_state=outcome.state,
         error_code=outcome.error_code,
+        external_request_started=task.external_request_started,
         response_sha256=metadata.get("response_artifact_sha256") if metadata else None,
         usage_record_ref=usage_ref.get("ref") if usage_ref else None,
         input_tokens=(metadata.get("usage") or {}).get("input_tokens") if metadata else None,
@@ -1410,6 +1490,7 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
     active_path = root / "active-run.json"
     branch = _ensure_git_branch()
     resume_after_investigator = False
+    resume_after_pre_external_writer = False
     if resume_existing_run:
         if not active_path.exists():
             raise RunBlocked("resume_requires_an_existing_blocked_run")
@@ -1429,8 +1510,18 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
             and last_checkpoint_event.get("status") == "blocked"
             and last_checkpoint_event.get("error_code") == "siwc_result_envelope_invalid"
         )
-        checkpoint = (Checkpoint.resume_after_investigator(root, run_id) if resume_after_investigator
-                      else Checkpoint.resume_after_triage(root, run_id))
+        resume_after_pre_external_writer = (
+            checkpoint_state.get("stage") == "journalist_original_agent"
+            and last_checkpoint_event.get("stage") == "journalist_original_agent"
+            and last_checkpoint_event.get("status") == "blocked"
+            and last_checkpoint_event.get("error_code") == "agent_contract_invalid"
+        )
+        if resume_after_investigator:
+            checkpoint = Checkpoint.resume_after_investigator(root, run_id)
+        elif resume_after_pre_external_writer:
+            checkpoint = Checkpoint.resume_after_pre_external_writer_block(root, run_id)
+        else:
+            checkpoint = Checkpoint.resume_after_triage(root, run_id)
         _atomic_json(active_path, {**active, "status": "running", "updated_at": _now(), "branch": branch})
     else:
         if active_path.exists():
@@ -1672,6 +1763,31 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
         )
         checkpoint.event("investigator_reused", "succeeded", task_id=investigator_task,
                          response_sha256=investigator_response_sha, repeated_siwc_calls=0)
+    elif resume_after_pre_external_writer:
+        investigator_task = _task_id(run_token, "evidence_investigator", "live-dossier")
+        investigator_task_result = queue.get(investigator_task)
+        if investigator_task_result is None:
+            raise RunBlocked("resume_succeeded_investigator_task_missing")
+        investigator_envelope = envelope_from_payload(investigator_task_result.payload)
+        raw_investigator_output, investigator_meta, investigator_usage_ref = _load_succeeded_role_output(
+            task_id=investigator_task, queue=queue, role_catalog=role_catalog,
+            response_store=response_store, root=root,
+        )
+        recovery_path = root / "dossier" / "investigator-output-recovery.json"
+        if not recovery_path.is_file():
+            raise RunBlocked("resume_investigator_normalization_artifact_missing")
+        recovery = _load_json(recovery_path)
+        investigator_response_sha = investigator_meta.get("response_sha256")
+        normalized_investigator_output = recovery.get("normalized_output")
+        if (recovery.get("response_sha256") != investigator_response_sha
+                or not isinstance(normalized_investigator_output, Mapping)
+                or stable_hash(json_dumps(dict(normalized_investigator_output))) != recovery.get("normalized_output_sha256")
+                or raw_investigator_output.get("claims") is None):
+            raise RunBlocked("resume_investigator_normalization_artifact_integrity_failed")
+        investigator_output = dict(normalized_investigator_output)
+        checkpoint.event("investigator_reused", "succeeded", task_id=investigator_task,
+                         response_sha256=investigator_response_sha, usage_receipt_ref=investigator_usage_ref,
+                         repeated_siwc_calls=0)
     else:
         investigator_task, investigator_envelope = _new_role_task(
             queue=queue, catalog=role_catalog, profiles=profiles, run_id=run_id,
@@ -1748,18 +1864,32 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
             "The journalist writes for readers; internal process metadata stays out of the story.",
         ],
     }
-    assignment_task, assignment_envelope = _new_role_task(
-        queue=queue, catalog=role_catalog, profiles=profiles, run_id=run_id,
-        run_token=run_token, story_id=f"discovery-{scan.batch.batch_id}",
-        role_id="assignment_editor", stage="live-assignment", input_payload=assignment_input,
-        source_snapshot_ids=snapshot_ids, root=root,
-        dependencies=(investigator_task,),
-    )
-    assignment_output, _, _ = _dispatch_role(
-        dispatcher=dispatcher, queue=queue, task_id=assignment_task, envelope=assignment_envelope,
-        root=root, response_store=response_store, usage_store=usage_store,
-        checkpoint=checkpoint, stage="assignment_editor_agent",
-    )
+    if resume_after_pre_external_writer:
+        assignment_task = _task_id(run_token, "assignment_editor", "live-assignment")
+        persisted_assignment = queue.get(assignment_task)
+        if persisted_assignment is None:
+            raise RunBlocked("resume_assignment_task_missing")
+        assignment_envelope = envelope_from_payload(persisted_assignment.payload)
+        assignment_output, assignment_meta, assignment_usage_ref = _load_succeeded_role_output(
+            task_id=assignment_task, queue=queue, role_catalog=role_catalog,
+            response_store=response_store, root=root,
+        )
+        checkpoint.event("assignment_result_reused", "succeeded", task_id=assignment_task,
+                         response_sha256=assignment_meta.get("response_sha256"),
+                         usage_receipt_ref=assignment_usage_ref, repeated_siwc_calls=0)
+    else:
+        assignment_task, assignment_envelope = _new_role_task(
+            queue=queue, catalog=role_catalog, profiles=profiles, run_id=run_id,
+            run_token=run_token, story_id=f"discovery-{scan.batch.batch_id}",
+            role_id="assignment_editor", stage="live-assignment", input_payload=assignment_input,
+            source_snapshot_ids=snapshot_ids, root=root,
+            dependencies=(investigator_task,),
+        )
+        assignment_output, _, _ = _dispatch_role(
+            dispatcher=dispatcher, queue=queue, task_id=assignment_task, envelope=assignment_envelope,
+            root=root, response_store=response_store, usage_store=usage_store,
+            checkpoint=checkpoint, stage="assignment_editor_agent",
+        )
     candidate_id = assignment_output.get("candidate_item_id")
     persona_id = assignment_output.get("journalist_persona_id")
     selected = next((candidate for candidate in eligible if candidate["item_id"] == candidate_id), None)
@@ -1845,13 +1975,44 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
         "article_scope": "Explain only what this release and its traceable evidence support. Keep factual uncertainty natural and relevant to readers.",
     }
     writer_input = {"editorial_brief": editorial_brief, "evidence_dossier": writer_dossier, "writing_constraints": writing_constraints}
-    writer_task, writer_envelope = _new_role_task(
-        queue=queue, catalog=role_catalog, profiles=profiles, run_id=run_id,
-        run_token=run_token, story_id=story_id, role_id="persona_writer", stage="original-draft",
-        input_payload=writer_input, source_snapshot_ids=snapshot_ids, root=root,
-        research_policy=policy, persona_id=persona_id, persona_version=package["version"], persona_text=persona_text,
-        research_packet=writer_initial_packet, dependencies=(assignment_task,),
-    )
+    writer_stage = "original-draft"
+    existing_writer_task_id = _task_id(run_token, "persona_writer", writer_stage)
+    existing_writer_task = queue.get(existing_writer_task_id)
+    if existing_writer_task is not None:
+        writer_task = existing_writer_task_id
+        writer_envelope = envelope_from_payload(existing_writer_task.payload)
+        writer_events = queue.events(existing_writer_task_id)
+        last_writer_event = writer_events[-1] if writer_events else {}
+        last_writer_detail = last_writer_event.get("detail", {})
+        if (existing_writer_task.state != "blocked" or existing_writer_task.external_request_started
+                or existing_writer_task.attempts != 1 or existing_writer_task.max_attempts != 1
+                or last_writer_event.get("action") != "blocked"
+                or last_writer_detail.get("error_code") != "agent_contract_invalid"
+                or existing_writer_task.payload.get("input") != writer_input
+                or writer_envelope.story_id != story_id
+                or writer_envelope.persona_id != persona_id
+                or writer_envelope.persona_version != package["version"]
+                or writer_envelope.persona_hash != stable_hash(persona_text)
+                or dict(writer_envelope.research_mediation_policy or {}) != policy):
+            raise RunBlocked("existing_writer_task_is_not_a_safe_pre_external_recovery")
+        persisted_packet = ResearchPacket.from_mapping(existing_writer_task.payload.get("research_packet"))
+        role_catalog.prepare_invocation(
+            writer_envelope, input_payload=existing_writer_task.payload.get("input"),
+            research_packet=persisted_packet, persona_instructions=persona_text,
+        )
+        if not queue.reopen_pre_external_contract_failure(existing_writer_task_id):
+            raise RunBlocked("writer_pre_external_recovery_transition_rejected")
+        checkpoint.event("writer_preflight_reopened", "succeeded", task_id=existing_writer_task_id,
+                         previous_external_requests=0, next_queue_attempt=2,
+                         corrected_contract="preserve_approved_persona_bytes_exactly")
+    else:
+        writer_task, writer_envelope = _new_role_task(
+            queue=queue, catalog=role_catalog, profiles=profiles, run_id=run_id,
+            run_token=run_token, story_id=story_id, role_id="persona_writer", stage=writer_stage,
+            input_payload=writer_input, source_snapshot_ids=snapshot_ids, root=root,
+            research_policy=policy, persona_id=persona_id, persona_version=package["version"], persona_text=persona_text,
+            research_packet=writer_initial_packet, dependencies=(assignment_task,),
+        )
     writer_original, writer_original_meta, writer_original_usage = _dispatch_role(
         dispatcher=dispatcher, queue=queue, task_id=writer_task, envelope=writer_envelope,
         root=root, response_store=response_store, usage_store=usage_store,

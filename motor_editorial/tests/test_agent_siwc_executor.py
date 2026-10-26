@@ -237,6 +237,27 @@ class SIWCAgentRoleExecutorTests(unittest.TestCase):
         self.assertIn(source_label, raw_path.read_text(encoding="utf-8"))
         self.assertNotEqual(claim_id, source_label)
 
+    def test_persona_instruction_hash_preserves_trailing_newline(self) -> None:
+        role = self._role("persona_writer")
+        input_payload = json.loads(json.dumps(self.fixtures["roles"][role.role_id]["input"], ensure_ascii=False))
+        input_payload["evidence_dossier"] = {
+            "claims": [{"claim_id": "claim-fixture-01", "evidence_ids": ["fixture-evidence-01"]}],
+            "evidence": [{"evidence_id": "fixture-evidence-01"}],
+        }
+        persona_text = "DNA aprovado completo, com newline final.\n"
+        envelope = _envelope(role, input_payload, persona_id="beto-cartucho", persona_text=persona_text)
+        task_id = self._enqueue(role, input_payload, envelope=envelope)
+        output = self.fixtures["roles"][role.role_id]["output"]
+        client = FakeRoleClient({role.role_id: output})
+
+        outcome = self._dispatcher(client, persona_resolver=lambda _envelope: persona_text).dispatch_one(task_id)
+
+        self.assertEqual(outcome.state, "succeeded", outcome.error_code)
+        invocation = client.calls[0]["context"].agent_invocation_context
+        persona_section = next(section for section in invocation.trusted_instruction_sections
+                               if section.source == "persona:beto-cartucho")
+        self.assertEqual(persona_section.text, persona_text)
+
     def test_invalid_role_schema_keeps_complete_response_and_blocks_retry(self) -> None:
         role = self._role("assignment_editor")
         task_id = self._enqueue(role, self.fixtures["roles"][role.role_id]["input"])

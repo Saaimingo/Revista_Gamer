@@ -987,7 +987,10 @@ class AgentRoleCatalog:
             # expressive, editorial and loading contracts. Keep them intact in
             # the trusted instruction section rather than silently truncating
             # the character to the short profile summary.
-            persona_text = _text(persona_instructions, "persona_instructions", maximum=100_000)
+            if (not isinstance(persona_instructions, str) or not persona_instructions.strip()
+                    or len(persona_instructions) > 100_000):
+                raise ContractValidationError("persona_instructions precisa ser texto nao vazio (maximo 100000).")
+            persona_text = persona_instructions
             if stable_hash(persona_text) != envelope.persona_hash:
                 raise ContractValidationError("Hash do DNA fornecido não corresponde à referência imutável da persona.")
             sections.append(InstructionSection(f"persona:{envelope.persona_id}", envelope.persona_version or "", persona_text))  # type: ignore[arg-type]

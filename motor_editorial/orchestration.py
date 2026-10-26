@@ -650,6 +650,35 @@ class AgentQueue:
             })
             return True
 
+    def reopen_pre_external_contract_failure(self, task_id: str) -> bool:
+        """Allow one corrected dispatch when a task was blocked before any provider call."""
+        expected_error_code = "agent_contract_invalid"
+        with self.store.transaction() as connection:
+            row = connection.execute("SELECT * FROM agent_tasks WHERE id = ?", (task_id,)).fetchone()
+            if row is None:
+                return False
+            if (row["task_type"] != "agent.role.persona_writer" or row["state"] != "blocked"
+                    or row["error_code"] != expected_error_code or row["external_request_started"]
+                    or row["attempts"] != 1 or row["max_attempts"] != 1 or row["result_json"] is not None):
+                return False
+            updated = connection.execute(
+                """UPDATE agent_tasks SET state = 'queued', max_attempts = 2,
+                       completed_at = NULL, error_code = NULL, error_summary = NULL
+                   WHERE id = ? AND state = 'blocked' AND error_code = ?
+                     AND external_request_started = 0 AND attempts = 1
+                     AND max_attempts = 1 AND result_json IS NULL""",
+                (task_id, expected_error_code),
+            )
+            if updated.rowcount != 1:
+                return False
+            self._event(connection, task_id, "pre_external_contract_reopened", row["attempts"], {
+                "original_error_code": expected_error_code,
+                "external_request_started": False,
+                "next_attempt": 2,
+                "provider_calls_repeated": 0,
+            })
+            return True
+
     def fail(
         self,
         task_id: str,

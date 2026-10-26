@@ -178,6 +178,29 @@ class AgentOrchestrationTests(unittest.TestCase):
                 response_sha256=response_hash,
             )
 
+    def test_pre_external_contract_failure_can_be_reopened_once_after_local_fix(self) -> None:
+        task_id = self.queue.enqueue(
+            task_type="agent.role.persona_writer", payload={"role": "persona_writer"},
+            profile=VALIDATION_PROFILE, executor_id="simulated",
+            idempotency_key="reopen-pre-external-contract", max_attempts=1,
+        )
+        claimed = self.queue.claim_next(task_id=task_id)
+        self.assertIsNotNone(claimed)
+        self.assertEqual(self.queue.fail(
+            task_id, claimed.lease_owner, claimed.lease_generation,
+            TaskFailure("agent_contract_invalid", "Local contract preparation failed.", blocked=True),
+        ), "blocked")
+
+        self.assertTrue(self.queue.reopen_pre_external_contract_failure(task_id))
+        reopened = self.queue.get(task_id)
+        self.assertEqual(reopened.state, "queued")
+        self.assertEqual(reopened.attempts, 1)
+        self.assertEqual(reopened.max_attempts, 2)
+        self.assertFalse(reopened.external_request_started)
+        self.assertEqual(self.queue.events(task_id)[-1]["action"], "pre_external_contract_reopened")
+        next_claim = self.queue.claim_next(task_id=task_id)
+        self.assertEqual(next_claim.attempts, 2)
+
     def test_dependency_idempotency_missing_edges_and_cycle_guard(self) -> None:
         first_id = self.enqueue(key="dependency-cycle-first")
         second_id = self.queue.enqueue(

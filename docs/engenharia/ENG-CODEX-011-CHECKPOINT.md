@@ -1,9 +1,9 @@
 # ENG-CODEX-011 — checkpoint da prova real da fábrica
 
-**Atualizado:** 2026-10-26, início da execução
+**Atualizado:** 2026-10-26, após seleção editorial e correção do pré-despacho do jornalista
 **Issue de execução:** [#41](https://github.com/Saaimingo/Revista_Gamer/issues/41)
 **Branch de implementação:** `codex/eng-codex-011-live-factory`, iniciada sobre `codex/eng-codex-010-factory-fictional-e2e@fcb1a3c785834edb3abf8eca74b517727ba8abf9`
-**Status:** em andamento; Radar e triagem reais concluídos uma vez, continuando da triagem persistida. Nenhum jornalista ou prévia foi executado ainda.
+**Status:** em andamento; Radar/triagem e investigação reais concluídos; editor real selecionou Proton 11.0-2e e Ranzinza. A tarefa de redação foi bloqueada antes de SIWC por alteração do DNA durante validação. Correção validada; ainda sem chamada do jornalista, matéria, revisão ou prévia.
 
 ## Estado remoto e autorização
 
@@ -29,14 +29,14 @@
 - **U0 — Estado e limites:** concluída; evidências acima.
 - **U1 — Integração mínima:** concluída e validada em testes focados. Reutiliza a única `AgentQueue`/`TaskDispatcher`, Radar, `ResearchService`, `ResearchResultRouter`, catálogo SIWC e layout/renderer existentes; mediação sem correspondência textual exata, com testes de Unicode, pontuação, paráfrase, ambiguidade e segurança.
 - **U2 — Radar real:** parcial. Três requisições únicas foram feitas a `api.github.com`; duas retornaram HTTP 200 e uma ficou `blocked` sem status HTTP nem diagnóstico persistido. O agente de triagem concluiu uma chamada real e classificou os grupos Proton e SDL como `monitoramento`. O adaptador inicialmente não vinculou IDs de eventos às candidatas e parou antes do editor; a correção está pronta e a continuação reutiliza a saída existente. Orçamento: até 4 requisições totais, 8/dia, paralelismo 1 e sem retry.
-- **U3 — Redação e pesquisa:** o investigador concluiu uma chamada real, mas o adaptador rejeitou o envelope porque `claim_id` veio como frase natural. Resposta íntegra, evidências e uso estão persistidos; editor, jornalista e ciclo complementar seguem pendentes. A recuperação local sem nova chamada foi implementada e está em validação.
+- **U3 — Redação e pesquisa:** investigador e editor concluíram chamadas reais; resposta do investigador foi recuperada sem repetição. Editor selecionou Proton 11.0-2e e Ranzinza. A primeira preparação do jornalista foi bloqueada pelo hash do DNA após remoção técnica da quebra de linha final, antes de SIWC. Correção e reabertura sem chamada externa prévia estão implementadas; redação e ciclo complementar seguem pendentes.
 - **U4 — Checagem, revisão e versões:** pendente. Chamadas reais de fact-check e revisão; redator real cria uma revisão separada somente quando necessário; status final humano permanece pendente.
 - **U5 — Imagem e prévia:** pendente. Usar imagem original ou ativo com licença compatível; gerar prévia determinística e servi-la apenas em loopback HTTP; confirmar visualmente texto e imagem no navegador.
 - **U6 — Evidência final:** pendente. Uso/latência por papel, relatório curto, arquivos privados integrais com hashes, checkpoint, commits/push e prova visual. Não declarar E2E se qualquer critério estiver bloqueado.
 
 ## Próximo passo exato
 
-Concluídas as regressões da retomada. O commit `af6c907` já está no remoto. A falha do envelope do investigador foi identificada e a recuperação sem nova chamada está implementada e validada em cópia temporária. Depois de registrar esta correção, executar `& '.\.venv\Scripts\python.exe' -m motor_editorial.eng_codex_011 resume --image-path 'C:\Users\saimi\.codex\generated_images\01a17625-b527-7482-9736-47bee96d96c6\exec-e12dc452-f0bd-4992-8f49-c1ea7db2cc10.png'`. A retomada reutiliza a triagem, o Radar e a resposta já persistidos; uma única pesquisa pública continua reservada ao jornalista pelo Motor. Parar em `429`, chamada ambígua, falta de direitos ou orçamento insuficiente; não repetir tarefas com resposta durável.
+Após registrar a correção do hash de DNA, executar `& '.\.venv\Scripts\python.exe' -m motor_editorial.eng_codex_011 resume --image-path 'C:\Users\saimi\.codex\generated_images\01a17625-b527-7482-9736-47bee96d96c6\exec-e12dc452-f0bd-4992-8f49-c1ea7db2cc10.png'`. A retomada reutiliza Radar, triagem, investigador e editor; reabre a tarefa de redação somente porque a tentativa anterior não iniciou chamada externa. Uma requisição pública permanece reservada ao pedido do jornalista pelo Motor. Parar em `429`, chamada ambígua, falta de direitos ou orçamento insuficiente; não repetir resposta SIWC durável.
 
 ## Atualização técnica — 2026-10-26, antes da primeira execução real
 
@@ -64,6 +64,14 @@ Concluídas as regressões da retomada. O commit `af6c907` já está no remoto. 
 - Criada canonicalização determinística de identificadores sem alterar a resposta bruta nem o rótulo original, e recuperação restrita a uma tarefa bloqueada com o código `siwc_result_envelope_invalid`, tentativa única, solicitação externa iniciada e hash da resposta idêntico ao artefato. O ledger grava `external_output_recovered`; o contador de tentativas permanece 1.
 - Exercício isolado em cópia temporária do run real recuperou 10 claims, confirmou task `succeeded` e preservou o hash real da resposta; não tocou o ledger ativo nem chamou rede/SIWC. Regressões focadas no `.venv`: 119/119 OK, abrangendo contratos, executor SIWC, fila/orquestração, runner ENG-011, mediação, Radar, layout e ponte.
 - O código e este checkpoint estão em validação para novo commit/push. Próximo passo: executar o comando `resume --image-path` acima; nenhum catálogo, scan, triagem ou chamada do investigador será repetido. Pendentes: decisão real do editor, uma redação por persona aprovada, pesquisa complementar solicitada pelo jornalista, fact-check, revisão editorial, versões integrais, prévia loopback HTTP e verificação visual no navegador.
+
+## Atualização técnica — seleção editorial e falha prévia do jornalista, 2026-10-26
+
+- Terceira retomada do mesmo run reutilizou o investigador recuperado e fez uma chamada real ao `assignment_editor`: `gpt-6-luna`, `high`, 11.342 tokens de entrada, 615 de saída (221 de raciocínio), 11.957 totais, 13.453 ms; resposta SHA-256 `38068152d212d30a12bd601d6a2e2e2e52e5acb5046a1a0beec55d4c57c7c4da`. Escolheu a pauta `Proton 11.0-2e` e `ranzinza` (Carranca), alinhada à linha de tecnologia.
+- O dispatcher bloqueou a tarefa `persona_writer` com `agent_contract_invalid` antes de qualquer chamada externa (`external_request_started=false`, sem resposta ou tokens). Reprodução local com o payload persistido identificou a causa: `prepare_invocation` aplicava `.strip()` ao DNA carregado e, em seguida, comparava esse texto alterado ao hash original. O pacote Ranzinza tem 86.813 caracteres; hash integral aprovado `d1470b7e004c49e80ffd0c7fa2f732ae66ab3acfd8fdef852b7438fea86ad05a`.
+- A validação agora preserva os bytes/texto do DNA e só verifica tipo, conteúdo não vazio e tamanho; a quebra de linha terminal não é removida. Uma reabertura de fila só aceita `agent.role.persona_writer`, bloqueio `agent_contract_invalid`, tentativa 1, `max_attempts=1`, sem resposta e `external_request_started=0`; mantém a tentativa anterior auditada e autoriza uma tentativa corrigida. Nenhuma chamada foi repetida.
+- Exercício isolado em cópia temporária reutilizou as 10 alegações do investigador e a decisão do editor, confirmou hash do DNA, preparou o mesmo payload do jornalista e reabriu a fila com zero chamada de provedor. Regressões focadas no `.venv`: 121/121 OK; `py_compile` passou.
+- Próxima ação após commit/push: executar `resume --image-path` uma vez para o rascunho original. Esperados: uma chamada real do Carranca/Ranzinza; somente se ela solicitar pesquisa em linguagem natural, uma requisição pública final via Radar/Motor. Restam pendentes pesquisa complementar, fact-check, revisão editorial, eventual revisão pelo redator, arquivos integrais e prévia aberta no navegador.
 
 ## Limites permanentes
 
