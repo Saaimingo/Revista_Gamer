@@ -38,7 +38,8 @@ Foram feitas três chamadas SIWC reais, uma por pessoa, após ordem explícita d
 - `motor_editorial/agent_siwc.py` e `motor_editorial/eng_codex_009.py`: recibo mesmo para estados incertos, snapshot do DNA, no máximo uma chamada por jornalista e sem replay de tarefas iniciadas/concluídas.
 - `motor_editorial/research_mediation.py`: converte apenas sugestões determinísticas e tipadas no escopo local aprovado; sugestões sem par question/purpose mapeável ficam em hold.
 - Ponte opcional da fábrica reusa `AgentQueue`/`TaskDispatcher`, produz apenas rascunho e conserva revisão humana/fact-check/publicação desligados. O fluxo sintético padrão continua intacto.
-- A raiz privada é `%USERPROFILE%\.codex\Revista_Gamer\ensaios-009`; respostas e artigos integrais não foram adicionados ao GitHub. O índice privado `INDICE-LEITURA-INTEGRAL-ENG-CODEX-009.md` reúne links aos originais, hashes e métricas. A gravação do índice foi feita em UTF-8 e validada sem caracteres de substituição; hashes de render e JSON foram conferidos contra os manifestos.
+- A raiz privada `%USERPROFILE%\.codex\Revista_Gamer\ensaios-009` continua como arquivo-fonte. Após autorização explícita da Direção em 2026-10-26, foi copiado para a branch pública o pacote de revisão em [`resultados/2026-10-26-a`](https://github.com/Saaimingo/Revista_Gamer/tree/codex/eng-codex-009-evidence-metering/docs/engenharia/ensaios-009/resultados/2026-10-26-a). Ele contém os três renders integrais, respostas JSON originais, manifestos, recibos de uso e a reconciliação de Carranca, mantendo as referências relativas do arquivo. Cada cópia foi verificada byte-a-byte por SHA-256. Não foram criadas revisões.
+- O índice privado `INDICE-LEITURA-INTEGRAL-ENG-CODEX-009.md` continua disponível localmente. Foi gravado em UTF-8 e validado sem caracteres de substituição; hashes de render e JSON conferem com os manifestos.
 
 ## Execuções reais da ENG-CODEX-009
 
@@ -58,7 +59,13 @@ Foram feitas três chamadas SIWC reais, uma por pessoa, após ordem explícita d
 
 ## Factualidade e avaliação humana
 
-Esta rodada permite avaliar como cada persona raciocina sobre os dossiês disponíveis, a voz e a temperatura narrativa. Não representa apuração independente: corpos de fontes não foram obtidos, direitos não foram revalidados e nenhum fact-check humano foi feito. Avaliação P/T/J/F está pendente para leitura humana integral. Nenhum texto foi publicado. Expansão para fontes externas requer decisão de escopo e autorização próprias; manter `read:radar_index` como limite atual.
+Esta rodada permite avaliar como cada persona raciocina sobre os dossiês disponíveis, a voz e a temperatura narrativa. Não representa apuração independente: corpos de fontes não foram obtidos, direitos não foram revalidados e nenhum fact-check humano foi feito. Avaliação P/T/J/F está pendente para leitura humana integral. Nenhum texto foi publicado na revista. A cópia no repositório público do GitHub foi autorizada pela Direção para análise. Expansão para fontes externas requer decisão de escopo e autorização próprias; manter `read:radar_index` como limite atual.
+
+## Cópia pública autorizada para análise
+
+- Índice e links diretos aos textos: [`resultados/2026-10-26-a/README.md`](https://github.com/Saaimingo/Revista_Gamer/blob/codex/eng-codex-009-evidence-metering/docs/engenharia/ensaios-009/resultados/2026-10-26-a/README.md).
+- Upload autorizado pela Direção após confirmação explícita. Os originais estão em `story-versions/.../original/initial/`; os JSONs brutos e renders são cópias byte-a-byte dos artefatos privados. Os manifestos apontam para cópias espelhadas dos JSONs e recibos de uso. A reconciliação de Carranca mantém explícito o estado `uncertain`.
+- O pacote permanece em PR #38 draft, acessível publicamente e sem merge. Avaliação humana, direitos e fact-check seguem pendentes.
 
 ## Validação executada
 
@@ -71,7 +78,7 @@ Esta rodada permite avaliar como cada persona raciocina sobre os dossiês dispon
 
 ## Persistência e próxima ação
 
-Commits enviados para `origin/codex/eng-codex-009-evidence-metering`: `2b09b5c` (preparação da bateria), `f189b20` (checkpoint da manhã), `f8a222e` (pausa), `e6fccf2` (identificador namespaced no arquivo) e `21ec16d` (estado final de schema), `12f7b0a` (checkpoint das três execuções) e `22f05dc` (link da PR draft). PR #38 mantém a implementação e o checkpoint em draft; não foi mesclada. O branch e seus checkpoints são versionados em commits regulares e enviados ao upstream dedicado.
+Commits enviados para `origin/codex/eng-codex-009-evidence-metering`: `2b09b5c` (preparação da bateria), `f189b20` (checkpoint da manhã), `f8a222e` (pausa), `e6fccf2` (identificador namespaced no arquivo), `21ec16d` (estado final de schema), `12f7b0a` (checkpoint das três execuções), `22f05dc` (link da PR draft) e `400d765` (registro da Issue #37). O pacote integral e as atualizações correspondentes estão sendo enviados em commit dedicado. PR #38 permanece draft, sem merge.
 
 1. Revisar a PR #38 técnica, baseada na branch documental do Fundador 2; manter sem merge.
 2. Fazer leitura humana dos três originais pelo índice privado e registrar P/T/J/F em artefato separado, sem modificar DNA ou original.
