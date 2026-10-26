@@ -367,4 +367,3 @@ def aggregate_usage_by_persona(
             }
         summary["personas"][persona_id] = persona_summary
     return summary
-

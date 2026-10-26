@@ -1,7 +1,7 @@
 # ENG-CODEX-009 — checkpoint operacional
 
-**Atualizado:** 2026-10-26, 01:07 (horário informado pela Direção; America/Sao_Paulo)  
-**Fase:** pausada antes da primeira inferência real, a pedido da Direção devido ao horário. Retomada solicitada para a manhã seguinte.  
+**Atualizado:** 2026-10-26, 01:07 (horário informado pela Direção; America/Sao_Paulo)
+**Fase:** pausada antes da primeira inferência real, a pedido da Direção devido ao horário. Retomada solicitada para a manhã seguinte.
 **Missão:** Issue #37, segunda bateria investigativa de Carranca, Beto e Nina.
 
 ## Estado vivo conferido
@@ -38,6 +38,11 @@
 ## Pausa noturna
 
 Às 01:07, a Direção pediu para concluir o checkpoint e deixar os ensaios para a manhã. Portanto, nenhuma matéria de teste foi iniciada, nenhuma chamada real SIWC foi feita, nenhum texto editorial novo foi gerado e não houve consumo SIWC registrado nesta missão. O último percentual (76%) é anterior à execução e permanece apenas como relato do usuário.
+
+## Persistência
+
+- Implementação, pacotes e checkpoint foram commitados em `2b09b5c` (`feat(eng): prepare codex 009 journalist trials`) e enviados para `origin/codex/eng-codex-009-evidence-metering`.
+- A verificação do commit encontrou apenas whitespace final em três arquivos; a limpeza e uma atualização deste checkpoint serão registradas no commit seguinte. Nenhuma execução real ocorreu.
 
 ## Limites e próxima ação
 

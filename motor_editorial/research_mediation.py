@@ -283,4 +283,3 @@ def mediate_requested_research(
     base["status"] = "enqueued_index_only" if not base["pending_research"] else "partial_index_only_pending"
     base["request"] = request.to_dict()
     return base
-
