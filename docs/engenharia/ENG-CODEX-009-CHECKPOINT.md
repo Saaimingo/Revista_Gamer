@@ -18,7 +18,7 @@ Foram feitas três chamadas SIWC reais, uma por pessoa, após ordem explícita d
 
 - Branch: `codex/eng-codex-009-evidence-metering`; upstream: `origin/codex/eng-codex-009-evidence-metering`; HEAD validado antes deste checkpoint: `21ec16d663341f0cf1750c0520b5e4393a1679a3`; worktree limpo antes das alterações deste documento. A ref remota correspondia ao mesmo SHA.
 - Base técnica: `codex/eng-codex-008-siwc-validation`, SHA `8d43a6c855807b2229a8e1eb620a31c6bb6e28e2`.
-- Issue #37 estava aberta, sem comentários na checagem inicial; a rodada e seus limites foram registrados depois em comentário de status. PR #36 está aberta/draft, com zero reviews, na branch documental `fundador2/eng-codex-009-dossies-editoriais-2026-10-25`. O texto e comentário anteriores diziam aguardar ordem e franquia; a ordem posterior da Direção para continuar e o relato de 95% substituíram essa espera.
+- Issue #37 estava aberta, sem comentários na checagem inicial; a rodada e seus limites foram registrados depois em [comentário de status](https://github.com/Saaimingo/Revista_Gamer/issues/37#issuecomment-6416201161). PR #36 está aberta/draft, com zero reviews, na branch documental `fundador2/eng-codex-009-dossies-editoriais-2026-10-25`. O texto e comentário anteriores diziam aguardar ordem e franquia; a ordem posterior da Direção para continuar e o relato de 95% substituíram essa espera.
 - PR #38 está aberta/draft, sem reviews, da branch `codex/eng-codex-009-evidence-metering` para a base documental `fundador2/eng-codex-009-dossies-editoriais-2026-10-25`, para que o diff técnico não duplique os documentos já cobertos pela #36.
 - Issue #33 segue aberta e PR #34 segue aberta/draft, sem reviews. A H05 da 008 avançou offline e depende da ponte/revisão conforme os estados registrados em #35.
 - Decisão viva de Issue #35, comentário `6406250653`: pedidos ambíguos ou sem mapeamento determinístico ficam em hold; somente `read:radar_index` com `ResearchService(provider=None)` pode executar sem rede. Não existe autorização para pesquisa em fontes públicas ao vivo.
@@ -71,7 +71,7 @@ Esta rodada permite avaliar como cada persona raciocina sobre os dossiês dispon
 
 ## Persistência e próxima ação
 
-Commits enviados para `origin/codex/eng-codex-009-evidence-metering`: `2b09b5c` (preparação da bateria), `f189b20` (checkpoint da manhã), `f8a222e` (pausa), `e6fccf2` (identificador namespaced no arquivo) e `21ec16d` (estado final de schema), `12f7b0a` (checkpoint das três execuções). PR #38 mantém a implementação e o checkpoint em draft; não foi mesclada. O branch e seus checkpoints são versionados em commits regulares e enviados ao upstream dedicado.
+Commits enviados para `origin/codex/eng-codex-009-evidence-metering`: `2b09b5c` (preparação da bateria), `f189b20` (checkpoint da manhã), `f8a222e` (pausa), `e6fccf2` (identificador namespaced no arquivo) e `21ec16d` (estado final de schema), `12f7b0a` (checkpoint das três execuções) e `22f05dc` (link da PR draft). PR #38 mantém a implementação e o checkpoint em draft; não foi mesclada. O branch e seus checkpoints são versionados em commits regulares e enviados ao upstream dedicado.
 
 1. Revisar a PR #38 técnica, baseada na branch documental do Fundador 2; manter sem merge.
 2. Fazer leitura humana dos três originais pelo índice privado e registrar P/T/J/F em artefato separado, sem modificar DNA ou original.
