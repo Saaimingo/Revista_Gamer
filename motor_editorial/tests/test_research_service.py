@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 from motor_editorial.agent_contracts import ContractValidationError, ResearchRequest
-from motor_editorial.radar_store import RadarStore
+from motor_editorial.radar_store import RadarStore, RadarStoreError
 from motor_editorial.research_service import (
     DEFAULT_RESEARCH_PROFILES,
     PUBLIC_SOURCES_SCOPE,
@@ -71,7 +71,7 @@ def make_request(
 
 
 class FakeProvider:
-    def __init__(self, *results: ResearchProviderResult):
+    def __init__(self, *results: ResearchProviderResult | BaseException):
         self.results = list(results)
         self.calls: list[tuple[str, tuple[str, ...], int]] = []
 
@@ -79,7 +79,10 @@ class FakeProvider:
         self.calls.append((profile.profile_id, cached_document_ids, budget.max_sources))
         if not self.results:
             raise AssertionError("Unexpected provider call with no queued fixture result.")
-        return self.results.pop(0)
+        result = self.results.pop(0)
+        if isinstance(result, BaseException):
+            raise result
+        return result
 
 
 class ResearchServiceTests(unittest.TestCase):
@@ -261,6 +264,30 @@ class ResearchServiceTests(unittest.TestCase):
         self.assertEqual(provider.calls[0][0], "research.hardware.v1")
         self.assertEqual(provider.calls[0][1], ())
         self.assertEqual(provider.calls[0][2], request.max_sources)
+
+    def test_provider_failure_diagnostic_is_structured_and_kept_out_of_packet_text(self) -> None:
+        provider = FakeProvider(RadarStoreError(
+            "private diagnostic message must not enter the editorial packet",
+            code="read_key_not_allowed", phase="store_read",
+        ))
+        service = ResearchService(store=self.store, provider=provider)
+        request = make_request(
+            request_id="provider-diagnostic", allowed_scope=(RADAR_INDEX_SCOPE, PUBLIC_SOURCES_SCOPE),
+        )
+
+        result = service.execute(request, now=NOW)
+
+        self.assertEqual(result.packet.status, "blocked")
+        self.assertIsNotNone(result.execution_diagnostic)
+        self.assertEqual(result.execution_diagnostic.to_dict(), {
+            "schema_version": "1.0",
+            "phase": "store_read",
+            "code": "read_key_not_allowed",
+            "exception_type": "RadarStoreError",
+        })
+        packet_text = str(result.packet.to_dict())
+        self.assertNotIn("private diagnostic message", packet_text)
+        self.assertIn("external retriever reported additional constraints", result.packet.constraints)
 
     def test_provider_results_are_budgeted_and_references_are_validated(self) -> None:
         self.add_document("matching-doc", "matching-source", "GPU 1440p benchmark methodology")

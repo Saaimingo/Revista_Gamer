@@ -65,6 +65,11 @@ RUNTIME_DB_PATH = (Path(__file__).parent / "runtime" / "motor.sqlite3").resolve(
 class RadarStoreError(ValueError):
     """Raised when Radar data or schema state fails its local contract."""
 
+    def __init__(self, message: str, *, code: str = "radar_store_error", phase: str = "radar_store"):
+        super().__init__(message)
+        self.code = code
+        self.phase = phase
+
 
 def _text(value: Any, name: str, *, maximum: int = 4_000, optional: bool = False) -> str | None:
     if optional and value is None:
@@ -2174,13 +2179,17 @@ class RadarStore:
             ("radar_sources", "source_id"), ("radar_documents", "document_id"),
             ("radar_entities", "entity_id"), ("radar_entity_roles", "role_id"),
             ("radar_interviews", "interview_id"),
+            ("radar_topics", "topic_id"),
             ("radar_claims", "claim_id"), ("radar_claim_events", "event_id"),
             ("radar_candidates", "candidate_id"), ("radar_candidate_events", "event_id"),
             ("radar_research_requests", "request_id"), ("radar_research_packets", "packet_id"),
             ("radar_republication_groups", "group_id"),
         }
         if (table, key_column) not in allowed:
-            raise RadarStoreError("Tabela/chave de leitura não suportada.")
+            raise RadarStoreError(
+                "Tabela/chave de leitura não suportada.",
+                code="read_key_not_allowed", phase="store_read",
+            )
         with closing(self.connect()) as connection:
             row = connection.execute(f"SELECT * FROM {table} WHERE {key_column}=?", (key_value,)).fetchone()
         return dict(row) if row is not None else None

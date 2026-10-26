@@ -26,7 +26,7 @@ from motor_editorial.agent_workflow import (
 )
 from motor_editorial.db import Store, json_dumps, stable_hash
 from motor_editorial.orchestration import AgentQueue, TaskDispatcher, VALIDATION_PROFILE
-from motor_editorial.radar_store import RadarStore
+from motor_editorial.radar_store import RadarStore, RadarStoreError
 from motor_editorial.research_service import (
     PUBLIC_SOURCES_SCOPE,
     RADAR_INDEX_SCOPE,
@@ -194,6 +194,14 @@ class BlockedProvider:
         )
 
 
+class RaisingProvider:
+    def search(self, request, profile, *, cached_document_ids, budget):
+        raise RadarStoreError(
+            "private store exception detail must remain internal",
+            code="read_key_not_allowed", phase="store_read",
+        )
+
+
 class AgentWorkflowTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory(prefix="revista-agent-workflow-e13-")
@@ -309,6 +317,33 @@ class AgentWorkflowTests(unittest.TestCase):
             if task.task_type == "agent.role.evidence_investigator" and task.task_id != parent_id
         ]
         self.assertEqual(continuations, [])
+
+    def test_provider_diagnostic_survives_in_the_durable_task_result(self) -> None:
+        self.research_service = ResearchService(store=self.radar_store, provider=RaisingProvider())
+        queue = AgentQueue(Store(self.motor_path, self.artifact_dir))
+        router = ResearchResultRouter(
+            queue=queue, catalog=self.catalog, executor_profiles=self.execution_profiles,
+        )
+        dispatcher, _executor = self.dispatcher(
+            queue, router=router, role_executor=PublicScopeRoleExecutor(),
+        )
+        parent_id, _envelope = self.enqueue_role(queue, self.profile_a, "story-diagnostic")
+
+        self.assertEqual(dispatcher.dispatch_one(parent_id).state, "succeeded")
+        research_task = next(task for task in queue.list_tasks() if task.task_type == RADAR_RESEARCH_TASK_TYPE)
+        outcome = dispatcher.dispatch_one(research_task.task_id)
+        self.assertEqual(outcome.state, "succeeded", outcome.error_code)
+
+        restarted_queue = AgentQueue(Store(self.motor_path, self.artifact_dir))
+        durable_result = restarted_queue.get(research_task.task_id).result
+        self.assertEqual(durable_result["schema_version"], "1.1")  # type: ignore[index]
+        self.assertEqual(durable_result["execution_diagnostic"], {  # type: ignore[index]
+            "schema_version": "1.0",
+            "phase": "store_read",
+            "code": "read_key_not_allowed",
+            "exception_type": "RadarStoreError",
+        })
+        self.assertNotIn("private store exception", str(durable_result["packet"]))  # type: ignore[index]
 
     def test_restart_replays_success_result_and_routes_idempotently(self) -> None:
         first_queue = AgentQueue(Store(self.motor_path, self.artifact_dir))

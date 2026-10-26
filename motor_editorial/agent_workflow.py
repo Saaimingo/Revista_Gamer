@@ -27,10 +27,16 @@ from .orchestration import (
     TaskExecutionContext,
     TaskFailure,
 )
-from .research_service import PUBLIC_SOURCES_SCOPE, ResearchService
+from .research_service import (
+    PUBLIC_SOURCES_SCOPE,
+    ResearchExecutionDiagnostic,
+    ResearchService,
+)
 
 
 RADAR_RESEARCH_TASK_TYPE = "radar.research_request.v1"
+RADAR_RESEARCH_RESULT_SCHEMA_VERSION = "1.1"
+_SUPPORTED_RADAR_RESEARCH_RESULT_SCHEMA_VERSIONS = frozenset({"1.0", RADAR_RESEARCH_RESULT_SCHEMA_VERSION})
 RADAR_RESEARCH_EXECUTOR_ID = "radar.research.deterministic"
 RADAR_RESEARCH_PROFILE = AgentProfile(
     profile_id="radar-research-deterministic",
@@ -81,7 +87,7 @@ class ResearchTaskExecutor:
             context.mark_external_started()
         execution = self.service.execute(request)
         return {
-            "schema_version": "1.0",
+            "schema_version": RADAR_RESEARCH_RESULT_SCHEMA_VERSION,
             "request_id": execution.request_id,
             "story_id": execution.story_id,
             "story_revision_id": execution.story_revision_id,
@@ -90,6 +96,10 @@ class ResearchTaskExecutor:
             "cache_hit": execution.cache_hit,
             "index_hit_count": execution.index_hit_count,
             "provider_called": execution.provider_called,
+            "execution_diagnostic": (
+                execution.execution_diagnostic.to_dict()
+                if execution.execution_diagnostic is not None else None
+            ),
         }
 
     def _validate_parent_binding(self, request: ResearchRequest, queue: AgentQueue) -> None:
@@ -178,8 +188,15 @@ class ResearchResultRouter:
             raise ValueError("Tarefa Radar concluída sem ResearchRequest persistido.")
         request = ResearchRequest.from_mapping(request_value)
         raw_result = task.result or {}
-        if raw_result.get("schema_version") != "1.0" or raw_result.get("request_id") != request.request_id:
+        result_schema = raw_result.get("schema_version")
+        if result_schema not in _SUPPORTED_RADAR_RESEARCH_RESULT_SCHEMA_VERSIONS or raw_result.get("request_id") != request.request_id:
             raise ValueError("Resultado Radar não corresponde ao ResearchRequest da tarefa.")
+        if result_schema == RADAR_RESEARCH_RESULT_SCHEMA_VERSION:
+            if "execution_diagnostic" not in raw_result:
+                raise ValueError("Resultado Radar v1.1 precisa declarar execution_diagnostic.")
+            diagnostic = raw_result.get("execution_diagnostic")
+            if diagnostic is not None:
+                ResearchExecutionDiagnostic.from_mapping(diagnostic)
         if (
             raw_result.get("story_id") != request.story_id
             or raw_result.get("story_revision_id") != request.story_revision_id

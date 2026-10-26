@@ -97,6 +97,14 @@ class RadarStoreTests(unittest.TestCase):
     def add_topic(self, topic_id: str = "topic-1") -> None:
         self.store.register_topic(topic_id=topic_id, canonical_key=f"key-{topic_id}", title="Pauta sintética", now=NOW)
 
+    def test_get_row_reads_topic_by_typed_primary_key(self) -> None:
+        self.add_topic("topic-readable")
+
+        topic = self.store.get_row("radar_topics", "topic_id", "topic-readable")
+
+        self.assertIsNotNone(topic)
+        self.assertEqual(topic["canonical_key"], "key-topic-readable")  # type: ignore[index]
+
     def test_schema_is_separate_versioned_and_runtime_path_is_refused(self) -> None:
         self.assertEqual(RADAR_SCHEMA_VERSION, 7)
         self.assertEqual(db.SCHEMA_VERSION, 7)

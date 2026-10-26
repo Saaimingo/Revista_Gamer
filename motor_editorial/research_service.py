@@ -35,6 +35,9 @@ _STOP_WORDS = frozenset({
     "the", "um", "uma", "what", "when", "where", "which", "who", "with",
 })
 _TOKEN_RE = re.compile(r"[\w%]+", re.UNICODE)
+_DIAGNOSTIC_CODE_RE = re.compile(r"^[a-z][a-z0-9_.-]{0,127}$")
+_DIAGNOSTIC_TYPE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.]{0,127}$")
+RESEARCH_EXECUTION_DIAGNOSTIC_SCHEMA_VERSION = "1.0"
 
 
 @dataclass(frozen=True)
@@ -119,6 +122,56 @@ class ResearchProvider(Protocol):
 
 
 @dataclass(frozen=True)
+class ResearchExecutionDiagnostic:
+    """Internal, sanitized failure metadata kept apart from editorial prose."""
+
+    phase: str
+    code: str
+    exception_type: str
+    schema_version: str = RESEARCH_EXECUTION_DIAGNOSTIC_SCHEMA_VERSION
+
+    def __post_init__(self) -> None:
+        if self.schema_version != RESEARCH_EXECUTION_DIAGNOSTIC_SCHEMA_VERSION:
+            raise ValueError("ResearchExecutionDiagnostic schema_version is unsupported.")
+        if not isinstance(self.phase, str) or not _DIAGNOSTIC_CODE_RE.fullmatch(self.phase):
+            raise ValueError("ResearchExecutionDiagnostic.phase must be a safe code.")
+        if not isinstance(self.code, str) or not _DIAGNOSTIC_CODE_RE.fullmatch(self.code):
+            raise ValueError("ResearchExecutionDiagnostic.code must be a safe code.")
+        if not isinstance(self.exception_type, str) or not _DIAGNOSTIC_TYPE_RE.fullmatch(self.exception_type):
+            raise ValueError("ResearchExecutionDiagnostic.exception_type must be a type name.")
+
+    @classmethod
+    def from_exception(cls, error: Exception) -> "ResearchExecutionDiagnostic":
+        phase = getattr(error, "phase", "provider_search")
+        code = getattr(error, "code", "provider_execution_failed")
+        if not isinstance(phase, str) or not _DIAGNOSTIC_CODE_RE.fullmatch(phase):
+            phase = "provider_search"
+        if not isinstance(code, str) or not _DIAGNOSTIC_CODE_RE.fullmatch(code):
+            code = "provider_execution_failed"
+        exception_type = type(error).__name__
+        if not _DIAGNOSTIC_TYPE_RE.fullmatch(exception_type):
+            exception_type = "Exception"
+        return cls(phase=phase, code=code, exception_type=exception_type)
+
+    @classmethod
+    def from_mapping(cls, value: Any) -> "ResearchExecutionDiagnostic":
+        if not isinstance(value, Mapping) or set(value) != {"schema_version", "phase", "code", "exception_type"}:
+            raise ValueError("ResearchExecutionDiagnostic does not match its versioned schema.")
+        return cls(
+            schema_version=value["schema_version"], phase=value["phase"], code=value["code"],
+            exception_type=value["exception_type"],
+        )
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "schema_version": self.schema_version,
+            "phase": self.phase,
+            "code": self.code,
+            "exception_type": self.exception_type,
+        }
+
+
+@dataclass(frozen=True)
 class ResearchExecutionResult:
     request_id: str
     story_id: str
@@ -128,6 +181,7 @@ class ResearchExecutionResult:
     cache_hit: bool
     index_hit_count: int
     provider_called: bool
+    execution_diagnostic: ResearchExecutionDiagnostic | None = None
 
 
 def _utc_iso(value: str | datetime | None) -> str:
@@ -252,6 +306,7 @@ class ResearchService:
             constraints.append("only the shared Radar index was searched; no external retriever is configured")
 
         provider_called = False
+        execution_diagnostic: ResearchExecutionDiagnostic | None = None
         retry_at: str | None = None
         packet_ids = list(references)
         packet_claims = list(claims)
@@ -279,6 +334,7 @@ class ResearchService:
                     request, profile, cached_document_ids=local_ids, budget=budget,
                 )
             except Exception as error:
+                execution_diagnostic = ResearchExecutionDiagnostic.from_exception(error)
                 provider_result = ResearchProviderResult(
                     status="blocked", constraints=(f"retriever unavailable ({type(error).__name__})",),
                 )
@@ -295,6 +351,7 @@ class ResearchService:
                     provider_documents = self._validate_provider_references(request, provider_result, profile)
                 except RadarStoreError as error:
                     violation = str(error)
+                    execution_diagnostic = ResearchExecutionDiagnostic.from_exception(error)
             if violation is None:
                 combined_source_ids = cached_source_ids | {str(document["source_id"]) for document in provider_documents}
                 if len(combined_source_ids) > request.max_sources:
@@ -355,6 +412,7 @@ class ResearchService:
         )
         return self._result(
             request, packet, packet_id=packet_id, index_hits=len(local_documents), provider_called=provider_called,
+            execution_diagnostic=execution_diagnostic,
         )
 
     def _validate_request(self, request: ResearchRequest, profile: ResearchProfile | None) -> str | None:
@@ -810,9 +868,11 @@ class ResearchService:
     def _result(
         request: ResearchRequest, packet: ResearchPacket, *, packet_id: str | None,
         index_hits: int, provider_called: bool, cache_hit: bool = False,
+        execution_diagnostic: ResearchExecutionDiagnostic | None = None,
     ) -> ResearchExecutionResult:
         return ResearchExecutionResult(
             request_id=request.request_id, story_id=request.story_id,
             story_revision_id=request.story_revision_id, packet=packet, packet_id=packet_id,
             cache_hit=cache_hit, index_hit_count=index_hits, provider_called=provider_called,
+            execution_diagnostic=execution_diagnostic,
         )
