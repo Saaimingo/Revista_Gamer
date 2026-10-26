@@ -597,6 +597,7 @@ class SIWCClient:
         input_text: str,
         stage: str,
         context: TaskExecutionContext,
+        response_sink: Callable[[str, Mapping[str, Any]], Mapping[str, Any] | None] | None = None,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         if reasoning_effort not in SIWC_REASONING_EFFORTS:
             raise SIWCError("reasoning_effort_invalid", "Nível de raciocínio não permitido para a chamada SIWC.")
@@ -624,12 +625,58 @@ class SIWCClient:
         completed: dict[str, Any] | None = None
         completed_at_utc: datetime | None = None
         duration_ms: float | None = None
+
+        def metadata_for(raw_text: str, output_state: str, *, error_code: str | None = None) -> dict[str, Any]:
+            returned_model = completed.get("model") if isinstance(completed, dict) else None
+            returned_reasoning = completed.get("reasoning") if isinstance(completed, dict) else None
+            returned_effort = returned_reasoning.get("effort") if isinstance(returned_reasoning, dict) else None
+            usage = completed.get("usage") if isinstance(completed, dict) else None
+            result: dict[str, Any] = {
+                "status": "ok" if output_state == "completed" else output_state,
+                "provider": "openai-siwc", "endpoint": "/v1/responses", "stage": stage,
+                "model_requested": model, "model": returned_model,
+                "reasoning_effort_requested": reasoning_effort,
+                "reasoning_effort": returned_effort,
+                "request_started_at": started_at_utc.isoformat(timespec="milliseconds"),
+                "completed_at": completed_at_utc.isoformat(timespec="milliseconds") if completed_at_utc else None,
+                "duration_ms": duration_ms,
+                "external_call_count": 1, "response_id": completed.get("id") if isinstance(completed, dict) else None,
+                "usage": usage if isinstance(usage, dict) else None,
+                "response_sha256": stable_hash(raw_text),
+                "response_completed": completed is not None,
+                "store": False, "stream": True,
+                "output_state": output_state,
+            }
+            if error_code:
+                result["error_code"] = error_code
+            return result
+
+        def preserve_response(raw_text: str, metadata: dict[str, Any]) -> None:
+            if response_sink is None:
+                return
+            try:
+                artifact = response_sink(raw_text, metadata)
+            except Exception:
+                raise TaskFailure(
+                    "raw_response_persist_failed",
+                    "A resposta SIWC recebida não pôde ser preservada no artefato local.",
+                    blocked=True,
+                ) from None
+            if isinstance(artifact, Mapping):
+                metadata["raw_artifact"] = dict(artifact)
+
         try:
             context.mark_external_started()
             response = urllib.request.urlopen(request, timeout=self.timeout)
             with response:
                 for raw_line in response:
-                    line = raw_line.decode("utf-8", errors="replace").strip()
+                    try:
+                        line = raw_line.decode("utf-8").strip()
+                    except UnicodeDecodeError:
+                        raise TaskFailure(
+                            "stream_invalid_utf8", "O stream SIWC contém uma linha que não é UTF-8 válido.",
+                            uncertain=True,
+                        ) from None
                     if not line.startswith("data:"):
                         continue
                     encoded = line[5:].strip()
@@ -651,59 +698,72 @@ class SIWCClient:
                         completed_at_utc = datetime.now(timezone.utc)
                         duration_ms = round((time.monotonic() - started_at) * 1000, 3)
         except urllib.error.HTTPError as error:
-            raise _provider_http_failure(error.code, error.read(65536)) from None
-        except SIWCError:
+            failure = _provider_http_failure(error.code, error.read(65536))
+            raw_text = "".join(output)
+            preserve_response(raw_text, metadata_for(raw_text, "provider_error", error_code=failure.code))
+            raise failure from None
+        except SIWCError as error:
+            raw_text = "".join(output)
+            preserve_response(raw_text, metadata_for(raw_text, "provider_error", error_code=error.code))
             raise
-        except TaskFailure:
+        except TaskFailure as failure:
+            raw_text = "".join(output)
+            output_state = "uncertain" if failure.uncertain else "provider_error"
+            preserve_response(raw_text, metadata_for(raw_text, output_state, error_code=failure.code))
             raise
         except (urllib.error.URLError, TimeoutError, OSError):
+            raw_text = "".join(output)
+            preserve_response(raw_text, metadata_for(raw_text, "uncertain", error_code="transport_uncertain"))
             raise TaskFailure(
                 "transport_uncertain",
                 "A conexão caiu após o início da chamada; o resultado pode ter sido processado. Revisão humana necessária.",
                 uncertain=True,
             ) from None
         if completed is None:
+            raw_text = "".join(output)
+            preserve_response(raw_text, metadata_for(raw_text, "incomplete", error_code="stream_incomplete"))
             raise TaskFailure(
                 "stream_incomplete",
                 "O stream terminou sem response.completed; não repetir automaticamente.",
                 uncertain=True,
             )
-        text = "".join(output).strip()
+        raw_text = "".join(output)
+        metadata = metadata_for(raw_text, "completed")
+        text = raw_text.strip()
         try:
             parsed = json.loads(text)
         except json.JSONDecodeError:
+            metadata["output_validation"] = "invalid_json"
+            preserve_response(raw_text, metadata)
             raise TaskFailure("siwc_invalid_json_output", "A resposta SIWC não correspondeu a JSON válido.") from None
         if not isinstance(parsed, dict):
+            metadata["output_validation"] = "not_object"
+            preserve_response(raw_text, metadata)
             raise TaskFailure("siwc_invalid_json_output", "A resposta SIWC precisa ser um objeto JSON.")
         returned_model = completed.get("model")
         if not isinstance(returned_model, str) or not returned_model:
+            metadata["output_validation"] = "model_unreported"
+            preserve_response(raw_text, metadata)
             raise TaskFailure("siwc_model_unreported", "A resposta concluída não informou o modelo efetivo.")
         if returned_model != model and not returned_model.startswith(model + "-"):
+            metadata["output_validation"] = "model_mismatch"
+            preserve_response(raw_text, metadata)
             raise TaskFailure("siwc_model_mismatch", "O modelo efetivo retornado não corresponde ao solicitado.")
         returned_reasoning = completed.get("reasoning")
         returned_effort = returned_reasoning.get("effort") if isinstance(returned_reasoning, dict) else None
         if returned_effort != reasoning_effort:
+            metadata["output_validation"] = "reasoning_effort_mismatch"
+            preserve_response(raw_text, metadata)
             raise TaskFailure(
                 "siwc_reasoning_effort_mismatch",
                 "O esforço efetivo retornado não corresponde ao solicitado.",
             )
         if completed_at_utc is None or duration_ms is None:
+            metadata["output_validation"] = "timing_missing"
+            preserve_response(raw_text, metadata)
             raise TaskFailure("probe_timing_missing", "A conclusão SIWC não teve marcação local de tempo.")
-        response_id = completed.get("id")
-        usage = completed.get("usage")
-        metadata = {
-            "status": "ok", "provider": "openai-siwc", "endpoint": "/v1/responses",
-            "stage": stage,
-            "model_requested": model, "model": returned_model,
-            "reasoning_effort_requested": reasoning_effort,
-            "reasoning_effort": returned_effort,
-            "request_started_at": started_at_utc.isoformat(timespec="milliseconds"),
-            "completed_at": completed_at_utc.isoformat(timespec="milliseconds"),
-            "duration_ms": duration_ms,
-            "external_call_count": 1, "response_id": response_id,
-            "usage": usage if isinstance(usage, dict) else None,
-            "response_sha256": stable_hash(text),
-        }
+        metadata["output_validation"] = "json_object"
+        preserve_response(raw_text, metadata)
         return parsed, metadata
 
     def inference_stream(
@@ -733,6 +793,25 @@ class SIWCClient:
             model=model, reasoning_effort=reasoning_effort,
             instructions=instructions, input_text=input_text,
             stage=stage, context=context,
+        )
+        return {**metadata, "structured_output": parsed}
+
+    def editorial_stream_with_raw(
+        self,
+        *,
+        model: str,
+        reasoning_effort: str,
+        instructions: str,
+        input_text: str,
+        stage: str,
+        context: TaskExecutionContext,
+        response_sink: Callable[[str, Mapping[str, Any]], Mapping[str, Any] | None],
+    ) -> dict[str, Any]:
+        """Run an editorial response while preserving its exact streamed text first."""
+        parsed, metadata = self._responses_json_stream(
+            model=model, reasoning_effort=reasoning_effort,
+            instructions=instructions, input_text=input_text,
+            stage=stage, context=context, response_sink=response_sink,
         )
         return {**metadata, "structured_output": parsed}
 
