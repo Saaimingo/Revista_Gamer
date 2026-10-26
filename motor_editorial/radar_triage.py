@@ -18,10 +18,9 @@ from typing import Any, Mapping, Sequence
 from urllib.parse import urlsplit
 
 from .agent_contracts import (
-    AGENT_TASK_ENVELOPE_SCHEMA_VERSION,
     AgentRoleCatalog,
     AgentRoleProfile,
-    AgentTaskEnvelope,
+    build_role_task_envelope,
     enqueue_contract_task,
     load_builtin_role_catalog,
 )
@@ -119,6 +118,220 @@ class RadarGeneralScanResult:
     unchanged_count: int
     below_threshold_count: int
     duplicate_source_count: int
+
+
+TRIAGE_LANES = frozenset({"principal", "reserva", "monitoramento", "descartar"})
+EDITORIAL_TRIAGE_LANES = frozenset({"principal", "reserva", "monitoramento"})
+
+
+@dataclass(frozen=True)
+class TriagedCandidate:
+    """A triage decision resolved to exact item IDs from its DiscoveryBatch."""
+
+    candidate_item_ids: tuple[str, ...]
+    candidate_angle: str
+    suggested_lane: str
+    evidence_refs: tuple[str, ...]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "candidate_item_ids": list(self.candidate_item_ids),
+            "candidate_angle": self.candidate_angle,
+            "suggested_lane": self.suggested_lane,
+            "evidence_refs": list(self.evidence_refs),
+        }
+
+
+@dataclass(frozen=True)
+class TriageResolution:
+    """Validated triage result, still a proposal and never a publication gate."""
+
+    batch_id: str
+    decisions: tuple[TriagedCandidate, ...]
+    no_change: bool
+
+    @property
+    def status(self) -> str:
+        return "no_story_yet" if self.no_change or not self.eligible_decisions else "candidates_resolved"
+
+    @property
+    def eligible_decisions(self) -> tuple[TriagedCandidate, ...]:
+        return tuple(item for item in self.decisions if item.suggested_lane in EDITORIAL_TRIAGE_LANES)
+
+    @property
+    def discarded_decisions(self) -> tuple[TriagedCandidate, ...]:
+        return tuple(item for item in self.decisions if item.suggested_lane == "descartar")
+
+
+def resolve_triage_output(
+    batch: DiscoveryBatch | Mapping[str, Any], output: Mapping[str, Any],
+) -> TriageResolution:
+    """Resolve exact evidence/event/document refs back to batch item IDs.
+
+    The agent is allowed to identify an event or document without repeating an
+    ``item_id``. This adapter resolves only exact typed references carried by
+    that batch. It rejects unknown or ambiguous references instead of using
+    substring matching or silently dropping an invalid decision.
+    """
+
+    if isinstance(batch, DiscoveryBatch):
+        batch_value = batch.to_agent_input()
+    elif isinstance(batch, Mapping):
+        batch_value = dict(batch)
+    else:
+        raise RadarStoreError("DiscoveryBatch ausente ou inválido para validar triagem.")
+    batch_id = batch_value.get("batch_id")
+    items = batch_value.get("items")
+    if not isinstance(batch_id, str) or not batch_id.strip() or not isinstance(items, (list, tuple)):
+        raise RadarStoreError("DiscoveryBatch precisa de batch_id e items tipados.")
+    if not isinstance(output, Mapping):
+        raise RadarStoreError("Saída da triagem precisa ser objeto.")
+    no_change = output.get("no_change")
+    decisions = output.get("decisions")
+    if not isinstance(no_change, bool) or not isinstance(decisions, (list, tuple)):
+        raise RadarStoreError("Saída da triagem não corresponde ao contrato versionado.")
+    if no_change and decisions:
+        raise RadarStoreError("Triagem declarou no_change junto com decisões de candidatos.")
+    if not no_change and not decisions:
+        raise RadarStoreError("Triagem sem decisões precisa declarar no_change.")
+
+    item_by_id: dict[str, Mapping[str, Any]] = {}
+    ref_to_items: dict[str, set[str]] = defaultdict(set)
+    for item in items:
+        if not isinstance(item, Mapping):
+            raise RadarStoreError("DiscoveryBatch contém item inválido.")
+        item_id = item.get("item_id")
+        refs = item.get("evidence_refs", [])
+        if not isinstance(item_id, str) or not item_id.strip() or item_id in item_by_id:
+            raise RadarStoreError("DiscoveryBatch contém item_id vazio ou duplicado.")
+        if not isinstance(refs, (list, tuple)) or any(not isinstance(ref, str) or not ref.strip() for ref in refs):
+            raise RadarStoreError("DiscoveryBatch contém evidence_refs inválidas.")
+        item_by_id[item_id] = item
+        ref_to_items[item_id].add(item_id)
+        for ref in refs:
+            ref_to_items[ref].add(item_id)
+
+    resolved: list[TriagedCandidate] = []
+    assigned_item_ids: set[str] = set()
+    for index, decision in enumerate(decisions):
+        if not isinstance(decision, Mapping):
+            raise RadarStoreError(f"Decisão de triagem {index} não é objeto.")
+        lane = decision.get("suggested_lane")
+        angle = decision.get("candidate_angle")
+        refs = decision.get("evidence_refs")
+        if lane not in TRIAGE_LANES:
+            raise RadarStoreError(f"Decisão de triagem {index} usa suggested_lane inválida.")
+        if not isinstance(angle, str) or not angle.strip():
+            raise RadarStoreError(f"Decisão de triagem {index} não tem candidate_angle.")
+        if not isinstance(refs, (list, tuple)) or not refs or any(not isinstance(ref, str) or not ref.strip() for ref in refs):
+            raise RadarStoreError(f"Decisão de triagem {index} não tem evidence_refs válidas.")
+        decision_refs = tuple(dict.fromkeys(refs))
+        unknown = sorted(set(decision_refs) - ref_to_items.keys())
+        if unknown:
+            raise RadarStoreError(f"Decisão de triagem {index} referencia refs ausentes do lote.")
+
+        explicit_ids = decision.get("candidate_item_ids")
+        if explicit_ids is not None:
+            if (not isinstance(explicit_ids, (list, tuple)) or not explicit_ids
+                    or any(not isinstance(item_id, str) or not item_id.strip() for item_id in explicit_ids)):
+                raise RadarStoreError(f"Decisão de triagem {index} contém candidate_item_ids inválidos.")
+            if len(set(explicit_ids)) != len(explicit_ids):
+                raise RadarStoreError(f"Decisão de triagem {index} contém candidate_item_ids duplicados.")
+            missing_ids = sorted(set(explicit_ids) - item_by_id.keys())
+            if missing_ids:
+                raise RadarStoreError(f"Decisão de triagem {index} seleciona candidato ausente do lote.")
+            candidate_ids = set(explicit_ids)
+            if any(not any(candidate_id in ref_to_items[ref] for ref in decision_refs)
+                   for candidate_id in candidate_ids):
+                raise RadarStoreError(f"Decisão de triagem {index} não vincula cada candidato às refs citadas.")
+        else:
+            ambiguous = [ref for ref in decision_refs if len(ref_to_items[ref]) != 1]
+            if ambiguous:
+                raise RadarStoreError(f"Decisão de triagem {index} contém refs ambíguas entre itens do lote.")
+            candidate_ids = set().union(*(ref_to_items[ref] for ref in decision_refs))
+            if not candidate_ids:
+                raise RadarStoreError(f"Decisão de triagem {index} não resolve para candidatos do lote.")
+
+        duplicate_ids = candidate_ids & assigned_item_ids
+        if duplicate_ids:
+            raise RadarStoreError("Mais de uma decisão de triagem atribuiu o mesmo candidate_item_id.")
+        assigned_item_ids.update(candidate_ids)
+        resolved.append(TriagedCandidate(
+            candidate_item_ids=tuple(sorted(candidate_ids)),
+            candidate_angle=angle.strip(),
+            suggested_lane=lane,
+            evidence_refs=tuple(sorted(decision_refs)),
+        ))
+    return TriageResolution(batch_id=batch_id, decisions=tuple(resolved), no_change=no_change)
+
+
+def build_investigator_input(
+    batch: DiscoveryBatch | Mapping[str, Any],
+    resolution: TriageResolution,
+    *,
+    triage_task_id: str,
+    candidate_records: Sequence[Mapping[str, Any]] | None = None,
+    question: str = (
+        "Apure os candidatos referenciados pelo Radar. Separe anúncio, relato, rumor, opinião e medição; "
+        "preserve a origem e as republicações, ligue cada alegação a evidências consultadas e explicite "
+        "contradições, lacunas e suficiência. Não transforme metadados em afirmações sobre impacto."
+    ),
+    search_limits: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build the investigator's typed input from one validated triage result."""
+
+    batch_value = batch.to_agent_input() if isinstance(batch, DiscoveryBatch) else dict(batch)
+    if batch_value.get("batch_id") != resolution.batch_id:
+        raise RadarStoreError("TriageResolution pertence a outro DiscoveryBatch.")
+    if not isinstance(triage_task_id, str) or not triage_task_id.strip():
+        raise RadarStoreError("Investigator exige triage_task_id persistido.")
+    if resolution.no_change or not resolution.eligible_decisions:
+        raise RadarStoreError("Não há candidato elegível para encaminhar ao investigador.")
+    items = batch_value.get("items")
+    if not isinstance(items, (list, tuple)):
+        raise RadarStoreError("DiscoveryBatch.items inválido para investigação.")
+    items_by_id = {item.get("item_id"): item for item in items if isinstance(item, Mapping)}
+    supplied = {str(row.get("item_id") or row.get("candidate_item_id")): dict(row)
+                for row in (candidate_records or ()) if isinstance(row, Mapping)}
+    selected: list[dict[str, Any]] = []
+    all_evidence_refs: set[str] = set()
+    for decision in resolution.eligible_decisions:
+        for candidate_id in decision.candidate_item_ids:
+            item = items_by_id.get(candidate_id)
+            if item is None:
+                raise RadarStoreError("Triagem aponta para candidato que não está no DiscoveryBatch.")
+            source = supplied.get(candidate_id, {})
+            declared_id = source.get("item_id", source.get("candidate_item_id", candidate_id))
+            if declared_id != candidate_id:
+                raise RadarStoreError("Registro enriquecido pertence a outro candidate_item_id.")
+            item_refs = item.get("evidence_refs", [])
+            if not isinstance(item_refs, (list, tuple)):
+                raise RadarStoreError("Candidato do DiscoveryBatch perdeu suas evidence_refs.")
+            evidence_refs = sorted({ref for ref in item_refs if isinstance(ref, str)} | {candidate_id})
+            all_evidence_refs.update(evidence_refs)
+            selected.append({
+                **source,
+                "candidate_item_id": candidate_id,
+                "triage_lane": decision.suggested_lane,
+                "candidate_angle": decision.candidate_angle,
+                "triage_evidence_refs": list(decision.evidence_refs),
+                "evidence_refs": evidence_refs,
+                "discovery_item": dict(item),
+            })
+    selected.sort(key=lambda row: row["candidate_item_id"])
+    limits = dict(search_limits or {})
+    limits.update({
+        "batch_id": resolution.batch_id,
+        "triage_task_id": triage_task_id,
+        "candidate_count": len(selected),
+        "candidate_records": selected,
+    })
+    return {
+        "question": question,
+        "evidence_refs": sorted(all_evidence_refs),
+        "claim_history": [],
+        "search_limits": limits,
+    }
 
 
 def _utc_iso(value: str | datetime | None) -> str:
@@ -427,26 +640,20 @@ class RadarGeneralService:
         triage_task_id: str | None = None
         if batch.items:
             input_payload = batch.to_agent_input()
-            envelope = AgentTaskEnvelope.from_mapping({
-                "schema_version": AGENT_TASK_ENVELOPE_SCHEMA_VERSION,
-                "task_id": f"radar-triage-{batch.batch_id}",
-                "run_id": f"radar-run-{batch.batch_id}",
-                "story_id": f"discovery-{batch.batch_id}",
-                "role_id": self.triage_profile.role_id,
-                "role_version": self.triage_profile.role_version,
-                "role_hash": self.triage_profile.content_hash,
-                "input_payload_hash": stable_hash(json_dumps(input_payload)),
-                "input_artifact_refs": [],
-                "source_snapshot_ids": list(batch.source_snapshot_ids),
-                "authorized_tools": [
-                    {"tool_id": "motor.read_assigned_input", "scopes": ["read:assigned_batch"]},
-                ],
-                "context_schema_version": "1.0",
-                "usage_guardrails": {"max_calls": 1, "max_iterations": 1},
-                "idempotency_key": f"radar-triage:{batch.batch_id}",
-                "correlation_id": batch.batch_id,
-                "requires_human_gate": True,
-            })
+            envelope = build_role_task_envelope(
+                self.triage_profile,
+                task_id=f"radar-triage-{batch.batch_id}",
+                run_id=f"radar-run-{batch.batch_id}",
+                story_id=f"discovery-{batch.batch_id}",
+                input_payload=input_payload,
+                input_artifact_refs=(),
+                source_snapshot_ids=batch.source_snapshot_ids,
+                authorized_tools=({"tool_id": "motor.read_assigned_input", "scopes": ["read:assigned_batch"]},),
+                usage_guardrails={"max_calls": 1, "max_iterations": 1},
+                idempotency_key=f"radar-triage:{batch.batch_id}",
+                correlation_id=batch.batch_id,
+                requires_human_gate=True,
+            )
             triage_task_id = enqueue_contract_task(
                 self.queue, envelope, input_payload, catalog=self.catalog,
                 executor_profile=self.executor_profile, executor_id=self.executor_id,

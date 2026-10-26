@@ -27,13 +27,13 @@ from typing import Any, Mapping
 from urllib.parse import quote, unquote, urlsplit
 
 from .agent_contracts import (
-    AGENT_TASK_ENVELOPE_SCHEMA_VERSION,
     AgentResultEnvelope,
     AgentRoleCatalog,
     AgentRoleProfile,
     AgentTaskEnvelope,
     ResearchPacket,
     ResearchRequest,
+    build_role_task_envelope,
     canonical_material_claim_id,
     enqueue_contract_task,
     envelope_from_payload,
@@ -57,6 +57,14 @@ from .agent_workflow import (
     ResearchTaskExecutor,
 )
 from .db import Store, json_dumps, stable_hash
+from .editorial_handoffs import (
+    JOURNALIST_EDITORIAL_LINES,
+    build_assignment_editor_input,
+    build_candidate_dossier,
+    build_editorial_brief_from_assignment,
+    project_editorial_brief_for_writer,
+    validate_assignment_editor_output,
+)
 from .factory import role_story_draft_to_editorial_output
 from .layout.contracts import (
     profile_sha256,
@@ -80,7 +88,13 @@ from .radar_connectors import RadarConnectorService, SourceProfile
 from .radar_incremental import IncrementalRadarService
 from .radar_policy import PersistentDomainQuotaGuard
 from .radar_store import RadarStore
-from .radar_triage import RadarGeneralService, RadarTriagePolicy
+from .radar_triage import (
+    EDITORIAL_TRIAGE_LANES,
+    RadarGeneralService,
+    RadarTriagePolicy,
+    build_investigator_input,
+    resolve_triage_output,
+)
 from .research_mediation import PUBLIC_SOURCES_SCOPE, RADAR_INDEX_SCOPE, POLICY_SCHEMA_VERSION
 from .research_mediation import mediate_requested_research
 from .research_service import ResearchProviderResult, ResearchService
@@ -99,7 +113,6 @@ GITHUB_DOMAIN = "api.github.com"
 DAILY_QUOTA = 8
 TOTAL_REQUEST_BUDGET = 4
 MAX_CANDIDATES_TO_EDITOR = 12
-EDITOR_HANDOFF_LANES = frozenset({"principal", "reserva", "monitoramento"})
 MODEL_ID = "gpt-6-luna"
 REASONING_EFFORT = "high"
 ROBOTS_SNAPSHOT = "User-agent: *\nAllow: /\n"
@@ -158,11 +171,7 @@ PERSONA_PACKAGES: dict[str, dict[str, Any]] = {
         },
     },
 }
-PERSONA_LINEAGES = {
-    "ranzinza": "hardware e tecnologia; perguntar o que funciona, em quais condições, para quem, com que evidência e custo",
-    "beto-cartucho": "jogos e campanha; experiência de jogo descrita sem fingir gameplay próprio",
-    "nina-prisma": "mods, criadores e cultura; atribuição, comunidade e licença com distinções claras",
-}
+PERSONA_LINEAGES = JOURNALIST_EDITORIAL_LINES
 INTERNAL_LEAK_MARKERS = (
     "curator_notes_only", "source_body_not_obtained", "rights_not_revalidated",
     "ResearchPacket", "AgentQueue", "TaskDispatcher", "SIWC", "franquia de tokens",
@@ -659,6 +668,27 @@ def _build_initial_packet(
                 continue
             evidence_id = f"radar://document/{raw_id}"
             digest = str(document.get("content_sha256") or "")
+            source_row = radar_store.get_row("radar_sources", "source_id", str(document.get("source_id")))
+            source_type = str(source_row.get("source_type")) if source_row else "unknown"
+            rights_status = str(source_row.get("rights_status")) if source_row else "unknown"
+            excerpt_authorized = rights_status == "authorized"
+            source_role = {
+                "official": "primary_official_source",
+                "publisher": "publisher_source",
+                "creator": "creator_source",
+                "community": "community_source",
+                "public_api": "public_api_metadata_source",
+            }.get(source_type, "registered_source_role_unclassified")
+            try:
+                discovery_detail = json.loads(str(candidate.get("diff") or "{}"))
+            except json.JSONDecodeError:
+                discovery_detail = {}
+            source_lineage = discovery_detail.get("source_lineage", []) if isinstance(discovery_detail, Mapping) else []
+            claim_lineage = discovery_detail.get("claim_lineage", []) if isinstance(discovery_detail, Mapping) else []
+            source_link = next((item for item in source_lineage if isinstance(item, Mapping)
+                                and item.get("document_id") == raw_id), {}) if isinstance(source_lineage, list) else {}
+            first_origin = next((item.get("source_id") for item in claim_lineage if isinstance(item, Mapping)
+                                 and item.get("relation_type") == "origin" and item.get("source_id")), None) if isinstance(claim_lineage, list) else None
             refs.append({"ref": evidence_id, "sha256": digest})
             lineage.append({
                 "evidence_id": evidence_id,
@@ -673,7 +703,7 @@ def _build_initial_packet(
                 "canonical_source_url": document.get("canonical_url"),
             })
             excerpt = candidate.get("body_excerpt")
-            if isinstance(excerpt, str) and excerpt.strip():
+            if excerpt_authorized and isinstance(excerpt, str) and excerpt.strip():
                 excerpts.append(_safe_word_excerpt(excerpt, maximum_words=25))
             evidence_rows.append({
                 "evidence_id": evidence_id,
@@ -681,13 +711,23 @@ def _build_initial_packet(
                 "source_document_id": raw_id,
                 "source_url": _source_display_url(document),
                 "canonical_source_url": document.get("canonical_url"),
+                "source_role": source_role,
                 "title": document.get("title"),
                 "publisher": document.get("publisher"),
                 "author": document.get("byline"),
                 "published_at": document.get("published_at"),
                 "observed_at": document.get("fetched_at"),
+                "content_sha256": digest,
+                "rights_status": rights_status,
+                "first_origin_source_id": first_origin,
+                "republication_relation": (
+                    source_link.get("republication_relations", [None])[0]
+                    if isinstance(source_link, Mapping) and isinstance(source_link.get("republication_relations", []), list)
+                    else None
+                ),
+                "excerpt_authorized": excerpt_authorized,
                 "epistemic_status": "official_statement",
-                "excerpt": _safe_word_excerpt(excerpt, maximum_words=25) if excerpt else None,
+                "excerpt": _safe_word_excerpt(excerpt, maximum_words=25) if excerpt_authorized and excerpt else None,
             })
     packet = ResearchPacket.create(
         request_id=request_id,
@@ -786,31 +826,24 @@ def _new_role_task(
     else:
         _write_new(input_ref, input_bytes)
     persona_hash = stable_hash(persona_text) if persona_text is not None else None
-    envelope_data: dict[str, Any] = {
-        "schema_version": AGENT_TASK_ENVELOPE_SCHEMA_VERSION,
-        "task_id": task_id,
-        "run_id": run_id,
-        "story_id": story_id,
-        "edition_id": "eng-codex-011-internal-preview",
-        "role_id": role_id,
-        "role_version": profile.role_version,
-        "role_hash": profile.content_hash,
-        "input_payload_hash": stable_hash(json_dumps(dict(input_payload))),
-        "persona_id": persona_id,
-        "persona_version": persona_version,
-        "persona_hash": persona_hash,
-        "input_artifact_refs": [{"ref": f"private://task-inputs/{task_id}.json", "sha256": _sha(input_bytes)}],
-        "source_snapshot_ids": sorted(set(source_snapshot_ids)),
-        "authorized_tools": [grant.to_dict() for grant in profile.allowed_tools],
-        "deadline": None,
-        "context_schema_version": "1.0",
-        "usage_guardrails": {"max_calls": 1, "max_iterations": 1},
-        "idempotency_key": f"eng-codex-011:{run_id}:{role_id}:{stage}",
-        "correlation_id": f"eng-codex-011:{story_id}",
-        "requires_human_gate": True,
-        "research_mediation_policy": dict(research_policy) if research_policy is not None else None,
-    }
-    envelope = AgentTaskEnvelope.from_mapping(envelope_data)
+    envelope = build_role_task_envelope(
+        profile,
+        task_id=task_id,
+        run_id=run_id,
+        story_id=story_id,
+        edition_id="eng-codex-011-internal-preview",
+        input_payload=input_payload,
+        persona_id=persona_id,
+        persona_version=persona_version,
+        persona_hash=persona_hash,
+        input_artifact_refs=[{"ref": f"private://task-inputs/{task_id}.json", "sha256": _sha(input_bytes)}],
+        source_snapshot_ids=source_snapshot_ids,
+        usage_guardrails={"max_calls": 1, "max_iterations": 1},
+        idempotency_key=f"eng-codex-011:{run_id}:{role_id}:{stage}",
+        correlation_id=f"eng-codex-011:{story_id}",
+        requires_human_gate=True,
+        research_mediation_policy=research_policy,
+    )
     task_id = enqueue_contract_task(
         queue,
         envelope,
@@ -1126,15 +1159,6 @@ def _map_persisted_live_items(
             "source_snapshot_ids": [],
         }
     return mapped
-
-
-def _candidate_matches_triage_refs(candidate: Mapping[str, Any], refs: set[str]) -> bool:
-    if candidate.get("item_id") in refs:
-        return True
-    candidate_refs = candidate.get("triage_evidence_refs", [])
-    return isinstance(candidate_refs, list) and bool(refs.intersection(
-        ref for ref in candidate_refs if isinstance(ref, str)
-    ))
 
 
 def _claim_records_for_candidate(investigator_output: Mapping[str, Any], candidate: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -2056,21 +2080,20 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
             checkpoint=checkpoint, stage="triage_agent",
         )
         live_items = _map_live_items(scan, source_by_id, radar_store)
-    decisions = triage_output.get("decisions", []) if isinstance(triage_output, Mapping) else []
+    triage_resolution = resolve_triage_output(scan.batch, triage_output)
+    if triage_resolution.status == "no_story_yet":
+        checkpoint.event(
+            "triage_resolution", "no_story_yet", batch_id=scan.batch.batch_id,
+            triage_task_id=scan.triage_task_id, candidate_count=0,
+        )
     eligible: list[dict[str, Any]] = []
-    for decision in decisions:
-        if not isinstance(decision, Mapping) or decision.get("suggested_lane") not in EDITOR_HANDOFF_LANES:
-            continue
-        refs = decision.get("evidence_refs", [])
-        if not isinstance(refs, list):
-            continue
-        decision_refs = {ref for ref in refs if isinstance(ref, str)}
-        candidates = [item for item in live_items.values()
-                      if _candidate_matches_triage_refs(item, decision_refs)]
-        for candidate in candidates:
-            eligible.append({**candidate, "triage_decision": dict(decision)})
-    unique_eligible = {item["item_id"]: item for item in eligible}
-    eligible = list(unique_eligible.values())[:MAX_CANDIDATES_TO_EDITOR]
+    for decision in triage_resolution.eligible_decisions:
+        for candidate_id in decision.candidate_item_ids:
+            candidate = live_items.get(candidate_id)
+            if candidate is None:
+                raise RunBlocked("triage_candidate_id_has_no_persisted_live_record")
+            eligible.append({**candidate, "triage_decision": decision.to_dict()})
+    eligible = eligible[:MAX_CANDIDATES_TO_EDITOR]
     if not eligible:
         raise RunBlocked("live_triage_produced_no_editorial_candidate_with_traceable_evidence")
     initial_request_id = "initial-radar-" + stable_hash(run_id)[:24]
@@ -2079,30 +2102,29 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
         radar_store=radar_store,
         eligible_candidates=eligible,
     )
-    evidence_refs = sorted({
-        *[ref for candidate in eligible for ref in candidate["evidence_ids"]],
-        *[candidate["item_id"] for candidate in eligible],
-    })
     snapshot_ids = sorted({
         str(snapshot_id)
         for candidate in eligible for snapshot_id in candidate.get("source_snapshot_ids", [])
         if snapshot_id
     } | set(scan.batch.source_snapshot_ids))
-    investigator_input = {
-        "question": "Prepare a concise, traceable dossier for the live Radar candidates. Identify what the public release metadata actually says, distinguish official statements from interpretation, and preserve unresolved factual questions.",
-        "evidence_refs": evidence_refs,
-        "claim_history": [],
-        "search_limits": {
+    if not scan.triage_task_id:
+        raise RunBlocked("triage_task_id_missing_before_investigator_handoff")
+    investigator_input = build_investigator_input(
+        scan.batch,
+        triage_resolution,
+        triage_task_id=scan.triage_task_id,
+        candidate_records=eligible,
+        question=(
+            "Prepare a concise, traceable dossier for the Radar candidates. Identify what the observed "
+            "source records actually say, distinguish official statements from interpretation and rumor, "
+            "preserve source origin and republication links, and state unresolved factual questions."
+        ),
+        search_limits={
             "allowed_domain": GITHUB_DOMAIN,
-            "candidate_count": len(eligible),
             "initial_public_requests": len(request_rows),
             "additional_public_request_limit_per_selected_story": 1,
-            "candidate_records": [
-                {key: candidate.get(key) for key in ("item_id", "title", "tag_name", "publisher", "author", "published_at", "url", "source_id", "evidence_ids", "triage_decision")}
-                for candidate in eligible
-            ],
         },
-    }
+    )
     if resume_after_investigator:
         previous_investigator_event = next((event for event in reversed(checkpoint.state.get("events", []))
                                             if event.get("stage") == "investigator_agent"
@@ -2180,47 +2202,45 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
         "investigator_output": investigator_output,
         "candidate_count": len(eligible),
     })
-    candidate_dossier: list[dict[str, Any]] = []
-    for candidate in eligible:
-        candidate_dossier.append({
-            "candidate_item_id": candidate["item_id"],
-            "title": candidate["title"],
-            "tag_name": candidate["tag_name"],
-            "publisher": candidate["publisher"],
-            "author": candidate["author"],
-            "published_at": candidate["published_at"],
-            "url": candidate["url"],
-            "source_id": candidate["source_id"],
-            "evidence_ids": candidate["evidence_ids"],
-            "triage": candidate["triage_decision"],
-            "claims": _claim_records_for_candidate(investigator_output, candidate),
-            "excerpt": candidate.get("body_excerpt"),
-        })
-    assignment_input = {
-        "evidence_dossier": {
-            "schema_version": "LiveRadarDossier.v1",
-            "candidates": candidate_dossier,
-            "evidence": initial_evidence,
-            "investigation": investigator_output,
-            "research_packet": initial_packet.to_dict(),
+    investigator_task_result = queue.get(investigator_task)
+    investigator_ref = (
+        investigator_task_result.result.get("artifact_ref")
+        if investigator_task_result is not None and isinstance(investigator_task_result.result, Mapping)
+        else None
+    )
+    if not isinstance(investigator_ref, Mapping):
+        raise RunBlocked("investigator_response_reference_missing_for_candidate_dossier")
+    candidate_dossier_artifact = build_candidate_dossier(
+        story_id=f"discovery-{scan.batch.batch_id}",
+        batch_id=scan.batch.batch_id,
+        triage_task_id=scan.triage_task_id,
+        investigator_task_id=investigator_task,
+        candidates=eligible,
+        evidence=initial_evidence,
+        investigator_output=investigator_output,
+        portfolio=list(scan.batch.portfolio),
+        research_packet=initial_packet.to_dict(),
+        investigator_response_sha256=str(investigator_ref.get("sha256")),
+        triage_response_sha256=str(triage_meta.get("response_sha256")) if triage_meta.get("response_sha256") else None,
+    )
+    _atomic_json(root / "dossier" / "candidate-dossier.json", candidate_dossier_artifact)
+    assignment_input = build_assignment_editor_input(
+        candidate_dossier_artifact,
+        edition_state={
+            "edition_id": "eng-codex-011",
+            "current_date": "2026-10-26",
+            "active_story_ids": [],
+            "decision_owner": "direction",
         },
-        "edition_state": {"edition_id": "eng-codex-011", "current_date": "2026-10-26",
-                          "active_story_ids": [], "decision_owner": "direction"},
-        "editorial_constraints": {
-            "eligible_candidate_ids": [candidate["item_id"] for candidate in eligible],
-            "eligible_journalists": PERSONA_LINEAGES,
-            "publication_state": "not_published",
+        editorial_constraints={
             "technical_testing_claims": "prohibited unless evidenced by this dossier",
-            "character_rules": "recommend one approved persona; no DNA may be edited",
-            "triage_lane_policy": "monitoramento is a real triage outcome, not an automatic rejection or approval; select only if the specific release has a timely reader-relevant angle supported by evidence, and preserve any remaining research need",
+            "triage_lane_policy": (
+                "monitoramento is a real option, not automatic rejection or approval; select a monitored item "
+                "only when an evidence-supported, timely reader angle exists"
+            ),
         },
-        "required_coverage": [
-            "Select exactly one candidate_item_id from evidence_dossier.candidates.",
-            "Return journalist_persona_id as one of ranzinza, beto-cartucho, nina-prisma, aligned to the supplied editorial lines.",
-            "Use claims and questions supported by candidate evidence; do not turn release metadata into independent performance claims.",
-            "The journalist writes for readers; internal process metadata stays out of the story.",
-        ],
-    }
+        eligible_journalists=PERSONA_LINEAGES,
+    )
     if resume_after_pre_external_writer:
         assignment_task = _task_id(run_token, "assignment_editor", "live-assignment")
         persisted_assignment = queue.get(assignment_task)
@@ -2242,11 +2262,12 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
             source_snapshot_ids=snapshot_ids, root=root,
             dependencies=(investigator_task,),
         )
-        assignment_output, _, _ = _dispatch_role(
+        assignment_output, assignment_meta, _ = _dispatch_role(
             dispatcher=dispatcher, queue=queue, task_id=assignment_task, envelope=assignment_envelope,
             root=root, response_store=response_store, usage_store=usage_store,
             checkpoint=checkpoint, stage="assignment_editor_agent",
         )
+    assignment_output = validate_assignment_editor_output(assignment_output, candidate_dossier_artifact)
     candidate_id = assignment_output.get("candidate_item_id")
     persona_id = assignment_output.get("journalist_persona_id")
     selected = next((candidate for candidate in eligible if candidate["item_id"] == candidate_id), None)
@@ -2267,6 +2288,21 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
                      persona_version=package["version"], composite_sha256=persona_manifest["composite_instruction_sha256"],
                      file_count=len(persona_manifest["files"]), character_count=len(persona_text), modified=False)
 
+    editorial_brief_artifact = build_editorial_brief_from_assignment(
+        story_id=story_id,
+        revision_id="assignment-01",
+        candidate_dossier=candidate_dossier_artifact,
+        assignment_output=assignment_output,
+        approved_persona_hash=str(persona_manifest["composite_instruction_sha256"]),
+        assignment_task_id=assignment_task,
+        assignment_response_sha256=(
+            str(assignment_meta.get("response_sha256"))
+            if isinstance(assignment_meta, Mapping) and assignment_meta.get("response_sha256") else None
+        ),
+    )
+    _atomic_json(root / "dossier" / "editorial-brief-assignment-01.json", editorial_brief_artifact)
+    editorial_brief = project_editorial_brief_for_writer(editorial_brief_artifact)
+
     detail_source_id = f"github-api-{selected['source']['repo'].casefold()}-detail"
     detail_profile, detail_endpoint = _make_radar_profile(
         selected["source"], detail_source_id, details=True, tag=str(selected["tag_name"])
@@ -2284,6 +2320,10 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
     writer_evidence_rows = [{key: value for key, value in row.items() if key != "excerpt"}
                             for row in selected_evidence_rows]
     selected_evidence_ids = set(selected["evidence_ids"])
+    selected_claims = [
+        dict(claim) for claim in candidate_dossier_artifact["payload"]["claims"]
+        if selected_evidence_ids.intersection(claim.get("evidence_ids", []))
+    ]
     writer_packet_fields = initial_packet.to_dict()
     writer_packet_fields.pop("content_hash", None)
     writer_packet_fields.update({
@@ -2302,23 +2342,16 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
     writer_dossier = {
         "schema_version": "EvidenceDossier.v1",
         "candidate": {
-            key: selected.get(key)
-            for key in ("item_id", "title", "tag_name", "publisher", "author", "published_at", "url", "source_id", "triage_decision")
+            "candidate_item_id": candidate_id,
+            **{
+                key: selected.get(key)
+                for key in ("title", "tag_name", "publisher", "author", "published_at", "url", "source_id")
+            },
         },
-        "claims": [],
+        "claims": selected_claims,
         "evidence": writer_evidence_rows,
         "known_evidence_ids": selected["evidence_ids"],
-        "open_questions": list(assignment_output.get("questions", [])),
-    }
-    editorial_brief = {
-        "angle": assignment_output["angle"],
-        "genre": assignment_output["genre"],
-        "questions": assignment_output["questions"],
-        "modules": assignment_output["modules"],
-        "gaps": assignment_output["gaps"],
-        "needs_more_research": assignment_output["needs_more_research"],
-        "selected_candidate_id": candidate_id,
-        "selected_journalist_id": persona_id,
+        "open_questions": list(candidate_dossier_artifact["payload"]["open_questions"]),
     }
     writing_constraints = {
         "voice": "Load and embody the complete approved persona package as supplied in trusted instructions. Do not rewrite or describe the DNA.",

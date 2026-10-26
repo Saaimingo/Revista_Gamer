@@ -17,6 +17,7 @@ from motor_editorial.agent_contracts import (
     ContractValidationError,
     ResearchPacket,
     ResearchRequest,
+    build_role_task_envelope,
     enqueue_contract_task,
     validate_json_schema,
 )
@@ -325,6 +326,28 @@ class AgentContractTests(unittest.TestCase):
         self.assertEqual(executor.calls, 1)
         self.assertEqual(executor.context.role_profile.content_hash, self.profile.content_hash)
         self.assertEqual(executor.context.untrusted_evidence["packet"], None)
+
+    def test_shared_role_task_builder_binds_profile_input_sources_and_gate(self) -> None:
+        envelope = build_role_task_envelope(
+            self.profile,
+            task_id="task-generated-001",
+            run_id="run-generated-001",
+            story_id="story-generated-001",
+            input_payload=self.input_payload,
+            idempotency_key="handoff:generated-001",
+            correlation_id="story-generated-001",
+            source_snapshot_ids=["snapshot-z", "snapshot-a", "snapshot-a"],
+            input_artifact_refs=[{"ref": "artifact://input-001", "sha256": "d" * 64}],
+            edition_id="edition-generated-001",
+        )
+
+        resolved = self.catalog.validate_task(envelope, input_payload=self.input_payload)
+        self.assertEqual(resolved.content_hash, self.profile.content_hash)
+        self.assertEqual(envelope.input_payload_hash, stable_hash(json_dumps(self.input_payload)))
+        self.assertEqual(envelope.source_snapshot_ids, ("snapshot-a", "snapshot-z"))
+        self.assertEqual(envelope.requires_human_gate, self.profile.human_review_gate["required"])
+        self.assertEqual(envelope.usage_guardrails, {"max_calls": 1, "max_iterations": 1})
+        self.assertEqual(envelope.input_artifact_refs[0].sha256, "d" * 64)
 
     def test_dispatcher_blocks_contract_mismatch_before_executor_runs(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

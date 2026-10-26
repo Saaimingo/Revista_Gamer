@@ -6,11 +6,9 @@ import unittest
 from pathlib import Path
 
 from motor_editorial.eng_codex_011 import (
-    EDITOR_HANDOFF_LANES,
     SOURCE_CANDIDATES,
     Checkpoint,
     RunBlocked,
-    _candidate_matches_triage_refs,
     _canonicalize_investigator_claim_ids,
     _make_radar_profile,
     _map_persisted_live_items,
@@ -18,6 +16,7 @@ from motor_editorial.eng_codex_011 import (
     _register_source,
 )
 from motor_editorial.radar_store import RadarStore
+from motor_editorial.radar_triage import EDITORIAL_TRIAGE_LANES, resolve_triage_output
 
 
 class PersistedTriageResumeTests(unittest.TestCase):
@@ -84,18 +83,29 @@ class PersistedTriageResumeTests(unittest.TestCase):
             self.assertEqual(checkpoint.state["events"][-1]["repeated_public_requests"], 0)
 
     def test_event_reference_links_candidate_when_item_id_is_not_returned(self) -> None:
-        candidate = {
-            "item_id": "discovery-release-42",
-            "triage_evidence_refs": ["event-abc", "snapshot-def", "radar://document/" + "a" * 32],
+        batch = {
+            "batch_id": "batch-release-42",
+            "items": [{
+                "item_id": "discovery-release-42",
+                "url": "https://source.example.invalid/release",
+                "publisher": "Source",
+                "evidence_refs": ["event-abc", "snapshot-def", "radar://document/" + "a" * 32],
+            }],
         }
+        resolved = resolve_triage_output(batch, {
+            "no_change": False,
+            "decisions": [{
+                "candidate_angle": "Analisar a mudança documentada",
+                "suggested_lane": "principal",
+                "evidence_refs": ["event-abc"],
+            }],
+        })
 
-        self.assertTrue(_candidate_matches_triage_refs(candidate, {"event-abc"}))
-        self.assertTrue(_candidate_matches_triage_refs(candidate, {"discovery-release-42"}))
-        self.assertFalse(_candidate_matches_triage_refs(candidate, {"event-unrelated"}))
+        self.assertEqual(resolved.decisions[0].candidate_item_ids, ("discovery-release-42",))
 
     def test_monitoramento_is_forwarded_to_editor_for_decision(self) -> None:
-        self.assertIn("monitoramento", EDITOR_HANDOFF_LANES)
-        self.assertNotIn("descartada", EDITOR_HANDOFF_LANES)
+        self.assertIn("monitoramento", EDITORIAL_TRIAGE_LANES)
+        self.assertNotIn("descartar", EDITORIAL_TRIAGE_LANES)
 
     def test_natural_language_investigator_claim_id_is_normalized_and_label_preserved(self) -> None:
         source_label = "Proton 11.0-2e release metadata: title and published date"

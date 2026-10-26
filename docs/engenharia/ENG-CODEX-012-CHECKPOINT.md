@@ -4,7 +4,7 @@
 **Issue:** [#42](https://github.com/Saaimingo/Revista_Gamer/issues/42)
 **Documentação normativa:** [PR #43](https://github.com/Saaimingo/Revista_Gamer/pull/43), os três documentos foram lidos integralmente antes de qualquer mudança.
 **Branch:** `codex/eng-codex-012-architecture-contracts`, derivada de `codex/eng-codex-011-live-factory@27c6703`.
-**Status:** em andamento. U00–U04 concluídas; próxima unidade U05. Nenhuma chamada SIWC/Plus ou pesquisa pública nesta missão.
+**Status:** em andamento. U00–U05 concluídas; próxima unidade U06. Nenhuma chamada SIWC/Plus ou pesquisa pública nesta missão.
 
 ## Limites ativos
 
@@ -33,6 +33,9 @@
 - Parsers JSON agora exigem schema reconhecido (`github_release_v1` ou `metadata_records_v1`), distinguem URL humana de endpoint técnico e descartam `body_excerpt` sem direito autorizado inclusive nos perfis legados. HTTP 200 com schema incompatível fica `parse=unsupported` e `ingest=not_attempted`; HTTP 200 sem registros termina `no_new_story`, sem criar documento. Paths percent-encoded são decodificados repetidamente para impedir traversal duplamente codificado.
 - Quotas v1.1 são reservadas em SQLite antes de cada transporte e limitam host/dia, missão e fonte/missão; registro da resposta persiste request id, status HTTP, URLs, tipo, bytes, hash e fingerprint/version do perfil sem corpo bruto. Uma tabela append-only registra parse e ingest separadamente, códigos sanitizados, contagens e refs de documentos/eventos; replay do mesmo evento é idempotente.
 - Migração Radar v7→v8 preserva fetches/quota anteriores, preenche status como `legacy` e cria o ledger de processamento. A validação cobre classes oficial/independente/comunidade/replicador, paths, traversal codificado, quotas entre hosts, schemas de API, integração fetch→parse→ingest, HTTP 200 sem pauta e migrações; nenhum DNS/transporte real ou pesquisa pública foi executado.
+- U05 corrigiu handoffs nos owners compartilhados: `build_role_task_envelope` em `agent_contracts.py`, resolução tipada exata em `radar_triage.py` e `CandidateDossier.v1`/atribuição/brief em `editorial_handoffs.py`. O runner ENG-011 agora os consome sem criar fila ou executor paralelo. Monitoramento permanece elegível; `no_story_yet`, refs ambíguas/desconhecidas e candidatos fora do lote ficam explícitos, sem associação por substring.
+- U05 valida portfólio, IDs e referências antes de selar o dossiê; mantém os labels naturais do investigador, gera IDs de claim seguros no Motor, liga claims às fontes/evidências persistidas e preserva linhagens. Excerpts não são copiados sem autorização explícita. O editor só pode escolher candidato do dossiê e persona aprovada; brief liga hash do dossiê, resposta da atribuição e hash do DNA, enquanto a projeção ao jornalista omite IDs de tarefa e metadados de auditoria.
+- **Replay offline de respostas já concluídas da ENG-011:** triagem `radar-triage-08092fe3306e823a5930d1afb2e20eeb`, resposta SHA-256 `63afb32fdc703de1628e8ae6cdd109ddf988f37dab32dc2db4a0cfb8806009a8`; investigador `e011-0256b6a1c34d-evidence-investigator-live-dossier`, SHA-256 `9ef1d777e09497bd7d32c9606d16866291b75f76d2ee3d401d9ffea41ef74a4`; editor `e011-0256b6a1c34d-assignment-editor-live-assignment`, SHA-256 `38068152d212d30a12bd601d6a2e2e2e52e5acb5046a1a0beec55d4c57c7c4da`. Duas decisões resolveram exatamente 10/10 candidatos contra o lote arquivado; o investigador trouxe 10 claims com referências disponíveis. O editor selecionou candidato já presente e persona `ranzinza`; manifesto aprovado `ranzinza-package-v0.1@3d651fe`, hash composto `d1470b7e004c49e80ffd0c7fa2f732ae66ab3acfd8fdef852b7438fea86ad05a`, `modified=false`. Dossiê reconstruído SHA-256 `0b92d23ab627ad3d90f5872f0f68193f66f738d41167d066eea7a86f9ba7674f`; brief ligado ao dossiê e à resposta do editor foi projetado sem metadados internos. Zero chamadas SIWC/Plus e zero consultas públicas nesta reprodução; os registros privados não foram alterados.
 
 ## Validação e resultados
 
@@ -44,6 +47,9 @@
 - U04, CPython 3.11 do `.venv`: `& '.\.venv\Scripts\python.exe' -m unittest motor_editorial.tests.test_radar_policy motor_editorial.tests.test_radar_store motor_editorial.tests.test_radar_connectors motor_editorial.tests.test_radar_incremental` — 46 testes em 11,500 s, OK. Abrange perfis v1.1, path/SSRF, quotas, parser, recibos de etapa, integração incremental e migração v7→v8; transporte/resolver são fakes locais.
 - Regressão integrada após U04: `& '.\.venv\Scripts\python.exe' -m unittest motor_editorial.tests.test_agent_contracts motor_editorial.tests.test_orchestration motor_editorial.tests.test_radar_store motor_editorial.tests.test_radar_connectors motor_editorial.tests.test_radar_incremental motor_editorial.tests.test_research_service motor_editorial.tests.test_agent_workflow motor_editorial.tests.test_eng_codex_011_runner -q` — 134 testes em 49,535 s, OK. Sem chamadas de SIWC/Plus nem pesquisa pública.
 - U04: `.venv\Scripts\python.exe -m py_compile` nos quatro módulos Radar alterados e três arquivos de teste — OK; `git diff --check` — OK antes da atualização dos documentos.
+- U05 focada, CPython 3.11 do `.venv`: `& '.\.venv\Scripts\python.exe' -m unittest motor_editorial.tests.test_agent_contracts motor_editorial.tests.test_radar_triage motor_editorial.tests.test_radar_triage_contracts motor_editorial.tests.test_editorial_handoffs motor_editorial.tests.test_eng_codex_011_runner motor_editorial.tests.test_agent_role_catalog -q` — 47 testes em 5,467 s, OK.
+- Regressão integrada U05: `& '.\.venv\Scripts\python.exe' -m unittest motor_editorial.tests.test_agent_contracts motor_editorial.tests.test_agent_siwc_executor motor_editorial.tests.test_agent_workflow motor_editorial.tests.test_agent_role_catalog motor_editorial.tests.test_orchestration motor_editorial.tests.test_radar_triage motor_editorial.tests.test_radar_triage_contracts motor_editorial.tests.test_editorial_handoffs motor_editorial.tests.test_eng_codex_011_runner motor_editorial.tests.test_factory_multipauta motor_editorial.tests.test_research_service -q` — 137 testes em 62,643 s, OK.
+- U05: `.venv\Scripts\python.exe -m py_compile` nos quatro módulos alterados e quatro testes — OK; `git diff --check` — OK. DNA aprovado não foi alterado; o manifesto da fonte arquivada foi conferido como `modified=false`.
 - Recuperação após interrupção entre persistência e conclusão da fila validou resposta e receipt com hashes idênticos, `attempts=1` e zero chamadas no cliente SIWC reiniciado; reparo do vínculo receipt no manifesto também reaproveitou arquivo existente por tarefa/tentativa. Testes locais/sintéticos comprovam apenas os estados cobertos, não homologação real de provedor.
 - Consultas SQLite de diagnóstico feitas com URI `mode=ro`. Nenhum registro, fonte ou pacote ENG-011 foi modificado.
 - Nenhuma chamada SIWC/Plus nem consulta pública foi realizada durante a implementação/validação; respostas arquivadas não foram repetidas.
@@ -55,14 +61,15 @@
 - **U02:** compatibilidade de envelope de resultado v1.0/v1.1 e recibo de uso persistido e ligado por hash.
 - **U03:** resposta/manifesto atômicos, recuperação local sem chamada externa, fronteira externa correta e operações genéricas de adoção/reconciliação/requeue; validado com 120 testes offline focados.
 - **U04:** SourceProfile v1.1 e compatibilidade v1.0, paths estritos, parser JSON por schema reconhecido, quotas persistentes, hash/bytes/request/profile version e recibos separados de transporte/parse/ingest; migração v7→v8 e integração local comprovadas com 46 testes focados e regressão cruzada de 134 testes. Não prova coleta pública.
+- **U05:** envelopes de papel compartilhados, resolução exata de triagem, dossiê integrado triagem→investigador→editor, seleção limitada a candidato/persona aprovados e projeção editorial sem metadados internos; 47 testes focados, 137 regressivos e replay offline das respostas arquivadas (10/10 IDs, hashes preservados, zero chamadas). Não comprova novo ensaio ao vivo.
 
 ## Próximo passo
 
-1. U05–U07: completar handoffs da pauta entre triagem, investigador, editor, jornalista, pedido de pesquisa, fact-check e revisor, vinculados à story/revision/persona corretas.
+1. U06–U07: completar pesquisa complementar do jornalista no mesmo task/story/revision/persona e vincular fact-check, revisão e versões separadas.
 2. U08: localizar draft e imagem existentes com direitos demonstráveis; servir preview HTTP local e comprovar visualmente texto e imagem no navegador.
 3. U09: provar isolamento multipauta e agregação de orçamento sem duplicidade; uma pauta bloqueada não interrompe as demais.
 4. Registrar matriz/checkpoint e commits/push a cada unidade revisável; manter PR #44 draft, sem merge. U10 fica bloqueada até autorização específica para novas consultas públicas.
 
 ## Critérios ainda abertos
 
-Handoffs U05–U07, preview real em navegador U08, isolamento multipauta U09 e nova homologação U10 (bloqueada por autorização de pesquisa esgotada). A missão não está concluída enquanto algum critério obrigatório permanecer aberto.
+Pesquisa complementar e handoffs U06–U07, preview real em navegador U08, isolamento multipauta U09 e nova homologação U10 (bloqueada por autorização de pesquisa esgotada). A missão não está concluída enquanto algum critério obrigatório permanecer aberto.
