@@ -1184,6 +1184,15 @@ class TaskDispatcher:
                     raise ValueError("task_id do envelope diverge da fila")
                 if task.task_type != f"agent.role.{task_envelope.role_id}":
                     raise ValueError("tipo da fila diverge do role_id")
+                if task_envelope.research_mediation_policy is not None:
+                    from .research_mediation import validate_policy
+
+                    validate_policy(
+                        task_envelope.research_mediation_policy,
+                        story_id=task_envelope.story_id,
+                        role_id=task_envelope.role_id,
+                        persona_id=task_envelope.persona_id,
+                    )
                 persona_instructions = None
                 if (
                     task_envelope.role_id == "persona_writer"

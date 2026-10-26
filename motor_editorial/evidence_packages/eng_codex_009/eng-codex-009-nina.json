@@ -1,0 +1,197 @@
+{
+  "schema_version": "EditorialEvidencePackage.v1",
+  "package_id": "eng-codex-009-nina",
+  "journalist": "Nina Prisma",
+  "persona_reference": {
+    "persona_id": "nina-prisma",
+    "persona_version": "v1.0",
+    "document": "docs/personagens/NINA-PRISMA.md",
+    "source_documents": [
+      "docs/personagens/NINA-PRISMA.md",
+      "docs/personagens/NINA-PRISMA-CONTRATO-COGNITIVO-v1.0.md",
+      "docs/personagens/NINA-PRISMA-CONTRATO-EXPRESSAO-v1.0.md",
+      "docs/personagens/NINA-PRISMA-CONTRATO-EDITORIAL-v1.0.md",
+      "docs/personagens/NINA-PRISMA-CONTRATO-CARREGAMENTO-E-VALIDACAO-v1.0.md"
+    ],
+    "source_ref": "bloco-02/gamer-dna-v02",
+    "source_commit": "21381c0975bef1da048d7887cbdfbd0dd97bed96",
+    "must_remain_unchanged": true
+  },
+  "topic": "REFramework e o ecossistema de mods de Resident Evil Requiem",
+  "requested_word_range": [
+    1300,
+    1900
+  ],
+  "curation_date": "2026-10-25",
+  "dossier_document": "docs/engenharia/ensaios-009/03-NINA-REQUIEM-REFRAMEWORK-MODS-DOSSIE.md",
+  "dossier_sha256": "78cc20baee090d751d90f5093a9b8e750f9bf2d7d0341a8e553307292ba3ef7e",
+  "source_candidates": [
+    {
+      "source_id": "N01",
+      "title": "README oficial do projeto REFramework / praydog",
+      "url": "https://github.com/praydog/REFramework",
+      "source_type": "primary_or_official_material",
+      "curation_reference": "N01",
+      "source_body_status": "not_obtained",
+      "rights_review_status": "not_revalidated",
+      "access_scope": "read:radar_index",
+      "external_retrieval_authorized": false,
+      "curator_note": "O autor define ferramenta open source para jogos RE Engine, scripting Lua, plugins, utilidades de câmera/FOV e suporte a VR em títulos indicados. README lista explicitamente **Resident Evil Requiem** entre jogos suportados. Isso demonstra suporte declarado do projeto, não ausência de bugs em TODAS as versões e PCs. O README diferencia builds estáveis e nightly mais novas. Uso apenas para avaliação documental; nenhuma etapa de instalação.",
+      "curator_note_status": "project_curated_summary"
+    },
+    {
+      "source_id": "N02",
+      "title": "Releases do repositório REFramework",
+      "url": "https://github.com/praydog/REFramework/releases",
+      "source_type": "primary_or_official_material",
+      "curation_reference": "N02",
+      "source_body_status": "not_obtained",
+      "rights_review_status": "not_revalidated",
+      "access_scope": "read:radar_index",
+      "external_retrieval_authorized": false,
+      "curator_note": "Catálogo de lançamentos estáveis; página pode mostrar release antiga de 2025 com builds noturnas mais novas em outro lugar. Não inferir “última versão válida para Requiem” somente da primeira release listada; cruzar release date, game build e changelog.",
+      "curator_note_status": "project_curated_summary"
+    },
+    {
+      "source_id": "N03",
+      "title": "Issue GitHub #1635, relato público de bug, 13/03/2026",
+      "url": "https://github.com/praydog/REFramework/issues/1635",
+      "source_type": "individual_or_community_report",
+      "curation_reference": "N03",
+      "source_body_status": "not_obtained",
+      "rights_review_status": "not_revalidated",
+      "access_scope": "read:radar_index",
+      "external_retrieval_authorized": false,
+      "curator_note": "Autor afirma crash no Requiem v1.1.2.0 ao iniciar com REFramework nightly v1.5.9.1 / hash de build indicado; sem o componente o problema sumia naquele sistema. **Um relato com condições, não condenação global.** Verificar comentários/resolução/estado atual e possível mudança em patches posteriores; não copiar log pessoal.",
+      "curator_note_status": "project_curated_summary"
+    },
+    {
+      "source_id": "N04",
+      "title": "Issue GitHub #1678, relato de regressão após patch 27/03/2026",
+      "url": "https://github.com/praydog/REFramework/issues/1678",
+      "source_type": "individual_or_community_report",
+      "curation_reference": "N04",
+      "source_body_status": "not_obtained",
+      "rights_review_status": "not_revalidated",
+      "access_scope": "read:radar_index",
+      "external_retrieval_authorized": false,
+      "curator_note": "Usuário relata crash ligado a atualização do Requiem; issue com estado “closed as not planned” observado na curadoria. FECHADO não significa necessariamente reparado: ler motivo, data e confirmações. Registrar como claim de usuário, não prova de efeito universal do patch.",
+      "curator_note_status": "project_curated_summary"
+    },
+    {
+      "source_id": "N05",
+      "title": "Issue GitHub #1571, ambiente específico (01/03/2026)",
+      "url": "https://github.com/praydog/REFramework/issues/1571",
+      "source_type": "individual_or_community_report",
+      "curation_reference": "N05",
+      "source_body_status": "not_obtained",
+      "rights_review_status": "not_revalidated",
+      "access_scope": "read:radar_index",
+      "external_retrieval_authorized": false,
+      "curator_note": "Relata conflitos com DLSS Frame Generation e componentes de hook na configuração descrita (Windows10/RTX5090/nightly v1.5.9.1), e comportamento distinto com Steam Overlay. É um relato técnico individual; separação de causa suspeita e causa verificada requer evidência adicional.",
+      "curator_note_status": "project_curated_summary"
+    },
+    {
+      "source_id": "N06",
+      "title": "Nexus Mods / Requiem — categoria e listagem",
+      "url": "https://www.nexusmods.com/games/residentevilrequiem/mods",
+      "source_type": "catalog_or_aggregator",
+      "curation_reference": "N06",
+      "source_body_status": "not_obtained",
+      "rights_review_status": "not_revalidated",
+      "access_scope": "read:radar_index",
+      "external_retrieval_authorized": false,
+      "curator_note": "Catálogo de vários tipos de mods; contagens e ranking são foto do momento, dependem de filtros, paginação e visibilidade. Não interpretar “número de downloads” como usuários ativos ou garantia de segurança, compatibilidade ou permissão. Não reproduzir imagens/licenças sem revisão.",
+      "curator_note_status": "project_curated_summary"
+    },
+    {
+      "source_id": "N07",
+      "title": "Nexus Mods / lista de destaques",
+      "url": "https://www.nexusmods.com/residentevilrequiem/mods/top",
+      "source_type": "catalog_or_aggregator",
+      "curation_reference": "N07",
+      "source_body_status": "not_obtained",
+      "rights_review_status": "not_revalidated",
+      "access_scope": "read:radar_index",
+      "external_retrieval_authorized": false,
+      "curator_note": "Apresenta REFramework do criador praydog, descreve API Lua, correções de interface/câmera e dependências de outros projetos. Lista ainda mod de inventário e _ScriptCore de outros criadores. Dados de popularidade mudam e NÃO demonstram eficácia atual ou autorização de reutilizar materiais.",
+      "curator_note_status": "project_curated_summary"
+    },
+    {
+      "source_id": "N08",
+      "title": "GameSpot / panorama externo de mods de Requiem",
+      "url": "https://www.gamespot.com/gallery/best-resident-evil-requiem-mods/2900-7573/",
+      "source_type": "secondary_reporting_or_curated_candidate",
+      "curation_reference": "N08",
+      "source_body_status": "not_obtained",
+      "rights_review_status": "not_revalidated",
+      "access_scope": "read:radar_index",
+      "external_retrieval_authorized": false,
+      "curator_note": "Lista jornalística/curadoria de mods. Descreve REFramework como infraestrutura para outros mods. Fonte de terceiro sobre interpretação/praticidade, não documentação técnica oficial nem ranking científico.",
+      "curator_note_status": "project_curated_summary"
+    },
+    {
+      "source_id": "N09",
+      "title": "Steam Capcom requisitos do jogo base",
+      "url": "https://store.steampowered.com/app/3764200/Resident_Evil_Requiem/",
+      "source_type": "primary_or_official_material",
+      "curation_reference": "N09",
+      "source_body_status": "not_obtained",
+      "rights_review_status": "not_revalidated",
+      "access_scope": "read:radar_index",
+      "external_retrieval_authorized": false,
+      "curator_note": "Requisitos do jogo base não garantem desempenho de mods; não inferir FPS, estabilidade, segurança e licença de DLL a partir do jogo original. Discrepância entre Windows11 indicado pelo jogo e Windows10 de um usuário no bug report é uma variável que merece destaque.",
+      "curator_note_status": "project_curated_summary"
+    },
+    {
+      "source_id": "N10",
+      "title": "Capcom declaração do produto de base (27/02/2026)",
+      "url": "https://store.captown.capcom.com/en/blogs/news/0000008",
+      "source_type": "primary_or_official_material",
+      "curation_reference": "N10",
+      "source_body_status": "not_obtained",
+      "rights_review_status": "not_revalidated",
+      "access_scope": "read:radar_index",
+      "external_retrieval_authorized": false,
+      "curator_note": "Documentação para contexto de franquia e lançamento. **Capcom não é automaticamente autora nem patrocinadora de REFramework**. Se a fonte não traz posição oficial sobre uso de mods, não inventá-la.",
+      "curator_note_status": "project_curated_summary"
+    },
+    {
+      "source_id": "N11",
+      "title": "Outros mods dependentes citados no índice Nexus, sem validação de versão",
+      "url": null,
+      "source_type": "catalog_or_aggregator",
+      "curation_reference": "N11",
+      "source_body_status": "unresolved_candidate",
+      "rights_review_status": "not_revalidated",
+      "access_scope": "read:radar_index",
+      "external_retrieval_authorized": false,
+      "curator_note": "Ex.: _ScriptCore e Max Stack Sizes, com autores identificados na listagem. Sua relação de dependência, versão e licença só podem ser afirmadas após abrir página/manifesto específico e confirmar. NÃO afirmar que todos os mods dependem de REFramework.",
+      "curator_note_status": "project_curated_summary"
+    }
+  ],
+  "coverage_questions": [
+    "Por que mod loaders/scripting frameworks mudam o ecossistema criativo além de alterar cosméticos? Qual a diferença entre infraestrutura, script, preset visual e mod de regras de jogo?",
+    "O projeto lista suporte a Requiem, mas reports de março trazem incompatibilidades. Em quais versões do jogo/framework/OS/GPU/overlays? Que dado falta para afirmar que foram resolvidos?",
+    "O que podemos inferir da quantidade de projetos no Nexus e dos downloads? Distinção entre sinal de interesse e qualidade/compatibilidade.",
+    "O que mudou com cada patch do jogo e build nightly? **Se não houver changelog claro, declarar a lacuna**; issue “closed” não equivale a “fixed”.",
+    "Como verificar autoria, direitos, licenças, atribuições e eventuais assets de terceiros, sem instalar pacote nem republicar imagens? Qual papel da comunidade na triagem?",
+    "Para quem isso é útil, e para quem risco técnico/atualizações desaconselham experiências experimentais? Um veredito contextual deve distinguir PC/documentação de consoles e nunca recomendar DLL específica sem verificação.",
+    "Deixar ao menos uma questão para investigação complementar do Radar e preservar not_found/partial quando não houver evidência."
+  ],
+  "readiness": {
+    "curated_notes_available": true,
+    "curated_note_only_trial_ready": true,
+    "source_bodies_obtained": false,
+    "rights_revalidated": false,
+    "external_retrieval_authorized": false,
+    "radar_index_population_verified": false,
+    "ready_for_article_generation": false,
+    "blockers": [
+      "source body is not locally obtained",
+      "source terms and rights have not been revalidated for this run",
+      "Issue #35 permits local Radar index reads only; no matching indexed evidence is present"
+    ]
+  },
+  "package_sha256": "8ab925890bdd50cf01a31313606b9f65180df1a55264a390e5d3285e6efe9b0c"
+}

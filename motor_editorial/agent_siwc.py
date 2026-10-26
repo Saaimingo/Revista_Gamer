@@ -10,6 +10,7 @@ import uuid
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 from .agent_contracts import (
@@ -27,7 +28,9 @@ from .orchestration import (
     TaskFailure,
     _assert_no_credentials,
 )
+from .research_mediation import mediate_requested_research
 from .siwc import SIWCClient, SIWCError, SIWC_REASONING_EFFORTS
+from .usage_meter import AgentUsageArtifactStore, StoryVersionArchive, build_usage_record
 
 
 SIWC_ROLE_EXECUTOR_ID = "siwc-agent-role"
@@ -314,6 +317,8 @@ class SIWCAgentRoleExecutor:
     ):
         self.client = client
         self.artifact_store = SIWCResponseArtifactStore(artifact_root)
+        self.usage_store = AgentUsageArtifactStore(artifact_root)
+        self.story_archive = StoryVersionArchive(artifact_root)
         self.model = model.strip()
         self.reasoning_effort = reasoning_effort.strip()
         self.catalog_models = frozenset(catalog_models)
@@ -410,9 +415,54 @@ class SIWCAgentRoleExecutor:
             "untrusted_evidence": _plain_json(invocation.untrusted_evidence),
         }, ensure_ascii=False, separators=(",", ":"))
         response_ref: dict[str, str] | None = None
+        raw_response_text: str | None = None
+        response_metadata_captured: dict[str, Any] | None = None
+        usage_ref: dict[str, str] | None = None
+        attempt_started_clock = perf_counter()
+        context_bytes = len(trusted_instructions.encode("utf-8")) + len(input_text.encode("utf-8"))
+
+        def persist_usage_attempt(
+            *,
+            metadata_value: Mapping[str, Any] | None,
+            schema_status: str,
+            provider_call_outcome: str,
+            structured_value: Any = None,
+            research_request_count: int | None = None,
+            blocked_reason: str | None = None,
+        ) -> dict[str, str] | None:
+            nonlocal usage_ref
+            if role.role_id != "persona_writer" or usage_ref is not None:
+                return usage_ref
+            normalized_metadata = dict(metadata_value or {})
+            normalized_metadata.setdefault("model_requested", self.model)
+            normalized_metadata.setdefault("reasoning_effort_requested", self.reasoning_effort)
+            normalized_metadata.setdefault("context_bytes", context_bytes)
+            normalized_metadata.setdefault("duration_ms", (perf_counter() - attempt_started_clock) * 1000.0)
+            normalized_metadata["provider_call_outcome"] = provider_call_outcome
+            if blocked_reason:
+                normalized_metadata["blocked_reason"] = blocked_reason
+            suggestions = structured_value.get("requested_research") if isinstance(structured_value, Mapping) else None
+            if not isinstance(suggestions, list) and raw_response_text:
+                try:
+                    raw_value = json.loads(raw_response_text)
+                except json.JSONDecodeError:
+                    raw_value = None
+                suggestions = raw_value.get("requested_research") if isinstance(raw_value, Mapping) else None
+            normalized_metadata["research_suggestion_count"] = len(suggestions) if isinstance(suggestions, list) else None
+            record = build_usage_record(
+                task=task,
+                envelope=envelope,
+                metadata=normalized_metadata,
+                raw_response=raw_response_text.encode("utf-8") if raw_response_text is not None else b"",
+                research_request_count=research_request_count,
+                schema_status=schema_status,
+            )
+            record["blocked_reason"] = blocked_reason
+            usage_ref = self.usage_store.write(record)
+            return usage_ref
 
         def persist_response(raw_text: str, response_metadata: Mapping[str, Any]) -> Mapping[str, Any]:
-            nonlocal response_ref
+            nonlocal response_ref, raw_response_text, response_metadata_captured
             if response_ref is not None:
                 raise ValueError("Resposta SIWC duplicada para a mesma tarefa; não sobrescrever artefato.")
             metadata = {
@@ -423,6 +473,8 @@ class SIWCAgentRoleExecutor:
                 "human_review_required": True,
                 **_plain_json(response_metadata),
             }
+            raw_response_text = raw_text
+            response_metadata_captured = dict(_plain_json(response_metadata))
             response_ref = self.artifact_store.write_response(envelope.task_id, raw_text, metadata)
             return response_ref
 
@@ -436,11 +488,32 @@ class SIWCAgentRoleExecutor:
                 context=context,
                 response_sink=persist_response,
             )
-        except TaskFailure:
+        except TaskFailure as error:
+            if context.external_request_started or response_metadata_captured is not None:
+                persist_usage_attempt(
+                    metadata_value=response_metadata_captured,
+                    schema_status="provider_call_failed",
+                    provider_call_outcome=("uncertain" if error.uncertain else "failed"),
+                    blocked_reason=error.code,
+                )
             raise
         except SIWCError as error:
+            if context.external_request_started or response_metadata_captured is not None:
+                persist_usage_attempt(
+                    metadata_value=response_metadata_captured,
+                    schema_status="provider_call_failed",
+                    provider_call_outcome="failed",
+                    blocked_reason=error.code,
+                )
             raise TaskFailure(error.code, error.message, blocked=True) from None
         except Exception as error:
+            if context.external_request_started or response_metadata_captured is not None:
+                persist_usage_attempt(
+                    metadata_value=response_metadata_captured,
+                    schema_status="provider_call_failed",
+                    provider_call_outcome=("uncertain" if context.external_request_started else "failed"),
+                    blocked_reason=type(error).__name__,
+                )
             raise TaskFailure(
                 "siwc_role_executor_error",
                 f"Executor SIWC falhou ({type(error).__name__}); confira o manifesto local antes de qualquer repetição.",
@@ -449,6 +522,15 @@ class SIWCAgentRoleExecutor:
 
         structured_output = provider_result.get("structured_output")
         metadata = {key: value for key, value in provider_result.items() if key != "structured_output"}
+        persist_usage_attempt(
+            metadata_value=metadata,
+            schema_status="not_yet_validated",
+            provider_call_outcome=(
+                "success" if metadata.get("response_completed") is True
+                else "uncertain" if context.external_request_started else "failed"
+            ),
+            structured_value=structured_output,
+        )
         if response_ref is None or metadata.get("raw_artifact", {}).get("sha256") != response_ref.get("sha256"):
             raise TaskFailure("siwc_raw_response_missing", "Resposta SIWC concluída sem artefato bruto confirmado.", blocked=True)
         if metadata.get("store") is not False or metadata.get("stream") is not True or metadata.get("response_completed") is not True:
@@ -480,6 +562,35 @@ class SIWCAgentRoleExecutor:
             })
             raise
 
+        mediation: dict[str, Any] | None = None
+        requested_research: dict[str, Any] | None = None
+        story_archive_ref: dict[str, Any] | None = None
+        if role.role_id == "persona_writer":
+            mediation = mediate_requested_research(
+                structured_output.get("requested_research"),
+                policy=envelope.research_mediation_policy,
+                parent_task_id=envelope.task_id,
+                story_id=envelope.story_id,
+                role_id=envelope.role_id,
+                persona_id=envelope.persona_id,
+            )
+            requested_research = mediation.get("request")
+            if response_ref is None or raw_response_text is None:
+                raise TaskFailure(
+                    "siwc_raw_response_missing",
+                    "Resposta SIWC concluída sem texto bruto para registro de uso.",
+                    blocked=True,
+                )
+            raw_response_bytes = raw_response_text.encode("utf-8")
+            story_archive_ref = self.story_archive.write(
+                task=task,
+                envelope=envelope,
+                raw_response=raw_response_bytes,
+                structured_story=structured_output,
+                response_ref=response_ref,
+                usage_ref=usage_ref,
+            )
+
         self.artifact_store.update_metadata(envelope.task_id, {
             "output_validation": "role_schema_valid",
             "output_hash": response_ref["sha256"],
@@ -487,6 +598,9 @@ class SIWCAgentRoleExecutor:
             "output_claim_refs": sorted(structured_output.get("claim_refs", [])) if isinstance(structured_output.get("claim_refs"), (list, tuple)) else [],
             "publication_state": "not_published",
             "human_review_required": True,
+            "research_mediation": mediation,
+            "usage_record_ref": usage_ref,
+            "story_archive": story_archive_ref,
         })
         material_claims: list[dict[str, Any]] = []
         claims = structured_output.get("claims") if isinstance(structured_output, Mapping) else None
@@ -503,20 +617,35 @@ class SIWCAgentRoleExecutor:
             values = structured_output.get(key) if isinstance(structured_output, Mapping) else None
             if isinstance(values, (list, tuple)):
                 open_questions.extend(item.strip() for item in values if isinstance(item, str) and item.strip())
+        if mediation is not None:
+            for pending in mediation.get("pending_research", []):
+                if isinstance(pending, Mapping):
+                    open_questions.append(
+                        f"Research suggestion {pending.get('suggestion_index', 'unmapped')} remains pending: "
+                        f"{pending.get('reason', 'needs research specification')}"
+                    )
+        result_status = "completed"
+        if requested_research is not None or (mediation and mediation.get("pending_research")):
+            result_status = "needs_more_research"
+        observed_constraints = [
+            "human_review_required", "publication_state=not_published",
+            "siwc_store=false", "siwc_stream=true", "response_completed=true",
+        ]
+        if requested_research is not None:
+            observed_constraints.append("research_scope=read:radar_index")
+        if mediation and mediation.get("pending_research"):
+            observed_constraints.append("research_suggestions_pending_motor_review")
         try:
             result_envelope = AgentResultEnvelope.from_mapping({
                 "schema_version": "1.0",
                 "task_id": envelope.task_id,
-                "status": "completed",
+                "status": result_status,
                 "output_schema_version": str(role.output_schema.get("version", role.output_schema.get("schema_version", "1.0"))),
                 "artifact_ref": response_ref,
                 "material_claims": material_claims,
-                "requested_research": None,
+                "requested_research": requested_research,
                 "open_questions": open_questions,
-                "observed_constraints": [
-                    "human_review_required", "publication_state=not_published",
-                    "siwc_store=false", "siwc_stream=true", "response_completed=true",
-                ],
+                "observed_constraints": observed_constraints,
                 "input_hash": envelope.input_hash,
                 "output_hash": response_ref["sha256"],
                 "created_at": metadata.get("completed_at") or datetime.now(timezone.utc).isoformat(timespec="milliseconds"),

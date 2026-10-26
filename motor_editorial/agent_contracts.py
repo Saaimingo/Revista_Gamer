@@ -23,11 +23,13 @@ from .orchestration import AgentProfile, AgentQueue, _assert_no_credentials
 
 AGENT_ROLE_PROFILE_SCHEMA_VERSION = "1.0"
 AGENT_TASK_ENVELOPE_SCHEMA_VERSION = "1.0"
+SUPPORTED_AGENT_TASK_ENVELOPE_SCHEMA_VERSIONS = frozenset({"1.0", "1.1"})
 AGENT_RESULT_ENVELOPE_SCHEMA_VERSION = "1.0"
 RESEARCH_REQUEST_SCHEMA_VERSION = "1.1"
 SUPPORTED_RESEARCH_REQUEST_SCHEMA_VERSIONS = frozenset({"1.0", "1.1"})
 RESEARCH_PACKET_SCHEMA_VERSION = "1.0"
 CATALOG_SCHEMA_VERSION = "1.0"
+MAX_PERSONA_INSTRUCTIONS_CHARS = 80_000
 
 RESULT_STATUSES = frozenset({
     "completed", "needs_more_research", "revise", "hold", "blocked", "uncertain",
@@ -430,17 +432,25 @@ class AgentTaskEnvelope:
     persona_version: str | None = None
     persona_hash: str | None = None
     deadline: str | None = None
+    research_mediation_policy: Mapping[str, Any] | None = None
     schema_version: str = AGENT_TASK_ENVELOPE_SCHEMA_VERSION
 
     @classmethod
     def from_mapping(cls, value: Any) -> "AgentTaskEnvelope":
         keys = {"schema_version", "task_id", "run_id", "story_id", "edition_id", "role_id", "role_version", "role_hash", "input_payload_hash",
                 "persona_id", "persona_version", "persona_hash", "input_artifact_refs", "source_snapshot_ids", "authorized_tools",
-                "deadline", "context_schema_version", "usage_guardrails", "idempotency_key", "correlation_id", "requires_human_gate"}
-        optional = {"edition_id", "persona_id", "persona_version", "persona_hash", "deadline"}
+                "deadline", "context_schema_version", "usage_guardrails", "idempotency_key", "correlation_id", "requires_human_gate",
+                "research_mediation_policy"}
+        optional = {"edition_id", "persona_id", "persona_version", "persona_hash", "deadline", "research_mediation_policy"}
         raw = _object(value, name="AgentTaskEnvelope", required=keys - optional, optional=optional)
-        if raw["schema_version"] != AGENT_TASK_ENVELOPE_SCHEMA_VERSION:
+        if raw["schema_version"] not in SUPPORTED_AGENT_TASK_ENVELOPE_SCHEMA_VERSIONS:
             raise ContractValidationError("Versão de AgentTaskEnvelope não suportada.")
+        if raw["schema_version"] == "1.0" and "research_mediation_policy" in raw:
+            raise ContractValidationError("research_mediation_policy exige AgentTaskEnvelope v1.1.")
+        if raw["schema_version"] == "1.1" and (
+            raw.get("role_id") != "persona_writer" or not isinstance(raw.get("research_mediation_policy"), Mapping)
+        ):
+            raise ContractValidationError("AgentTaskEnvelope v1.1 exige política de mediação para persona_writer.")
         artifact_raw = raw["input_artifact_refs"]
         tool_raw = raw["authorized_tools"]
         if not isinstance(artifact_raw, list) or not isinstance(tool_raw, list):
@@ -474,19 +484,26 @@ class AgentTaskEnvelope:
             context_schema_version=_text(raw["context_schema_version"], "context_schema_version", maximum=32),
             usage_guardrails=guardrails, idempotency_key=_identifier(raw["idempotency_key"], "idempotency_key"),
             correlation_id=_identifier(raw["correlation_id"], "correlation_id"), requires_human_gate=gate,
+            research_mediation_policy=(
+                _freeze(raw["research_mediation_policy"], "research_mediation_policy")
+                if raw.get("research_mediation_policy") is not None else None
+            ),
             schema_version=raw["schema_version"],
         )  # type: ignore[arg-type]
 
     @property
     def input_hash(self) -> str:
-        return stable_hash(json_dumps({
+        record = {
             "input_artifact_refs": [item.to_dict() for item in self.input_artifact_refs],
             "source_snapshot_ids": list(self.source_snapshot_ids),
             "input_payload_hash": self.input_payload_hash,
-        }))
+        }
+        if self.research_mediation_policy is not None:
+            record["research_mediation_policy"] = _thaw(self.research_mediation_policy)
+        return stable_hash(json_dumps(record))
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result = {
             "schema_version": self.schema_version, "task_id": self.task_id, "run_id": self.run_id, "story_id": self.story_id,
             "edition_id": self.edition_id, "role_id": self.role_id, "role_version": self.role_version, "role_hash": self.role_hash,
             "input_payload_hash": self.input_payload_hash,
@@ -497,6 +514,9 @@ class AgentTaskEnvelope:
             "usage_guardrails": _thaw(self.usage_guardrails), "idempotency_key": self.idempotency_key,
             "correlation_id": self.correlation_id, "requires_human_gate": self.requires_human_gate,
         }
+        if self.research_mediation_policy is not None:
+            result["research_mediation_policy"] = _thaw(self.research_mediation_policy)
+        return result
 
 
 @dataclass(frozen=True)
@@ -938,7 +958,11 @@ class AgentRoleCatalog:
                 raise ContractValidationError("persona_writer exige referência imutável de persona.")
             if persona_instructions is None:
                 raise ContractValidationError("persona_writer exige instruções do DNA versionado para preparar a invocação.")
-            persona_text = _text(persona_instructions, "persona_instructions", maximum=20_000)
+            persona_text = _text(
+                persona_instructions,
+                "persona_instructions",
+                maximum=MAX_PERSONA_INSTRUCTIONS_CHARS,
+            )
             if stable_hash(persona_text) != envelope.persona_hash:
                 raise ContractValidationError("Hash do DNA fornecido não corresponde à referência imutável da persona.")
             sections.append(InstructionSection(f"persona:{envelope.persona_id}", envelope.persona_version or "", persona_text))  # type: ignore[arg-type]
