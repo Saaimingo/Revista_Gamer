@@ -77,7 +77,8 @@ class AgentRoleCatalogTests(unittest.TestCase):
                 self.assertTrue(profile.excluded_actions)
                 self.assertTrue(profile.quality_rubric)
                 self.assertEqual(profile.evaluation_fixture_refs, (f"fixture://agent_roles/v1/{role_id}",))
-                self.assertEqual(profile.output_schema["version"], "1.0.0")
+                expected_output_version = "1.1.0" if role_id == "assignment_editor" else "1.0.0"
+                self.assertEqual(profile.output_schema["version"], expected_output_version)
                 self.assertTrue(profile.human_review_gate["required"])
                 self.assertEqual(profile.allowed_model_policy["fallback"], "none")
 

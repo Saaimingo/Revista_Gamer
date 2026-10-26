@@ -207,7 +207,8 @@ class SIWCAgentRoleExecutorTests(unittest.TestCase):
             self.assertEqual(manifest["output_validation"], "role_schema_valid")
             self.assertEqual(manifest["publication_state"], "not_published")
             self.assertEqual(manifest["role_id"], role_id)
-            self.assertEqual(manifest["role_version"], "1.0.0")
+            expected_role_version = "1.1.0" if role_id == "assignment_editor" else "1.0.0"
+            self.assertEqual(manifest["role_version"], expected_role_version)
             self.assertEqual(manifest["input_hash"], result["input_hash"])
             self.assertEqual(manifest["source_snapshot_ids"], ["snapshot-h01-fixture"])
             self.assertEqual(manifest["model_requested"], "gpt-6-luna")

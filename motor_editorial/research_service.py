@@ -640,6 +640,9 @@ class ResearchService:
                 has_allowed_lineage = True
             if has_allowed_lineage:
                 accepted_claims.append(claim_id)
+                statement = claim.get("statement")
+                if isinstance(statement, str) and statement.strip():
+                    excerpts.append(f"{claim.get('epistemic_status', 'unverified_or_disputed')}: {statement[:600]}")
                 new_information_since = claim.get("new_information_since")
                 if new_information_since:
                     try:

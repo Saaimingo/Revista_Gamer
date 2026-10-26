@@ -177,7 +177,14 @@ def validate_story_package(value: Any) -> dict[str, Any]:
     reviewed_hash = review.get("reviewed_story_sha256")
     if reviewed_hash != story_revision_sha256(payload):
         raise ContractError("A revisão não corresponde ao hash da matéria vigente.")
-    if review.get("synthetic_fixture") is not True:
+    if review.get("synthetic_fixture") is False:
+        for field in ("reviewer_task_id", "review_artifact_sha256"):
+            _nonempty(review.get(field), f"review.{field}")
+        if not _SHA256_RE.fullmatch(str(review.get("review_artifact_sha256"))):
+            raise ContractError("review_artifact_sha256 precisa ser SHA-256 hexadecimal.")
+        if review.get("human_approval") != "pending":
+            raise ContractError("Parecer editorial nÃ£o pode encerrar o gate humano final.")
+    elif review.get("synthetic_fixture") is not True:
         raise ContractError("A revisão do ensaio precisa estar identificada como sintética.")
     return artifact
 

@@ -16,6 +16,7 @@ from .agent_contracts import (
     AgentResultEnvelope,
     AgentTaskEnvelope,
     ContractValidationError,
+    ResearchRequest,
     validate_json_schema,
 )
 from .db import json_dumps, stable_hash
@@ -27,6 +28,7 @@ from .orchestration import (
     TaskFailure,
     _assert_no_credentials,
 )
+from .research_mediation import mediate_requested_research
 from .siwc import SIWCClient, SIWCError, SIWC_REASONING_EFFORTS
 
 
@@ -488,6 +490,41 @@ class SIWCAgentRoleExecutor:
             "publication_state": "not_published",
             "human_review_required": True,
         })
+        mediation = mediate_requested_research(
+            structured_output.get("requested_research") if isinstance(structured_output, Mapping) else None,
+            policy=envelope.research_mediation_policy,
+            parent_task_id=envelope.task_id,
+            story_id=envelope.story_id,
+            role_id=envelope.role_id,
+            persona_id=envelope.persona_id,
+        )
+        try:
+            requested_research = (
+                ResearchRequest.from_mapping(mediation["request"])
+                if isinstance(mediation.get("request"), Mapping) else None
+            )
+        except (ContractValidationError, TypeError, ValueError):
+            self.artifact_store.update_metadata(envelope.task_id, {
+                "output_validation": "research_mediation_result_rejected",
+                "research_mediation": {"status": "hold_invalid_structured_request"},
+            })
+            raise TaskFailure(
+                "siwc_research_request_invalid",
+                "Pesquisa sugerida foi preservada, mas nÃ£o passou pelo contrato do Motor.",
+                blocked=True,
+            ) from None
+        if task.payload.get("research_packet") is not None and requested_research is not None:
+            mediation = {
+                **mediation,
+                "status": "hold_story_research_budget_exhausted",
+                "request": None,
+                "pending_research": [
+                    *mediation.get("pending_research", []),
+                    {"reason": "one_complementary_research_cycle_per_story"},
+                ],
+            }
+            requested_research = None
+        self.artifact_store.update_metadata(envelope.task_id, {"research_mediation": mediation})
         material_claims: list[dict[str, Any]] = []
         claims = structured_output.get("claims") if isinstance(structured_output, Mapping) else None
         if isinstance(claims, (list, tuple)):
@@ -511,7 +548,7 @@ class SIWCAgentRoleExecutor:
                 "output_schema_version": str(role.output_schema.get("version", role.output_schema.get("schema_version", "1.0"))),
                 "artifact_ref": response_ref,
                 "material_claims": material_claims,
-                "requested_research": None,
+                "requested_research": requested_research.to_dict() if requested_research else None,
                 "open_questions": open_questions,
                 "observed_constraints": [
                     "human_review_required", "publication_state=not_published",

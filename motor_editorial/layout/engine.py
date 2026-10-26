@@ -480,7 +480,7 @@ def render_preview(
     body: list[str] = [
         '<main class="page-pair" aria-label="Prévia interna da matéria">',
         '<header class="story-header">',
-        f"<p class=\"eyebrow\">{html.escape(story_payload['edition_id'])} · MOCK FICTÍCIO</p>",
+        f"<p class=\"eyebrow\">{html.escape(story_payload['edition_id'])} | {html.escape(str(story_payload.get('preview_label', 'MOCK FICTICIO')))}</p>",
         f"<h1>{html.escape(story_payload['title'])}</h1>",
         f"<p class=\"dek\">{html.escape(story_payload['dek'])}</p>",
         "</header>",
@@ -583,7 +583,7 @@ def render_preview(
                 '</section>'
             )
     body.extend([
-        '<p class="internal-note">Prévia local de Fase 0 · conteúdo fictício · não publicar</p>',
+        f"<p class=\"internal-note\">{html.escape(str(story_payload.get('preview_note', 'Local Fase 0 fictional content - do not publish')))}</p>",
         '</main>',
     ])
     return _document(story_payload["title"], "".join(body), plan_payload["layouts"])

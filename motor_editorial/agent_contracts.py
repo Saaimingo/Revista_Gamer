@@ -22,7 +22,8 @@ from .orchestration import AgentProfile, AgentQueue, _assert_no_credentials
 
 
 AGENT_ROLE_PROFILE_SCHEMA_VERSION = "1.0"
-AGENT_TASK_ENVELOPE_SCHEMA_VERSION = "1.0"
+AGENT_TASK_ENVELOPE_SCHEMA_VERSION = "1.1"
+SUPPORTED_AGENT_TASK_ENVELOPE_SCHEMA_VERSIONS = frozenset({"1.0", "1.1"})
 AGENT_RESULT_ENVELOPE_SCHEMA_VERSION = "1.0"
 RESEARCH_REQUEST_SCHEMA_VERSION = "1.1"
 SUPPORTED_RESEARCH_REQUEST_SCHEMA_VERSIONS = frozenset({"1.0", "1.1"})
@@ -430,17 +431,21 @@ class AgentTaskEnvelope:
     persona_version: str | None = None
     persona_hash: str | None = None
     deadline: str | None = None
+    research_mediation_policy: Mapping[str, Any] | None = None
     schema_version: str = AGENT_TASK_ENVELOPE_SCHEMA_VERSION
 
     @classmethod
     def from_mapping(cls, value: Any) -> "AgentTaskEnvelope":
         keys = {"schema_version", "task_id", "run_id", "story_id", "edition_id", "role_id", "role_version", "role_hash", "input_payload_hash",
                 "persona_id", "persona_version", "persona_hash", "input_artifact_refs", "source_snapshot_ids", "authorized_tools",
-                "deadline", "context_schema_version", "usage_guardrails", "idempotency_key", "correlation_id", "requires_human_gate"}
-        optional = {"edition_id", "persona_id", "persona_version", "persona_hash", "deadline"}
+                "deadline", "context_schema_version", "usage_guardrails", "idempotency_key", "correlation_id", "requires_human_gate",
+                "research_mediation_policy"}
+        optional = {"edition_id", "persona_id", "persona_version", "persona_hash", "deadline", "research_mediation_policy"}
         raw = _object(value, name="AgentTaskEnvelope", required=keys - optional, optional=optional)
-        if raw["schema_version"] != AGENT_TASK_ENVELOPE_SCHEMA_VERSION:
+        if raw["schema_version"] not in SUPPORTED_AGENT_TASK_ENVELOPE_SCHEMA_VERSIONS:
             raise ContractValidationError("Versão de AgentTaskEnvelope não suportada.")
+        if raw["schema_version"] == "1.0" and raw.get("research_mediation_policy") is not None:
+            raise ContractValidationError("ResearchMediationPolicy requires AgentTaskEnvelope v1.1.")
         artifact_raw = raw["input_artifact_refs"]
         tool_raw = raw["authorized_tools"]
         if not isinstance(artifact_raw, list) or not isinstance(tool_raw, list):
@@ -458,6 +463,10 @@ class AgentTaskEnvelope:
         if not isinstance(gate, bool):
             raise ContractValidationError("requires_human_gate precisa ser booleano.")
         guardrails = _json_mapping(raw["usage_guardrails"], "usage_guardrails")
+        research_policy = (
+            _json_mapping(raw["research_mediation_policy"], "research_mediation_policy", allow_empty=False)
+            if raw.get("research_mediation_policy") is not None else None
+        )
         if any(not isinstance(v, int) or isinstance(v, bool) or v < 1 for v in guardrails.values()):
             raise ContractValidationError("usage_guardrails precisa conter limites inteiros positivos.")
         return cls(
@@ -474,6 +483,7 @@ class AgentTaskEnvelope:
             context_schema_version=_text(raw["context_schema_version"], "context_schema_version", maximum=32),
             usage_guardrails=guardrails, idempotency_key=_identifier(raw["idempotency_key"], "idempotency_key"),
             correlation_id=_identifier(raw["correlation_id"], "correlation_id"), requires_human_gate=gate,
+            research_mediation_policy=research_policy,
             schema_version=raw["schema_version"],
         )  # type: ignore[arg-type]
 
@@ -486,7 +496,7 @@ class AgentTaskEnvelope:
         }))
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result = {
             "schema_version": self.schema_version, "task_id": self.task_id, "run_id": self.run_id, "story_id": self.story_id,
             "edition_id": self.edition_id, "role_id": self.role_id, "role_version": self.role_version, "role_hash": self.role_hash,
             "input_payload_hash": self.input_payload_hash,
@@ -497,6 +507,11 @@ class AgentTaskEnvelope:
             "usage_guardrails": _thaw(self.usage_guardrails), "idempotency_key": self.idempotency_key,
             "correlation_id": self.correlation_id, "requires_human_gate": self.requires_human_gate,
         }
+        if self.schema_version == "1.1":
+            result["research_mediation_policy"] = (
+                _thaw(self.research_mediation_policy) if self.research_mediation_policy is not None else None
+            )
+        return result
 
 
 @dataclass(frozen=True)
@@ -875,6 +890,18 @@ class AgentRoleCatalog:
         if required_role_id is not None and envelope.role_id != required_role_id:
             raise ContractValidationError("Papel solicitado não corresponde ao tipo da tarefa.")
         profile = self.resolve(envelope.role_id, envelope.role_version, envelope.role_hash)
+        if envelope.research_mediation_policy is not None:
+            if not profile.request_research_allowed:
+                raise ContractValidationError("Papel recebeu política de pesquisa sem autorizar pedidos ao Motor.")
+            self.authorize_tool(envelope, "motor.request_research", ["create:research_request"])
+            from .research_mediation import validate_policy
+
+            validate_policy(
+                envelope.research_mediation_policy,
+                story_id=envelope.story_id,
+                role_id=envelope.role_id,
+                persona_id=envelope.persona_id,
+            )
         if envelope.persona_id is not None and profile.role_id != "persona_writer":
             raise ContractValidationError("DNA narrativo só pode ser referenciado pelo papel persona_writer.")
         if profile.role_id == "persona_writer" and envelope.persona_id is None:
@@ -938,7 +965,11 @@ class AgentRoleCatalog:
                 raise ContractValidationError("persona_writer exige referência imutável de persona.")
             if persona_instructions is None:
                 raise ContractValidationError("persona_writer exige instruções do DNA versionado para preparar a invocação.")
-            persona_text = _text(persona_instructions, "persona_instructions", maximum=20_000)
+            # Approved persona packages can include the complete cognitive,
+            # expressive, editorial and loading contracts. Keep them intact in
+            # the trusted instruction section rather than silently truncating
+            # the character to the short profile summary.
+            persona_text = _text(persona_instructions, "persona_instructions", maximum=100_000)
             if stable_hash(persona_text) != envelope.persona_hash:
                 raise ContractValidationError("Hash do DNA fornecido não corresponde à referência imutável da persona.")
             sections.append(InstructionSection(f"persona:{envelope.persona_id}", envelope.persona_version or "", persona_text))  # type: ignore[arg-type]

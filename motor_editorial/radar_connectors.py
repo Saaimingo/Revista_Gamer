@@ -417,6 +417,7 @@ class FetchResult:
     metadata: Any = None
     error_code: str | None = None
     payload_sha256: str | None = None
+    payload_bytes: int = 0
 
 
 def _retry_after_seconds(value: str | None, now: datetime, fallback: int, *, maximum: int = 86_400) -> int:
@@ -680,6 +681,7 @@ class RadarConnectorService:
         fetched_at: str, now: datetime, redirects: int, state: SourceRuntimeState, origin: str,
     ) -> FetchResult:
         status = response.status_code
+        payload_bytes = len(response.body)
         headers = response.headers
         etag = self._header(headers, "etag")
         last_modified = self._header(headers, "last-modified")
@@ -781,7 +783,7 @@ class RadarConnectorService:
         payload_sha256 = hashlib.sha256(body).hexdigest() if result_status == "observed" else None
         return FetchResult(profile.source_id, result_status, requested_url, final_url, status, fetched_at,
                            content_type, etag, last_modified, retry_at, redirects, metadata, error_code,
-                           payload_sha256)
+                           payload_sha256, payload_bytes)
 
 
 @dataclass(frozen=True)
@@ -1003,7 +1005,8 @@ def parse_public_json(payload: bytes, *, maximum_bytes: int = 1_000_000) -> Any:
 
 
 _SAFE_API_FIELDS = {
-    "id", "title", "name", "url", "link", "published_at", "updated_at", "release_date",
+    "id", "title", "name", "url", "html_url", "link", "tag_name", "published_at", "updated_at", "release_date",
+    "created_at", "prerelease", "draft",
     "version", "slug", "author", "publisher", "developer", "status", "type", "platform",
 }
 _SAFE_API_CONTAINERS = {"data", "items", "results", "entries", "records", "releases", "builds", "versions"}
@@ -1013,6 +1016,7 @@ def project_public_api_metadata(payload: bytes, *, maximum_bytes: int = 1_000_00
     """Return a small metadata projection while dropping article/body fields."""
     source = parse_public_json(payload, maximum_bytes=maximum_bytes)
     budget = [1_000]
+    excerpt_words_left = [25]
 
     def project(value: Any, depth: int = 0) -> Any:
         if depth > 8 or budget[0] <= 0:
@@ -1022,9 +1026,21 @@ def project_public_api_metadata(payload: bytes, *, maximum_bytes: int = 1_000_00
             result: dict[str, Any] = {}
             for key, nested in value.items():
                 normalized = str(key).casefold().replace("-", "_")
+                if normalized == "body" and isinstance(nested, str) and excerpt_words_left[0] > 0:
+                    words = " ".join(nested.split()).split()
+                    take = min(excerpt_words_left[0], len(words))
+                    if take:
+                        result["body_excerpt"] = " ".join(words[:take])
+                        excerpt_words_left[0] -= take
+                    continue
+                if normalized == "author" and isinstance(nested, Mapping):
+                    login = nested.get("login")
+                    if isinstance(login, str) and login.strip():
+                        result["author"] = login.strip()[:500]
+                    continue
                 if normalized in _SAFE_API_FIELDS:
                     if isinstance(nested, (str, int, float, bool)) or nested is None:
-                        if normalized in {"url", "link"}:
+                        if normalized in {"url", "link", "html_url"}:
                             safe_url = _safe_public_reference_url(nested) if isinstance(nested, str) else None
                             if safe_url:
                                 result[normalized] = safe_url

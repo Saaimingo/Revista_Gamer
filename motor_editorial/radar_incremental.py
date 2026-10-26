@@ -118,16 +118,18 @@ def _as_feed_items(fetch: FetchResult) -> tuple[FeedItem, ...]:
         if depth > 8 or len(items) >= 10_000:
             return
         if isinstance(value, Mapping):
-            title = value.get("title") or value.get("name")
-            url = value.get("url") or value.get("link")
+            title = value.get("title") or value.get("name") or value.get("tag_name")
+            url = value.get("url") or value.get("html_url") or value.get("link")
             if isinstance(title, str) and title.strip() and isinstance(url, str):
                 byline = value.get("author") or value.get("publisher")
-                external_id = value.get("id") or value.get("slug")
+                external_id = value.get("id") or value.get("slug") or value.get("tag_name")
                 published_at = value.get("published_at") or value.get("updated_at") or value.get("release_date")
+                human_url = value.get("html_url") if url == value.get("url") else None
                 items.append(FeedItem(
                     title.strip()[:1_000], url, str(external_id)[:500] if external_id is not None else None,
                     str(published_at)[:256] if published_at is not None else None,
                     str(byline)[:500] if byline is not None else None,
+                    origin_url=human_url if isinstance(human_url, str) else None,
                 ))
                 return
             for nested in value.values():

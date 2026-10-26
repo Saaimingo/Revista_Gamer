@@ -9,11 +9,13 @@ from __future__ import annotations
 
 import json
 import math
+import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from types import MappingProxyType
 from typing import Any, Mapping, Sequence
+from urllib.parse import urlsplit
 
 from .agent_contracts import (
     AGENT_TASK_ENVELOPE_SCHEMA_VERSION,
@@ -159,6 +161,7 @@ class RadarGeneralService:
         queue: AgentQueue,
         catalog: AgentRoleCatalog | None = None,
         executor_id: str = "triage.pending",
+        executor_profile: AgentProfile | None = None,
     ):
         if not isinstance(executor_id, str) or not executor_id.strip() or len(executor_id) > 128:
             raise ValueError("executor_id precisa ser texto curto.")
@@ -167,6 +170,7 @@ class RadarGeneralService:
         self.queue = queue
         self.catalog = catalog or load_builtin_role_catalog()
         self.executor_id = executor_id
+        self.executor_profile = executor_profile or _TRIAGE_EXECUTOR_PROFILE
         self.triage_profile = _role_profile(self.catalog, "triage_analyst")
 
     def scan(
@@ -176,6 +180,7 @@ class RadarGeneralService:
         now: str | datetime | None = None,
         policy: RadarTriagePolicy | None = None,
         portfolio: Sequence[str] = (),
+        wait_for_origin_slot: bool = False,
     ) -> RadarGeneralScanResult:
         profiles = tuple(source_profiles)
         if not profiles:
@@ -202,7 +207,19 @@ class RadarGeneralService:
             (row["claim_id"], row["origin_group_id"])
             for row in self.store.list_rows("radar_claim_sources")
         }
-        fetches = tuple(self.incremental.fetch(profile, now=observed_at) for profile in profiles)
+        fetches_list: list[IncrementalFetchResult] = []
+        last_origin_started: dict[str, tuple[float, int]] = {}
+        for profile in profiles:
+            origin = f"{urlsplit(profile.target_url()).scheme}://{urlsplit(profile.target_url()).hostname}"
+            previous = last_origin_started.get(origin)
+            if wait_for_origin_slot and previous is not None:
+                elapsed = time.monotonic() - previous[0]
+                wait = previous[1] + 0.1 - elapsed
+                if wait > 0:
+                    time.sleep(wait)
+            last_origin_started[origin] = (time.monotonic(), profile.min_poll_interval_seconds)
+            fetches_list.append(self.incremental.fetch(profile, now=observed_at))
+        fetches = tuple(fetches_list)
 
         documents = {row["document_id"]: row for row in self.store.list_rows("radar_documents")}
         observations = {row["event_id"]: row for row in self.store.list_rows("radar_observation_events")}
@@ -376,6 +393,12 @@ class RadarGeneralService:
                 "url": representative_doc["canonical_url"],
                 "publisher": representative_doc["publisher"],
                 "diff": _compact_json(detail),
+                "evidence_refs": sorted({
+                    item_id,
+                    *(f"radar://document/{document_id}" for document_id in candidate_document_ids),
+                    *(str(event["event_id"]) for event in event_evidence),
+                    *(str(event["source_snapshot_id"]) for event in event_evidence if event.get("source_snapshot_id")),
+                }),
             }
             if representative_doc.get("published_at"):
                 item["published_at"] = representative_doc["published_at"]
@@ -426,7 +449,7 @@ class RadarGeneralService:
             })
             triage_task_id = enqueue_contract_task(
                 self.queue, envelope, input_payload, catalog=self.catalog,
-                executor_profile=_TRIAGE_EXECUTOR_PROFILE, executor_id=self.executor_id,
+                executor_profile=self.executor_profile, executor_id=self.executor_id,
                 max_attempts=1,
             )
 
