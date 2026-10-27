@@ -13,12 +13,14 @@ from motor_editorial.agent_contracts import ResearchPacket, ResearchRequest
 from motor_editorial.eng_codex_011 import (
     SOURCE_CANDIDATES,
     Checkpoint,
+    GitHubReleaseResearchProvider,
     RunBlocked,
     _canonicalize_investigator_claim_ids,
     _make_radar_profile,
     _build_initial_packet,
     _map_persisted_live_items,
     _normalize_writer_claim_refs_against_section_evidence,
+    _packet_for_role_continuation,
     _read_completed_role_artifact,
     _load_succeeded_role_output,
     _restore_persisted_discovery_batch,
@@ -31,12 +33,84 @@ from motor_editorial.eng_codex_011 import (
 )
 from motor_editorial.agent_siwc import SIWCResponseArtifactStore
 from motor_editorial.radar_store import RadarStore
+from motor_editorial.research_service import PUBLIC_SOURCES_SCOPE, RADAR_INDEX_SCOPE
 from motor_editorial.radar_triage import EDITORIAL_TRIAGE_LANES, resolve_triage_output
 from motor_editorial.db import stable_hash
 from motor_editorial.usage_meter import AgentUsageArtifactStore, StoryVersionArchive
 
 
 class PersistedTriageResumeTests(unittest.TestCase):
+    def test_blocked_empty_research_packet_falls_back_to_existing_dossier(self) -> None:
+        initial_packet = ResearchPacket.create(
+            request_id="initial-packet", status="partial",
+            document_refs=[{"ref": "radar://document/" + "a" * 32, "sha256": "b" * 64}],
+            missing_evidence=["official_statement"], fetched_at="2026-10-27T12:00:00+00:00",
+        )
+        blocked_empty = ResearchPacket.create(
+            request_id="supplement-packet", status="blocked",
+            missing_evidence=["official_statement"], fetched_at="2026-10-27T12:01:00+00:00",
+        )
+        partial_supplement = ResearchPacket.create(
+            request_id="partial-supplement", status="partial",
+            document_refs=[{"ref": "radar://document/" + "c" * 32, "sha256": "d" * 64}],
+            missing_evidence=["official_statement"], fetched_at="2026-10-27T12:02:00+00:00",
+        )
+
+        self.assertIs(_packet_for_role_continuation(blocked_empty, initial_packet), initial_packet)
+        self.assertIs(_packet_for_role_continuation(partial_supplement, initial_packet), partial_supplement)
+
+    def test_metadata_only_release_provider_cannot_report_full_details_as_found(self) -> None:
+        source_id = "github-api-proton-detail"
+        document_id = "proton-detail-document"
+        api_url = "https://api.github.com/repos/ValveSoftware/Proton/releases/tags/proton-11.0-2e"
+        public_url = "https://github.com/ValveSoftware/Proton/releases/tag/proton-11.0-2e"
+        observed_at = "2026-10-27T15:54:33+00:00"
+        with tempfile.TemporaryDirectory(prefix="eng012-metadata-only-provider-") as temporary:
+            store = RadarStore(Path(temporary) / "radar.sqlite3")
+            store.register_source(
+                source_id=source_id, display_name="Valve Proton release API", canonical_url=api_url,
+                source_type="public_api", access_policy="allowed", rights_status="unknown", now=observed_at,
+            )
+            store.register_document(
+                document_id=document_id, source_id=source_id, canonical_url=public_url,
+                resolved_url=public_url, publisher="Valve Proton public releases", language="en",
+                published_at="2026-10-09T17:49:01+00:00", fetched_at=observed_at,
+                content_sha256="a" * 64, normalized_sha256="b" * 64,
+                title="Proton 11.0-2e", access_policy="allowed", rights_status="unknown",
+            )
+            fetch = SimpleNamespace(
+                status="observed", http_status=200, fetched_at=observed_at, payload_bytes=2_120,
+                payload_sha256="c" * 64, redirect_count=0,
+                metadata={"tag_name": "proton-11.0-2e", "url": api_url, "html_url": public_url,
+                          "name": "Proton 11.0-2e", "published_at": "2026-10-09T17:49:01+00:00"},
+            )
+            incremental = SimpleNamespace(fetch=lambda *_args, **_kwargs: SimpleNamespace(
+                fetch=fetch, documents=(SimpleNamespace(document_id=document_id),),
+            ))
+            provider = GitHubReleaseResearchProvider(store, incremental)
+            provider.bind(source_id, {
+                "tag_name": "proton-11.0-2e", "owner": "ValveSoftware", "repo": "Proton", "profile": object(),
+            })
+            request = SimpleNamespace(
+                preferred_source_ids=(source_id,), allowed_scope=(RADAR_INDEX_SCOPE, PUBLIC_SOURCES_SCOPE),
+                preferred_domains=("api.github.com",), max_requests=1, max_bytes=65_536, max_sources=5,
+                required_evidence_kinds=("official_statement",), request_id="metadata-only-request",
+            )
+            budget = SimpleNamespace(
+                max_requests=1, max_bytes=65_536, max_sources=5,
+                before_external_request=lambda: None,
+            )
+
+            result = provider.search(request, object(), cached_document_ids=(), budget=budget)
+
+            self.assertEqual(result.status, "partial")
+            self.assertEqual(result.missing_evidence, ("official_statement",))
+            self.assertIn("metadata-only source policy", result.constraints[0])
+            self.assertEqual(provider.last_execution["excerpt_words"], 0)
+            persisted = store.get_row("radar_documents", "document_id", document_id)
+            self.assertEqual(persisted["body_char_count"], 0)
+            self.assertIsNone(persisted["body_sha256"])
+
     def test_runner_reuses_executor_persisted_usage_receipt_without_rewriting(self) -> None:
         task_id = "triage-receipt-reuse"
         raw_bytes = b'{"decisions":[],"no_change":true}'
@@ -390,7 +464,7 @@ class PersistedTriageResumeTests(unittest.TestCase):
         original_hash = stable_hash(original_text)
         revision = {"title": "Title", "dek": "Dek", "sections": [{"heading": "H", "body": "Revised"}], "requested_research": []}
 
-        def exercise(revised, fact_status="pass", final_verdict="pass"):
+        def exercise(revised, fact_status="pass", final_verdict="pass", research_cycle_used=False):
             calls, tasks, events, archived = [], [], [], []
             revised_hash = stable_hash(StoryVersionArchive._render(revised))
 
@@ -422,7 +496,8 @@ class PersistedTriageResumeTests(unittest.TestCase):
             args = dict(
                 reviewer_output=review, reviewer_task="review-1", reviewer_envelope=object(),
                 draft_hash=original_hash, editorial_brief={}, final_dossier={}, writing_constraints={},
-                story_text=original_text, research_completed=False, queue=queue,
+                story_text=original_text, research_completed=False,
+                research_cycle_used=research_cycle_used, queue=queue,
                 role_catalog=SimpleNamespace(validate_result=lambda *_: SimpleNamespace(requested_research=None)),
                 profiles={}, run_id="run", run_token="token", story_id="story", snapshot_ids=[], root=Path("."),
                 detail_source_id="source", selected={"source": {}, "tag_name": "tag", "evidence_ids": []},
@@ -464,6 +539,13 @@ class PersistedTriageResumeTests(unittest.TestCase):
         result, calls, _, _, _ = exercise({**revision, "requested_research": ["fonte adicional"]})
         self.assertEqual(result, "review_correction_research_request_not_accepted_by_motor")
         self.assertEqual(calls, ["journalist_review_correction_agent"])
+
+        result, calls, tasks, _, _ = exercise(
+            {**revision, "requested_research": ["fonte adicional"]}, research_cycle_used=True,
+        )
+        self.assertEqual(result, "review_correction_research_cycle_already_used")
+        self.assertEqual(calls, ["journalist_review_correction_agent"])
+        self.assertIs(tasks[0]["research_cycle_already_used"], True)
         result, calls, _, _, _ = exercise(revision, fact_status="revise")
         self.assertEqual(result, "review_correction_fact_check_not_pass")
         self.assertEqual(len(calls), 2)
@@ -584,6 +666,33 @@ class PersistedTriageResumeTests(unittest.TestCase):
             checkpoint = Checkpoint.resume_after_writer_revision_failure(root, run_id)
 
             self.assertEqual(checkpoint.state["stage"], "resume_after_writer_revision_failure")
+            self.assertEqual(checkpoint.state["events"][-1]["repeated_siwc_calls"], 0)
+            self.assertEqual(checkpoint.state["events"][-1]["repeated_public_requests"], 0)
+
+    def test_fact_checker_pre_external_resume_reuses_success_and_requires_receipt(self) -> None:
+        run_id = "eng-codex-012-e207b61f01c5"
+        task_id = "e012-e207b61f01c5-fact-checker-fact-check-original"
+        with tempfile.TemporaryDirectory(prefix="eng012-fact-check-resume-") as temporary:
+            root = Path(temporary)
+            (root / "agent-usage").mkdir()
+            (root / "structured-outputs").mkdir()
+            (root / "agent-usage" / f"{task_id}.attempt-001.json").write_text("{}", encoding="utf-8")
+            (root / "structured-outputs" / f"{task_id}.json").write_text("{}", encoding="utf-8")
+            (root / "active-run.json").write_text(json.dumps({
+                "run_id": run_id, "status": "blocked", "blocker_code": "ContractValidationError",
+            }), encoding="utf-8")
+            (root / "checkpoint.json").write_text(json.dumps({
+                "run_id": run_id, "stage": "fact_checker_agent", "status": "running",
+                "events": [{
+                    "stage": "fact_checker_agent", "status": "succeeded", "task_state": "succeeded",
+                    "task_id": task_id, "external_request_started": True,
+                    "usage_record_ref": f"agent-usage/{task_id}.attempt-001.json",
+                }],
+            }), encoding="utf-8")
+
+            checkpoint = Checkpoint.resume_after_fact_checker_pre_external_block(root, run_id)
+
+            self.assertEqual(checkpoint.state["stage"], "resume_after_fact_checker_pre_external")
             self.assertEqual(checkpoint.state["events"][-1]["repeated_siwc_calls"], 0)
             self.assertEqual(checkpoint.state["events"][-1]["repeated_public_requests"], 0)
 

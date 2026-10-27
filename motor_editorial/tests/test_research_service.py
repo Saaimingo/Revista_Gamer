@@ -246,6 +246,56 @@ class ResearchServiceTests(unittest.TestCase):
         self.assertIn("invalid ISO date", invalid_window.packet.constraints[0])
         self.assertEqual(provider.calls, [])
 
+    def test_preferred_domain_uses_registered_api_source_for_canonical_web_page(self) -> None:
+        self.store.register_source(
+            source_id="github-api-proton-detail",
+            display_name="Valve Proton release API",
+            canonical_url="https://api.github.com/repos/ValveSoftware/Proton/releases/tags/proton-11.0-2e",
+            source_type="public_api",
+            access_policy="allowed",
+            rights_status="unknown",
+            now=NOW,
+        )
+        self.store.register_document(
+            document_id="proton-release-detail",
+            source_id="github-api-proton-detail",
+            canonical_url="https://github.com/ValveSoftware/Proton/releases/tag/proton-11.0-2e",
+            resolved_url="https://github.com/ValveSoftware/Proton/releases/tag/proton-11.0-2e",
+            publisher="Valve Proton public releases",
+            language="en",
+            published_at="2026-10-09T17:49:01+00:00",
+            fetched_at=NOW,
+            content_sha256=sha256("metadata:proton-11.0-2e"),
+            normalized_sha256=sha256("normalized:proton-11.0-2e"),
+            title="Proton 11.0-2e",
+            access_policy="allowed",
+            rights_status="unknown",
+        )
+        provider = FakeProvider(ResearchProviderResult(
+            status="found", document_ids=("proton-release-detail",),
+            requests_used=1, bytes_read=2_120, sources_considered=1,
+        ))
+        service = ResearchService(store=self.store, provider=provider)
+        mapping = make_request(
+            request_id="proton-api-canonical-web",
+            profile_id="research.games.v1",
+            question="Proton 11.0-2e",
+            queries=("Proton 11.0-2e",),
+            allowed_scope=(RADAR_INDEX_SCOPE, PUBLIC_SOURCES_SCOPE),
+        ).to_dict()
+        mapping["preferred_source_ids"] = ["github-api-proton-detail"]
+        mapping["preferred_domains"] = ["api.github.com"]
+        request = ResearchRequest.from_mapping(mapping)
+
+        result = service.execute(request, now=NOW)
+
+        self.assertEqual(len(provider.calls), 1)
+        self.assertEqual(result.index_hit_count, 1)
+        self.assertEqual(result.packet.document_refs[0].ref, "radar://document/proton-release-detail")
+        self.assertEqual(result.packet.status, "partial")
+        self.assertEqual(result.packet.missing_evidence, ("official_statement",))
+        self.assertNotIn("preferred_domains", " ".join(result.packet.constraints))
+
     def test_provider_cache_replay_preserves_packet_id_and_avoids_repeated_call(self) -> None:
         provider = FakeProvider(ResearchProviderResult(
             status="not_found", missing_evidence=("official_statement",),

@@ -508,7 +508,8 @@ class ResearchService:
                 return False
             if request.preferred_source_ids and document["source_id"] not in request.preferred_source_ids:
                 return False
-            host = urlsplit(document["canonical_url"]).hostname or ""
+            source_url = str(source.get("canonical_url") or "")
+            host = urlsplit(source_url).hostname or ""
             if request.preferred_domains and not any(_domain_matches(host, item) for item in request.preferred_domains):
                 return False
             if allowed_languages and (document["language"] or "und").casefold() not in allowed_languages:
@@ -780,7 +781,13 @@ class ResearchService:
                 raise RadarStoreError("Retriever referenced a document without allowed policy.")
             if request.preferred_source_ids and document["source_id"] not in request.preferred_source_ids:
                 raise RadarStoreError("Retriever exceeded preferred_source_ids.")
-            host = urlsplit(document["canonical_url"]).hostname or ""
+            # A retrieved API document can canonically point to its public web
+            # page (for example github.com) while the request was authorized
+            # against the registered API source (api.github.com). Scope the
+            # lookup against the registered source endpoint; keep the document
+            # canonical URL for citation and attribution.
+            source_url = str(source.get("canonical_url") or "")
+            host = urlsplit(source_url).hostname or ""
             if request.preferred_domains and not any(_domain_matches(host, domain) for domain in request.preferred_domains):
                 raise RadarStoreError("Retriever exceeded preferred_domains.")
             if allowed_languages and (document["language"] or "und").casefold() not in allowed_languages:

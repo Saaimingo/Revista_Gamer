@@ -486,6 +486,45 @@ class Checkpoint:
                          recovery="reuse_persisted_roles_and_reconcile_only_valid_evidence_reference")
         return checkpoint
 
+    @classmethod
+    def resume_after_fact_checker_pre_external_block(cls, root: Path, run_id: str) -> "Checkpoint":
+        """Resume after fact check succeeded but continuation validation failed before enqueue."""
+        checkpoint = cls.__new__(cls)
+        checkpoint.root = root
+        checkpoint.run_id = run_id
+        checkpoint.path = root / "checkpoint.json"
+        checkpoint.state = _load_json(checkpoint.path)
+        active = _load_json(root / "active-run.json")
+        events = checkpoint.state.get("events", [])
+        last = events[-1] if isinstance(events, list) and events else {}
+        task_id = last.get("task_id")
+        run_token = run_id.rsplit("-", 1)[-1]
+        usage_ref = last.get("usage_record_ref")
+        usage_path = (root / usage_ref).resolve() if isinstance(usage_ref, str) else None
+        expected_suffix = f"-{run_token}-fact-checker-fact-check-original"
+        if (
+            active.get("run_id") != run_id or active.get("status") != "blocked"
+            or active.get("blocker_code") != "ContractValidationError"
+            or checkpoint.state.get("run_id") != run_id
+            or checkpoint.state.get("stage") != "fact_checker_agent"
+            or last.get("stage") != "fact_checker_agent" or last.get("status") != "succeeded"
+            or not isinstance(task_id, str) or not task_id.endswith(expected_suffix)
+            or last.get("task_state") != "succeeded" or last.get("external_request_started") is not True
+            or not isinstance(usage_ref, str) or usage_path is None
+            or not usage_path.is_relative_to(root.resolve()) or not usage_path.is_file()
+        ):
+            raise RunBlocked("resume_requires_fact_check_success_and_pre_external_contract_block")
+        output_path = root / "structured-outputs" / f"{task_id}.json"
+        if not output_path.is_file():
+            raise RunBlocked("resume_fact_check_structured_output_missing")
+        checkpoint.state["status"] = "running"
+        checkpoint.event(
+            "resume_after_fact_checker_pre_external", "started", reused_task_id=task_id,
+            repeated_siwc_calls=0, repeated_public_requests=0,
+            recovery="reuse_completed_fact_check_and_resume_before_writer_revision_enqueue",
+        )
+        return checkpoint
+
 
 def _ensure_git_branch() -> str:
     branch = subprocess.check_output(
@@ -739,9 +778,14 @@ class GitHubReleaseResearchProvider:
         self.last_execution["claim_id"] = claim_id
         self.last_execution["excerpt_words"] = len(excerpt.split())
         return ResearchProviderResult(
-            status="found",
+            # This route is explicitly metadata-only and can expose at most a
+            # short approved excerpt. It cannot satisfy a request for the full
+            # release body or changelog, even when the API lookup itself worked.
+            status="partial",
             document_ids=(document_id,),
             claim_ids=(claim_id,),
+            missing_evidence=request.required_evidence_kinds,
+            constraints=("Complete release details were not retained by the metadata-only source policy.",),
             requests_used=1,
             bytes_read=fetch.payload_bytes,
             sources_considered=1,
@@ -845,6 +889,18 @@ def _build_initial_packet(
         fetched_at=_now(),
     )
     return packet, evidence_rows
+
+
+def _packet_for_role_continuation(
+    research_packet: ResearchPacket | None,
+    initial_packet: ResearchPacket,
+) -> ResearchPacket:
+    """Use known dossier evidence when an attempted supplement is blocked and empty."""
+    if (research_packet is not None
+            and not research_packet.document_refs and not research_packet.claim_refs
+            and (initial_packet.document_refs or initial_packet.claim_refs)):
+        return initial_packet
+    return research_packet or initial_packet
 
 
 def _load_persona(persona_id: str, root: Path) -> tuple[str, dict[str, Any]]:
@@ -2168,7 +2224,7 @@ def _dispatch_reviewer_research_return(
 
 def _advance_reviewer_correction(
     *, reviewer_output, reviewer_task, reviewer_envelope, draft_hash, editorial_brief,
-    final_dossier, writing_constraints, story_text, research_completed, queue, role_catalog,
+    final_dossier, writing_constraints, story_text, research_completed, research_cycle_used, queue, role_catalog,
     profiles, run_id, run_token, story_id, snapshot_ids, root, detail_source_id, selected,
     persona_id, package, persona_text, research_packet, initial_packet, dispatcher, router, provider,
     response_store, usage_store, checkpoint, version_archive, fact_checker_input,
@@ -2189,7 +2245,7 @@ def _advance_reviewer_correction(
                 "review_findings": reviewer_output["findings"],
                 "fact_check_findings": current_fact_output.get("findings", []),
                 "prior_draft": story_text,
-                "research_cycle_already_used": research_completed,
+                "research_cycle_already_used": research_cycle_used,
             },
         }
         review_revision_task, review_revision_envelope = _new_role_task(
@@ -2199,8 +2255,8 @@ def _advance_reviewer_correction(
             research_policy=_make_med_policy(detail_source_id, selected["source"], str(selected["tag_name"]),
                                              review_revision_id, selected["evidence_ids"]),
             persona_id=persona_id, persona_version=package["version"], persona_text=persona_text,
-            research_packet=research_packet or initial_packet,
-            research_cycle_already_used=research_completed, dependencies=(reviewer_task,),
+            research_packet=_packet_for_role_continuation(research_packet, initial_packet),
+            research_cycle_already_used=research_cycle_used, dependencies=(reviewer_task,),
         )
         review_revision, review_revision_meta, review_revision_usage = _dispatch_role(
             dispatcher=dispatcher, queue=queue, task_id=review_revision_task, envelope=review_revision_envelope,
@@ -2218,6 +2274,8 @@ def _advance_reviewer_correction(
                          manifest_ref=review_revision_archive["manifest_ref"],
                          full_text_sha256=review_revision_archive["full_text_sha256"])
         if review_revision.get("requested_research"):
+            if research_cycle_used:
+                raise RunBlocked("review_correction_research_cycle_already_used")
             correction_result = role_catalog.validate_result(
                 review_revision_envelope, review_revision_row.result or {},
             )
@@ -2239,6 +2297,7 @@ def _advance_reviewer_correction(
             if continuation_result.requested_research is not None:
                 raise RunBlocked("review_correction_research_cycle_limit_exceeded")
             research_completed = True
+            research_cycle_used = True
         revised_text = StoryVersionArchive._render(review_revision)
         revised_hash = stable_hash(revised_text)
         if revised_hash == draft_hash:
@@ -2285,7 +2344,7 @@ def _advance_reviewer_correction(
         reviewer_task, reviewer_envelope, reviewer_output, current_writer_output,
         current_writer_task, current_writer_envelope, current_writer_meta, current_writer_usage,
         current_fact_output, current_fact_task_id, story_text, draft_hash, leaked_markers,
-        research_completed, research_packet,
+        research_completed, research_cycle_used, research_packet,
     )
 
 
@@ -2331,6 +2390,7 @@ def run_live_factory(
     resume_after_investigator = False
     resume_after_pre_external_writer = False
     resume_after_writer_revision_failure = False
+    resume_after_fact_checker_pre_external = False
     resume_after_triage_pending = False
     resume_after_assignment_pre_external = False
     resume_triage_event_started = False
@@ -2382,18 +2442,27 @@ def run_live_factory(
             and last_checkpoint_event.get("error_code") == "siwc_output_unknown_claim"
             and last_checkpoint_event.get("task_state") == "blocked"
         )
+        resume_after_fact_checker_pre_external = (
+            active.get("blocker_code") == "ContractValidationError"
+            and checkpoint_state.get("stage") == "fact_checker_agent"
+            and last_checkpoint_event.get("stage") == "fact_checker_agent"
+            and last_checkpoint_event.get("status") == "succeeded"
+            and last_checkpoint_event.get("task_state") == "succeeded"
+        )
         resume_after_pre_external_writer = (
             checkpoint_state.get("stage") == "journalist_original_agent"
             and last_checkpoint_event.get("stage") == "journalist_original_agent"
             and last_checkpoint_event.get("status") == "blocked"
             and last_checkpoint_event.get("error_code") == "agent_contract_invalid"
-        ) or resume_after_source_registration or resume_after_writer_guard or resume_after_writer_revision_failure or resume_after_assignment_pre_external
+        ) or resume_after_source_registration or resume_after_writer_guard or resume_after_writer_revision_failure or resume_after_assignment_pre_external or resume_after_fact_checker_pre_external
         if resume_after_investigator:
             checkpoint = Checkpoint.resume_after_investigator(root, run_id)
         elif resume_after_source_registration:
             checkpoint = Checkpoint.resume_after_source_registration_block(root, run_id)
         elif resume_after_writer_revision_failure:
             checkpoint = Checkpoint.resume_after_writer_revision_failure(root, run_id)
+        elif resume_after_fact_checker_pre_external:
+            checkpoint = Checkpoint.resume_after_fact_checker_pre_external_block(root, run_id)
         elif resume_after_assignment_pre_external:
             checkpoint = Checkpoint.resume_after_assignment_pre_external(root, run_id)
         elif resume_after_pre_external_writer:
@@ -2974,7 +3043,7 @@ def run_live_factory(
         last_writer_event = writer_events[-1] if writer_events else {}
         last_writer_detail = last_writer_event.get("detail", {})
         safe_completed_writer_reuse = (
-            resume_after_writer_revision_failure
+            (resume_after_writer_revision_failure or resume_after_fact_checker_pre_external)
             and existing_writer_task.state == "succeeded"
             and existing_writer_task.external_request_started
             and isinstance(existing_writer_task.result, Mapping)
@@ -3068,7 +3137,12 @@ def run_live_factory(
     research_packet: ResearchPacket | None = None
     research_task_id: str | None = None
     research_completed = False
+    research_cycle_used = False
     if research_request is not None:
+        # An attempted cycle is consumed even when the provider yields a
+        # partial or blocked packet; only successful evidence changes
+        # research_completed.
+        research_cycle_used = True
         request_value = research_request.to_dict()
         _atomic_json(root / "research-flow.json", {
             "request": request_value,
@@ -3264,6 +3338,13 @@ def run_live_factory(
             "distinguish_official_statement_from_independent_measurement": True,
             "no_unperformed_testing": True,
             "no_internal_audit_language_in_reader_copy": True,
+            "draft_hash_validation": {
+                "algorithm": "SHA-256",
+                "encoding": "UTF-8",
+                "preimage": "the exact draft string supplied, without normalization",
+                "runner_verified": stable_hash(story_text) == draft_hash,
+                "reader_copy": False,
+            },
             "publication_state": "not_published",
         },
     }
@@ -3295,6 +3376,10 @@ def run_live_factory(
             revision_number = 3
         revision_id = f"story-revision-{revision_number:02d}"
         revision_stage = f"editorial-revision-{revision_number:02d}"
+        if resume_after_fact_checker_pre_external:
+            # Keep the previously written, never-enqueued revision-02 input
+            # immutable and give the recovered preflight a distinct task key.
+            revision_stage = "editorial-revision-02-recovery"
         revised_policy = _make_med_policy(detail_source_id, selected["source"], str(selected["tag_name"]), revision_id, selected["evidence_ids"])
         revision_input = {
             "editorial_brief": editorial_brief,
@@ -3305,7 +3390,7 @@ def run_live_factory(
                 "fact_check_findings": fact_output.get("findings", []),
                 "internal_language_findings": leaked_markers,
                 "prior_draft": story_text,
-                "research_cycle_already_used": research_completed,
+                "research_cycle_already_used": research_cycle_used,
             },
         }
         revision_task, revision_envelope = _new_role_task(
@@ -3313,8 +3398,8 @@ def run_live_factory(
             run_token=run_token, story_id=story_id, role_id="persona_writer", stage=revision_stage,
             input_payload=revision_input, source_snapshot_ids=snapshot_ids, root=root,
             research_policy=revised_policy, persona_id=persona_id, persona_version=package["version"], persona_text=persona_text,
-            research_packet=research_packet or initial_packet,
-            research_cycle_already_used=research_completed,
+            research_packet=_packet_for_role_continuation(research_packet, initial_packet),
+            research_cycle_already_used=research_cycle_used,
             dependencies=(fact_task,),
         )
         revised_output, revised_meta, revised_usage = _dispatch_role(
@@ -3386,10 +3471,12 @@ def run_live_factory(
         reviewer_task, reviewer_envelope, reviewer_output, current_writer_output,
         current_writer_task, current_writer_envelope, current_writer_meta, current_writer_usage,
         current_fact_output, current_fact_task_id, story_text, draft_hash, leaked_markers,
+        research_completed, research_cycle_used, research_packet,
     ) = _advance_reviewer_correction(
         reviewer_output=reviewer_output, reviewer_task=reviewer_task, reviewer_envelope=reviewer_envelope,
         draft_hash=draft_hash, editorial_brief=editorial_brief, final_dossier=final_dossier,
-        writing_constraints=writing_constraints, story_text=story_text, research_completed=research_completed,
+        writing_constraints=writing_constraints, story_text=story_text,
+        research_completed=research_completed, research_cycle_used=research_cycle_used,
         queue=queue, role_catalog=role_catalog, profiles=profiles, run_id=run_id, run_token=run_token,
         story_id=story_id, snapshot_ids=snapshot_ids, root=root, detail_source_id=detail_source_id,
         selected=selected, persona_id=persona_id, package=package, persona_text=persona_text,
