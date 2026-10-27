@@ -382,6 +382,71 @@ class ResearchServiceTests(unittest.TestCase):
         self.assertEqual(complete_local.packet.missing_evidence, ())
         self.assertEqual(len(provider.calls), 1)
 
+    def test_claim_registered_during_provider_search_is_recognized_in_returned_packet(self) -> None:
+        source_id = "fresh-official-source"
+        document_id = "fresh-official-document"
+        claim_id = "fresh-official-claim"
+        store = self.store
+        self.store.register_source(
+            source_id=source_id, display_name="Fixture Studio", canonical_url="https://studio.example.invalid/",
+            source_type="publisher", access_policy="allowed", rights_status="authorized", now=NOW,
+        )
+
+        class RegisteringProvider:
+            def search(self, request, profile, *, cached_document_ids, budget):
+                budget.before_external_request()
+                store.register_document(
+                    document_id=document_id, source_id=source_id,
+                    canonical_url=f"https://studio.example.invalid/{document_id}", publisher="Fixture Studio",
+                    language="en", published_at="2026-10-24T12:00:00+00:00", fetched_at=NOW,
+                    content_sha256=sha256("fresh-body"), normalized_sha256=sha256("fresh-normalized"),
+                    title="Studio confirms the official patch update", summary_snippet="Official patch details.",
+                    access_policy="allowed", rights_status="authorized", content_retention="short_excerpt",
+                )
+                store.register_topic(
+                    topic_id="fresh-topic", canonical_key="studio:official-patch",
+                    title="Official patch update", now=NOW,
+                )
+                store.register_entity(
+                    entity_id="fresh-studio", entity_kind="organization", canonical_name="Fixture Studio",
+                    language="en", source_document_id=document_id, now=NOW,
+                )
+                store.link_document_entity(
+                    document_id=document_id, entity_id="fresh-studio", relation_type="statement_by",
+                )
+                store.register_claim(
+                    claim_id=claim_id, topic_id="fresh-topic",
+                    statement="The studio confirms the official patch update.",
+                    epistemic_status="official_statement", asserted_by_entity_id="fresh-studio",
+                    reported_by_source_id=source_id,
+                    source_document_id=document_id, first_seen_at=NOW,
+                    confidence_in_attribution=1.0, confidence_in_content=1.0,
+                )
+                return ResearchProviderResult(
+                    status="found", document_ids=(document_id,), claim_ids=(claim_id,),
+                    requests_used=1, bytes_read=100, sources_considered=1, elapsed_seconds=0.1,
+                )
+
+        service = ResearchService(store=self.store, provider=RegisteringProvider())
+        request = make_request(
+            request_id="fresh-claim-after-search", profile_id="research.games.v1",
+            question="What does the studio confirm about the official patch update?",
+            queries=("studio confirms official patch update",),
+            allowed_scope=(RADAR_INDEX_SCOPE, PUBLIC_SOURCES_SCOPE),
+            required_evidence_kinds=("official_statement",),
+        )
+
+        result = service.execute(request, now=NOW)
+
+        self.assertTrue(result.provider_called)
+        self.assertEqual(
+            result.packet.status, "found",
+            {"packet": result.packet.to_dict(), "diagnostic": result.execution_diagnostic.to_dict() if result.execution_diagnostic else None},
+        )
+        self.assertEqual(result.packet.missing_evidence, ())
+        self.assertEqual(result.packet.claim_refs, (claim_id,))
+        self.assertEqual(result.packet.document_refs[0].ref, f"radar://document/{document_id}")
+
     def test_rate_limited_packet_retries_only_after_retry_at(self) -> None:
         provider = FakeProvider(
             ResearchProviderResult(

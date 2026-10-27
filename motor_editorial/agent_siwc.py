@@ -35,6 +35,16 @@ from .siwc import SIWCClient, SIWCError, SIWC_REASONING_EFFORTS
 from .usage_meter import AgentUsageArtifactStore, build_usage_record
 
 
+def model_matches_requested(requested_model: str, returned_model: Any) -> bool:
+    """Accept the requested model ID and provider dated/versioned variants."""
+    return (
+        isinstance(requested_model, str)
+        and bool(requested_model)
+        and isinstance(returned_model, str)
+        and (returned_model == requested_model or returned_model.startswith(requested_model + "-"))
+    )
+
+
 SIWC_ROLE_EXECUTOR_ID = "siwc-agent-role"
 SIWC_ROLE_EXECUTOR_PROFILE = AgentProfile(
     profile_id="siwc-agent-role-runtime",
@@ -704,7 +714,7 @@ class SIWCAgentRoleExecutor:
         if metadata.get("store") is not False or metadata.get("stream") is not True or metadata.get("response_completed") is not True:
             self.artifact_store.update_metadata(envelope.task_id, {"output_validation": "provider_metadata_rejected"})
             raise TaskFailure("siwc_response_policy_mismatch", "Resposta não confirmou store=false, stream=true e response.completed.", blocked=True)
-        if metadata.get("model") != self.model and not str(metadata.get("model") or "").startswith(self.model + "-"):
+        if not model_matches_requested(self.model, metadata.get("model")):
             self.artifact_store.update_metadata(envelope.task_id, {"output_validation": "model_mismatch"})
             raise TaskFailure("siwc_model_mismatch", "Modelo efetivo diverge do modelo explícito escolhido.", blocked=True)
         if metadata.get("reasoning_effort") != self.reasoning_effort:

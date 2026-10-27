@@ -401,8 +401,9 @@ class ResearchService:
                 lineage = [lineage_by_key[key] for key in sorted(lineage_by_key, key=lambda item: tuple(str(part or "") for part in item))]
                 excerpts = list(dict.fromkeys([*excerpts, *provider_excerpts]))
                 last_material = max((value for value in (last_material, provider_last_material) if value), default=None)
+                current_claim_rows = {row["claim_id"]: row for row in self.store.list_rows("radar_claims")}
                 available_claim_kinds = {
-                    claim_rows.get(claim_id, {}).get("epistemic_status")
+                    current_claim_rows.get(claim_id, {}).get("epistemic_status")
                     for claim_id in packet_claims
                 }
                 reported_missing = set(provider_result.missing_evidence)

@@ -44,6 +44,7 @@ from .agent_siwc import (
     SIWCResponseArtifactStore,
     SIWC_ROLE_EXECUTOR_ID,
     SIWC_ROLE_EXECUTOR_PROFILE,
+    model_matches_requested,
     _validate_output_references,
     _known_references,
     _output_evidence_ids,
@@ -274,16 +275,56 @@ class Checkpoint:
         last = events[-1] if isinstance(events, list) and events else {}
         if checkpoint.state.get("run_id") != run_id or checkpoint.state.get("stage") != "triage_agent":
             raise RunBlocked("resume_checkpoint_is_not_at_triage_boundary")
-        if last.get("stage") != "triage_agent" or last.get("status") != "succeeded":
-            raise RunBlocked("resume_requires_a_durable_successful_triage_result")
-        if last.get("task_state") != "succeeded" or last.get("error_code") is not None:
-            raise RunBlocked("resume_triage_result_is_not_successful")
-        usage_ref = last.get("usage_record_ref")
-        if not isinstance(usage_ref, str) or not (root / usage_ref).is_file():
-            raise RunBlocked("resume_triage_usage_receipt_missing")
-        checkpoint.state["status"] = "running"
-        checkpoint.event("resume_after_triage", "started", reused_task_id=last.get("task_id"),
-                         repeated_siwc_calls=0, repeated_public_requests=0)
+        if last.get("stage") != "triage_agent":
+            raise RunBlocked("resume_requires_a_durable_triage_result")
+        if last.get("status") == "succeeded":
+            if last.get("task_state") != "succeeded" or last.get("error_code") is not None:
+                raise RunBlocked("resume_triage_result_is_not_successful")
+            usage_ref = last.get("usage_record_ref")
+            if not isinstance(usage_ref, str) or not (root / usage_ref).is_file():
+                raise RunBlocked("resume_triage_usage_receipt_missing")
+            recovery = "reuse_checkpointed_triage_result"
+        elif last.get("status") == "call_started":
+            task_id = last.get("task_id")
+            if not isinstance(task_id, str) or not task_id:
+                raise RunBlocked("resume_triage_task_id_missing_after_call_started")
+            response_store = SIWCResponseArtifactStore(root)
+            _, response_path, metadata_path = response_store.artifact_paths(task_id)
+            if not response_path.is_file() or not metadata_path.is_file():
+                raise RunBlocked("resume_triage_external_result_not_durable")
+            metadata = _load_json(metadata_path)
+            response_bytes = response_store.read_response(
+                response_path.relative_to(root).as_posix(), str(metadata.get("response_artifact_sha256") or ""),
+            )
+            if (metadata.get("task_id") != task_id or metadata.get("role_id") != "triage_analyst"
+                    or metadata.get("response_completed") is not True
+                    or metadata.get("output_validation") != "role_schema_valid"
+                    or not model_matches_requested(MODEL_ID, metadata.get("model"))
+                    or metadata.get("reasoning_effort") != REASONING_EFFORT
+                    or _sha(response_bytes) != metadata.get("response_sha256")):
+                raise RunBlocked("resume_triage_external_result_integrity_failed")
+            receipt = AgentUsageArtifactStore(root).read_for_attempt(task_id, 1)
+            if receipt is None:
+                raise RunBlocked("resume_triage_usage_receipt_missing")
+            receipt_data, receipt_ref = receipt
+            if (receipt_data.get("raw_response_sha256") != metadata.get("response_sha256")
+                    or receipt_data.get("task_id") != task_id
+                    or receipt_data.get("attempt_number") != 1
+                    or receipt_data.get("role_id") != metadata.get("role_id")
+                    or receipt_data.get("model") != metadata.get("model")
+                    or not model_matches_requested(MODEL_ID, receipt_data.get("model"))
+                    or receipt_data.get("reasoning_effort") != REASONING_EFFORT
+                    or receipt_data.get("provider_response_id") != metadata.get("response_id")):
+                raise RunBlocked("resume_triage_usage_receipt_binding_invalid")
+            metadata_usage_ref = metadata.get("usage_receipt_ref")
+            if (not isinstance(metadata_usage_ref, Mapping)
+                    or metadata_usage_ref.get("ref") != receipt_ref.get("ref")
+                    or metadata_usage_ref.get("sha256") != receipt_ref.get("sha256")):
+                raise RunBlocked("resume_triage_usage_receipt_reference_mismatch")
+            recovery = "adopt_durable_triage_result_after_runner_interruption"
+        else:
+            raise RunBlocked("resume_requires_a_successful_or_durably_completed_triage_call")
+        checkpoint.resume_recovery = recovery
         return checkpoint
 
     @classmethod
@@ -900,7 +941,7 @@ def _task_output(
         "provider_call_outcome": "success" if task.state == "succeeded" else ("uncertain" if task.state == "uncertain" else "failed"),
         "research_suggestion_count": research_suggestion_count,
     }
-    usage_ref = usage_store.write(build_usage_record(
+    usage_record = build_usage_record(
         task=task,
         envelope=envelope,
         metadata=usage_metadata,
@@ -908,7 +949,32 @@ def _task_output(
         research_request_count=research_suggestion_count,
         schema_status=str(metadata.get("output_validation") or task.state),
         story_revision_id=(envelope.research_mediation_policy or {}).get("story_revision_id"),
-    ))
+    )
+    persisted_usage_ref = task.result.get("usage_receipt_ref") if isinstance(task.result, Mapping) else None
+    if not isinstance(persisted_usage_ref, Mapping):
+        persisted_usage_ref = metadata.get("usage_receipt_ref")
+    if isinstance(persisted_usage_ref, Mapping):
+        receipt_ref = persisted_usage_ref.get("ref")
+        receipt_hash = persisted_usage_ref.get("sha256")
+        metadata_usage_ref = metadata.get("usage_receipt_ref")
+        if not isinstance(receipt_ref, str) or not isinstance(receipt_hash, str):
+            raise RunBlocked("persisted_usage_receipt_reference_invalid")
+        if (not isinstance(metadata_usage_ref, Mapping)
+                or metadata_usage_ref.get("ref") != receipt_ref
+                or metadata_usage_ref.get("sha256") != receipt_hash):
+            raise RunBlocked("persisted_usage_receipt_reference_mismatch")
+        persisted_record = usage_store.read(receipt_ref, receipt_hash)
+        binding_fields = (
+            "task_id", "attempt_number", "role_id", "model", "reasoning_effort",
+            "input_tokens", "output_tokens", "total_tokens", "raw_response_sha256", "provider_response_id",
+        )
+        if any(persisted_record.get(field) != usage_record.get(field) for field in binding_fields):
+            raise RunBlocked("persisted_usage_receipt_binding_invalid")
+        usage_ref = {"ref": receipt_ref, "sha256": receipt_hash}
+    else:
+        if task.state == "succeeded":
+            raise RunBlocked("persisted_succeeded_task_usage_receipt_missing")
+        usage_ref = usage_store.write(usage_record)
     _atomic_json(root / "structured-outputs" / f"{task_id}.json", {
         "task_id": task_id,
         "raw_response_sha256": digest,
@@ -931,20 +997,22 @@ def _load_succeeded_role_output(
     _, _, metadata_path = response_store.artifact_paths(task_id)
     request_path, _, _ = response_store.artifact_paths(task_id)
     output_path = root / "structured-outputs" / f"{task_id}.json"
-    if not metadata_path.is_file() or not request_path.is_file() or not output_path.is_file():
+    if not metadata_path.is_file() or not request_path.is_file():
         raise RunBlocked("persisted_role_output_artifacts_are_incomplete")
     metadata = _load_json(metadata_path)
-    output_container = _load_json(output_path)
+    output_container = _load_json(output_path) if output_path.is_file() else None
     response_ref = task.result.get("artifact_ref")
     if not isinstance(response_ref, Mapping):
         raise RunBlocked("persisted_role_result_has_no_response_reference")
     response_bytes = response_store.read_response(str(response_ref.get("ref")), str(response_ref.get("sha256")))
     response_digest = _sha(response_bytes)
     if (response_digest != metadata.get("response_sha256")
-            or response_digest != output_container.get("raw_response_sha256")
+            or (output_container is not None and response_digest != output_container.get("raw_response_sha256"))
             or metadata.get("response_completed") is not True
             or metadata.get("store") is not False or metadata.get("stream") is not True
-            or metadata.get("model") != MODEL_ID or metadata.get("reasoning_effort") != REASONING_EFFORT):
+            or metadata.get("role_id") != envelope.role_id
+            or not model_matches_requested(MODEL_ID, metadata.get("model"))
+            or metadata.get("reasoning_effort") != REASONING_EFFORT):
         raise RunBlocked("persisted_role_response_integrity_check_failed")
     recovered = any(event.get("action") == "persisted_external_result_adopted" for event in queue.events(task_id))
     if metadata.get("output_validation") != "role_schema_valid" and not (
@@ -952,7 +1020,9 @@ def _load_succeeded_role_output(
     ):
         raise RunBlocked("persisted_role_output_validation_state_not_accepted")
     structured_output = json.loads(response_bytes.decode("utf-8"))
-    if not isinstance(structured_output, dict) or output_container.get("structured_output") != structured_output:
+    if (not isinstance(structured_output, dict)
+            or (output_container is not None and output_container.get("structured_output") != structured_output)
+            or (output_container is not None and output_container.get("raw_response_sha256") != response_digest)):
         raise RunBlocked("persisted_role_structured_output_differs_from_raw_response")
     request_ref = metadata.get("request_artifact_ref")
     request_digest = metadata.get("request_artifact_sha256")
@@ -968,9 +1038,47 @@ def _load_succeeded_role_output(
     profile = role_catalog.resolve(envelope.role_id, envelope.role_version, envelope.role_hash)
     validate_json_schema(structured_output, profile.output_schema, "$output")
     _validate_output_references(envelope.role_id, prompt_input, structured_output)
+    usage_ref = task.result.get("usage_receipt_ref")
+    if not isinstance(usage_ref, Mapping):
+        raise RunBlocked("persisted_role_usage_receipt_reference_missing")
+    receipt_ref = usage_ref.get("ref")
+    receipt_sha256 = usage_ref.get("sha256")
+    metadata_usage_ref = metadata.get("usage_receipt_ref")
+    if (not isinstance(receipt_ref, str) or not isinstance(receipt_sha256, str)
+            or not isinstance(metadata_usage_ref, Mapping)
+            or metadata_usage_ref.get("ref") != receipt_ref
+            or metadata_usage_ref.get("sha256") != receipt_sha256):
+        raise RunBlocked("persisted_role_usage_receipt_reference_invalid")
+    try:
+        usage_record = AgentUsageArtifactStore(root).read(receipt_ref, receipt_sha256)
+    except (OSError, ValueError, json.JSONDecodeError):
+        raise RunBlocked("persisted_role_usage_receipt_integrity_failed") from None
+    usage = metadata.get("usage") if isinstance(metadata.get("usage"), Mapping) else {}
+    expected_tokens = {
+        "input_tokens": usage.get("input_tokens", usage.get("prompt_tokens")),
+        "output_tokens": usage.get("output_tokens", usage.get("completion_tokens")),
+        "total_tokens": usage.get("total_tokens"),
+    }
+    if (usage_record.get("task_id") != task_id
+            or usage_record.get("attempt_number") != task.attempts
+            or usage_record.get("role_id") != envelope.role_id
+            or usage_record.get("model") != metadata.get("model")
+            or usage_record.get("reasoning_effort") != metadata.get("reasoning_effort")
+            or usage_record.get("raw_response_sha256") != response_digest
+            or usage_record.get("provider_response_id") != metadata.get("response_id")
+            or any(value is not None and usage_record.get(field) != value for field, value in expected_tokens.items())):
+        raise RunBlocked("persisted_role_usage_receipt_binding_invalid")
+    if output_container is None:
+        _atomic_json(output_path, {
+            "task_id": task_id,
+            "raw_response_sha256": response_digest,
+            "structured_output": structured_output,
+            "response_metadata": metadata,
+        })
     usage_path = root / "agent-usage" / f"{task_id}.attempt-{task.attempts:03d}.json"
-    usage_ref = usage_path.relative_to(root).as_posix() if usage_path.is_file() else None
-    return structured_output, dict(metadata), usage_ref
+    if not usage_path.is_file() or usage_path.relative_to(root).as_posix() != receipt_ref:
+        raise RunBlocked("persisted_role_usage_receipt_missing")
+    return structured_output, dict(metadata), receipt_ref
 
 
 def _dispatch_role(
@@ -2142,6 +2250,7 @@ def run_live_factory(
     resume_after_investigator = False
     resume_after_pre_external_writer = False
     resume_after_writer_revision_failure = False
+    resume_after_triage_pending = False
     if resume_existing_run:
         if not active_path.exists():
             raise RunBlocked("resume_requires_an_existing_blocked_run")
@@ -2196,7 +2305,9 @@ def run_live_factory(
             checkpoint = Checkpoint.resume_after_pre_external_writer_block(root, run_id)
         else:
             checkpoint = Checkpoint.resume_after_triage(root, run_id)
-        _atomic_json(active_path, {**active, "status": "running", "updated_at": _now(), "branch": branch})
+            resume_after_triage_pending = True
+        if not resume_after_triage_pending:
+            _atomic_json(active_path, {**active, "status": "running", "updated_at": _now(), "branch": branch})
     else:
         if active_path.exists():
             raise RunBlocked("existing_eng_011_run_prevents_redundant_execution")
@@ -2316,21 +2427,25 @@ def run_live_factory(
             raise RunBlocked("resume_requires_a_successful_live_source_fetch")
         triage_envelope = envelope_from_payload(triage_task.payload)
         role_catalog.validate_result(triage_envelope, triage_task.result)
-        output_container = _load_json(root / "structured-outputs" / f"{triage_task_id}.json")
         _, _, triage_metadata_path = response_store.artifact_paths(triage_task_id); triage_meta = _load_json(triage_metadata_path)
-        response_ref = triage_task.result.get("artifact_ref") if isinstance(triage_task.result, Mapping) else None
-        if not isinstance(response_ref, Mapping):
-            raise RunBlocked("resume_triage_response_reference_missing")
-        response_bytes = response_store.read_response(str(response_ref.get("ref")), str(response_ref.get("sha256")))
-        response_digest = _sha(response_bytes)
-        if (response_digest != output_container.get("raw_response_sha256")
-                or response_digest != triage_meta.get("response_sha256")
-                or triage_meta.get("response_completed") is not True
-                or triage_meta.get("output_validation") != "role_schema_valid"):
+        triage_output, recovered_meta, triage_usage_ref = _load_succeeded_role_output(
+            task_id=triage_task_id, queue=queue, role_catalog=role_catalog,
+            response_store=response_store, root=root,
+        )
+        response_digest = str(recovered_meta.get("response_sha256") or "")
+        if (response_digest != triage_meta.get("response_sha256")
+                or triage_meta.get("output_validation") != "role_schema_valid"
+                or not triage_usage_ref):
             raise RunBlocked("resume_triage_artifact_integrity_check_failed")
-        triage_output = output_container.get("structured_output")
         if not isinstance(triage_output, Mapping):
             raise RunBlocked("resume_triage_output_not_structured")
+        if resume_after_triage_pending:
+            checkpoint.state["status"] = "running"
+            checkpoint.event("resume_after_triage", "started", reused_task_id=triage_task_id,
+                             usage_record_ref=triage_usage_ref,
+                             repeated_siwc_calls=0, repeated_public_requests=0,
+                             recovery=getattr(checkpoint, "resume_recovery", "recovered_succeeded_ledger_task"))
+            _atomic_json(active_path, {**active, "status": "running", "updated_at": _now(), "branch": branch})
         checkpoint.event("triage_reused", "succeeded", task_id=triage_task_id,
                          network_requests_reused=len(request_rows), prior_triage_calls=1,
                          repeated_public_requests=0, repeated_siwc_calls=0)

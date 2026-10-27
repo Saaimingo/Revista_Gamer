@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import tempfile
 import unittest
 from pathlib import Path
@@ -18,19 +19,207 @@ from motor_editorial.eng_codex_011 import (
     _map_persisted_live_items,
     _normalize_writer_claim_refs_against_section_evidence,
     _read_completed_role_artifact,
+    _load_succeeded_role_output,
+    _task_output,
     _advance_reviewer_correction,
     _dispatch_reviewer_research_return,
     RADAR_RESEARCH_TASK_TYPE,
     RUN_MISSION,
     _register_source,
 )
+from motor_editorial.agent_siwc import SIWCResponseArtifactStore
 from motor_editorial.radar_store import RadarStore
 from motor_editorial.radar_triage import EDITORIAL_TRIAGE_LANES, resolve_triage_output
 from motor_editorial.db import stable_hash
-from motor_editorial.usage_meter import StoryVersionArchive
+from motor_editorial.usage_meter import AgentUsageArtifactStore, StoryVersionArchive
 
 
 class PersistedTriageResumeTests(unittest.TestCase):
+    def test_runner_reuses_executor_persisted_usage_receipt_without_rewriting(self) -> None:
+        task_id = "triage-receipt-reuse"
+        raw_bytes = b'{"decisions":[],"no_change":true}'
+        response_digest = hashlib.sha256(raw_bytes).hexdigest()
+        receipt_ref = {"ref": f"agent-usage/{task_id}.attempt-001.json", "sha256": "b" * 64}
+        usage_record = {
+            "task_id": task_id, "attempt_number": 1, "role_id": "triage_analyst",
+            "model": "gpt-6-luna-2026-10-26", "reasoning_effort": "max",
+            "input_tokens": 8, "output_tokens": 4, "total_tokens": 12,
+            "raw_response_sha256": response_digest, "provider_response_id": "resp-fixture",
+        }
+        metadata = {
+            "role_id": "triage_analyst", "usage_receipt_ref": receipt_ref,
+            "model": usage_record["model"], "reasoning_effort": "max", "response_id": "resp-fixture",
+            "usage": {"input_tokens": 8, "output_tokens": 4, "total_tokens": 12},
+            "response_sha256": response_digest, "output_validation": "role_schema_valid",
+        }
+        with tempfile.TemporaryDirectory(prefix="eng012-receipt-reuse-") as temporary:
+            root = Path(temporary)
+            metadata_path = root / "metadata.json"
+            metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+            task = SimpleNamespace(
+                task_id=task_id, state="succeeded", attempts=1,
+                result={
+                    "artifact_ref": {"ref": "response.json", "sha256": response_digest},
+                    "usage_receipt_ref": receipt_ref,
+                },
+            )
+
+            class Queue:
+                def get(self, requested_task_id):
+                    return task if requested_task_id == task_id else None
+
+            class ResponseStore:
+                def artifact_paths(self, requested_task_id):
+                    return None, None, metadata_path
+
+                def read_response(self, ref, digest):
+                    self.assert_ref = (ref, digest)
+                    return raw_bytes
+
+            class UsageStore:
+                def read(self, ref, digest):
+                    if (ref, digest) != (receipt_ref["ref"], receipt_ref["sha256"]):
+                        raise AssertionError("unexpected receipt reference")
+                    return usage_record
+
+                def write(self, record):
+                    raise AssertionError("runner must not rewrite the executor receipt")
+
+            envelope = SimpleNamespace(role_id="triage_analyst", research_mediation_policy=None)
+            with patch("motor_editorial.eng_codex_011.build_usage_record", return_value=usage_record):
+                output, recovered_metadata, recovered_ref = _task_output(
+                    task_id=task_id, queue=Queue(), response_store=ResponseStore(), root=root,
+                    envelope=envelope, usage_store=UsageStore(), research_suggestion_count=None,
+                )
+
+            self.assertEqual(output, {"decisions": [], "no_change": True})
+            self.assertEqual(recovered_metadata["response_sha256"], response_digest)
+            self.assertEqual(recovered_ref, receipt_ref)
+            self.assertTrue((root / "structured-outputs" / f"{task_id}.json").is_file())
+
+    def test_call_started_checkpoint_resume_is_validation_only_until_ledger_recovery(self) -> None:
+        run_id = "eng-codex-012-fixture-run"
+        task_id = "radar-triage-fixture"
+        with tempfile.TemporaryDirectory(prefix="eng012-triage-resume-validation-") as temporary:
+            root = Path(temporary)
+            response_store = SIWCResponseArtifactStore(root)
+            response_store.write_request(task_id, {"prompt_input": {"task_input_data": {"data": {}}}})
+            raw_response = '{"decisions":[]}'
+            response_store.write_response(task_id, raw_response, {
+                "role_id": "triage_analyst", "response_id": "resp-fixture",
+                "model": "gpt-6-luna-2026-10-26", "reasoning_effort": "max",
+                "response_completed": True, "store": False, "stream": True,
+                "output_validation": "role_schema_valid",
+                "response_sha256": hashlib.sha256(raw_response.encode("utf-8")).hexdigest(),
+            })
+            response_digest = hashlib.sha256(raw_response.encode("utf-8")).hexdigest()
+            usage_store = AgentUsageArtifactStore(root)
+            usage_ref = usage_store.write({
+                "task_id": task_id, "attempt_number": 1, "raw_response_sha256": response_digest,
+                "role_id": "triage_analyst", "provider_response_id": "resp-fixture",
+                "model": "gpt-6-luna-2026-10-26", "reasoning_effort": "max",
+            })
+            response_store.update_metadata(task_id, {"usage_receipt_ref": usage_ref})
+            checkpoint_state = {
+                "run_id": run_id, "stage": "triage_agent", "status": "running",
+                "events": [{"stage": "triage_agent", "status": "call_started", "task_id": task_id}],
+            }
+            checkpoint_path = root / "checkpoint.json"
+            original = json.dumps(checkpoint_state, ensure_ascii=False)
+            checkpoint_path.write_text(original, encoding="utf-8")
+
+            with patch("motor_editorial.eng_codex_011.REASONING_EFFORT", "max"):
+                checkpoint = Checkpoint.resume_after_triage(root, run_id)
+
+            self.assertEqual(checkpoint.resume_recovery, "adopt_durable_triage_result_after_runner_interruption")
+            self.assertEqual(checkpoint_path.read_text(encoding="utf-8"), original)
+
+    def test_missing_derived_output_reconstructs_from_raw_and_preserves_usage_receipt(self) -> None:
+        task_id = "triage-reconstruct-fixture"
+        input_payload = {"batch_id": "batch-1", "items": []}
+        raw_bytes = b'{"decisions":[],"no_change":true}'
+        response_digest = hashlib.sha256(raw_bytes).hexdigest()
+        request_record = {"prompt_input": {"task_input_data": {"data": input_payload}}}
+        request_bytes = json.dumps(request_record, separators=(",", ":")).encode("utf-8")
+        request_digest = hashlib.sha256(request_bytes).hexdigest()
+        metadata = {
+            "task_id": task_id, "role_id": "triage_analyst", "response_sha256": response_digest,
+            "response_completed": True, "store": False, "stream": True,
+            "output_validation": "role_schema_valid", "model": "gpt-6-luna-2026-10-26",
+            "reasoning_effort": "max", "response_id": "resp-fixture",
+            "usage": {"input_tokens": 8, "output_tokens": 4, "total_tokens": 12},
+            "request_artifact_ref": "request.json", "request_artifact_sha256": request_digest,
+        }
+        with tempfile.TemporaryDirectory(prefix="eng012-missing-structured-output-") as temporary:
+            root = Path(temporary)
+            request_path = root / "request.json"
+            metadata_path = root / "metadata.json"
+            request_path.write_bytes(request_bytes)
+            metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+            usage_store = AgentUsageArtifactStore(root)
+            receipt = {
+                "task_id": task_id, "attempt_number": 1, "role_id": "triage_analyst",
+                "model": metadata["model"], "reasoning_effort": "max",
+                "provider_response_id": "resp-fixture", "input_tokens": 8,
+                "output_tokens": 4, "total_tokens": 12, "raw_response_sha256": response_digest,
+            }
+            usage_ref = usage_store.write(receipt)
+            metadata["usage_receipt_ref"] = usage_ref
+            metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+            task = SimpleNamespace(
+                task_id=task_id, state="succeeded", attempts=1,
+                payload={"input": input_payload},
+                result={
+                    "artifact_ref": {"ref": "response.json", "sha256": response_digest},
+                    "usage_receipt_ref": usage_ref,
+                },
+            )
+
+            class Queue:
+                def get(self, requested_task_id):
+                    return task if requested_task_id == task_id else None
+
+                def events(self, requested_task_id):
+                    return []
+
+            class ResponseStore:
+                def artifact_paths(self, requested_task_id):
+                    return request_path, root / "response.json", metadata_path
+
+                def read_response(self, ref, digest):
+                    value = {"response.json": raw_bytes, "request.json": request_bytes}[ref]
+                    if hashlib.sha256(value).hexdigest() != digest:
+                        raise ValueError("fixture digest mismatch")
+                    return value
+
+            class RoleCatalog:
+                def validate_task(self, *args, **kwargs):
+                    return None
+
+                def validate_result(self, *args, **kwargs):
+                    return None
+
+                def resolve(self, *args, **kwargs):
+                    return SimpleNamespace(output_schema={})
+
+            envelope = SimpleNamespace(role_id="triage_analyst", role_version="1.0.0", role_hash="a" * 64)
+            with patch("motor_editorial.eng_codex_011.REASONING_EFFORT", "max"), \
+                 patch("motor_editorial.eng_codex_011.envelope_from_payload", return_value=envelope), \
+                 patch("motor_editorial.eng_codex_011.validate_json_schema"), \
+                 patch("motor_editorial.eng_codex_011._validate_output_references"):
+                output, recovered_metadata, recovered_usage_ref = _load_succeeded_role_output(
+                    task_id=task_id, queue=Queue(), role_catalog=RoleCatalog(),
+                    response_store=ResponseStore(), root=root,
+                )
+
+            output_path = root / "structured-outputs" / f"{task_id}.json"
+            self.assertEqual(output, {"decisions": [], "no_change": True})
+            self.assertEqual(recovered_metadata["response_sha256"], response_digest)
+            self.assertEqual(recovered_usage_ref, usage_ref["ref"])
+            self.assertTrue(output_path.is_file())
+            self.assertEqual(json.loads(output_path.read_text(encoding="utf-8"))["raw_response_sha256"], response_digest)
+            self.assertEqual(usage_store.read(usage_ref["ref"], usage_ref["sha256"]), receipt)
+
     def test_reviewer_correction_research_returns_once_to_same_journalist_within_budget(self) -> None:
         request = ResearchRequest.from_mapping({
             "schema_version": "1.1", "request_id": "review-research-1", "parent_task_id": "writer-correction-1",
