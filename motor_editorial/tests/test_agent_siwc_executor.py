@@ -29,7 +29,8 @@ from motor_editorial.agent_siwc import (
     _research_cycle_already_used,
     register_siwc_role_executor,
 )
-from motor_editorial.usage_meter import AgentUsageArtifactStore
+from motor_editorial.usage_meter import AgentUsageArtifactStore, StoryVersionArchive
+from motor_editorial.editorial import review_next_action
 from motor_editorial.db import Store, json_dumps, stable_hash
 from motor_editorial.orchestration import AgentQueue, TaskDispatcher
 from motor_editorial.orchestration import TaskFailure
@@ -518,6 +519,84 @@ class SIWCAgentRoleExecutorTests(unittest.TestCase):
                 if expected_error:
                     metadata = SIWCResponseArtifactStore(self.root / "private-artifacts").read_task_artifacts(task_id)["metadata"]
                     self.assertEqual(metadata["output_validation"], "evidence_or_revision_rejected")
+
+    def test_review_correction_keeps_persona_and_rechecks_new_full_version(self) -> None:
+        persona_text = "Identidade sintética de teste."
+        client = FakeRoleClient({})
+        dispatcher = self._dispatcher(client, persona_resolver=lambda _envelope: persona_text)
+        artifact_root = self.root / "private-artifacts"
+        response_store = SIWCResponseArtifactStore(artifact_root)
+        versions = StoryVersionArchive(artifact_root)
+
+        def run_role(role_id, payload, output, dependencies=()):
+            role = self._role(role_id)
+            writer = role_id == "persona_writer"
+            envelope = _envelope(role, payload, persona_id="persona-fixture" if writer else None,
+                                 persona_text=persona_text if writer else None)
+            task_id = enqueue_contract_task(
+                self.queue, envelope, payload, catalog=self.catalog,
+                executor_profile=SIWC_ROLE_EXECUTOR_PROFILE, executor_id=SIWC_ROLE_EXECUTOR_ID,
+                max_attempts=1, dependencies=dependencies,
+            )
+            client.outputs[role_id] = output
+            outcome = dispatcher.dispatch_one(task_id)
+            self.assertEqual(outcome.state, "succeeded")
+            return self.queue.get(task_id), envelope
+
+        writer_input = copy.deepcopy(self.fixtures["roles"]["persona_writer"]["input"])
+        writer_input["evidence_dossier"] = {
+            "evidence": [{"evidence_id": "fixture-evidence-01"}],
+            "claims": [{"claim_id": "claim-fixture-01"}],
+        }
+        original = copy.deepcopy(self.fixtures["roles"]["persona_writer"]["output"])
+        original_task, original_envelope = run_role("persona_writer", writer_input, original)
+
+        def archive(task, envelope, output):
+            ref = task.result["artifact_ref"]
+            return versions.write(task=task, envelope=envelope,
+                                  raw_response=response_store.read_response(ref["ref"], ref["sha256"]),
+                                  structured_story=output, response_ref=ref,
+                                  usage_ref=task.result["usage_receipt_ref"])
+
+        original_archive = archive(original_task, original_envelope, original)
+        original_text = StoryVersionArchive._render(original)
+        original_hash = stable_hash(original_text)
+        fact_input = {"draft": original_text, "draft_hash": original_hash,
+                      "evidence_dossier": writer_input["evidence_dossier"], "editorial_policy": {}}
+        fact_output = {"draft_hash": original_hash, "status": "pass", "findings": []}
+        fact_task, _ = run_role("fact_checker", fact_input, fact_output, (original_task.task_id,))
+        review_input = {"draft": original_text, "draft_hash": original_hash, "fact_check_verdict": fact_output,
+                        "editorial_brief": {}, "persona_ref": {"id": "persona-fixture"}}
+        review_output = {"draft_hash": original_hash, "verdict": "revise", "findings": ["Ajustar abertura."],
+                         "human_review_required": True}
+        review_task, _ = run_role("editorial_reviewer", review_input, review_output, (fact_task.task_id,))
+        self.assertEqual(review_next_action(review_output, original_hash, corrections_attempted=0), "correct")
+
+        revised_input = copy.deepcopy(writer_input)
+        revised_input["writing_constraints"].update({"prior_draft": original_text, "review_findings": review_output["findings"]})
+        revised = copy.deepcopy(original)
+        revised["sections"][0]["body"] += " Abertura revista."
+        revised_task, revised_envelope = run_role("persona_writer", revised_input, revised, (review_task.task_id,))
+        revised_archive = archive(revised_task, revised_envelope, revised)
+        revised_text = StoryVersionArchive._render(revised)
+        revised_hash = stable_hash(revised_text)
+        self.assertNotEqual(original_hash, revised_hash)
+        self.assertEqual((original_archive["version_kind"], revised_archive["version_kind"]), ("original", "revision"))
+        self.assertEqual(original_envelope.persona_hash, revised_envelope.persona_hash)
+        self.assertNotEqual(original_archive["full_text_ref"], revised_archive["full_text_ref"])
+
+        revised_fact_input = {**fact_input, "draft": revised_text, "draft_hash": revised_hash}
+        revised_fact_output = {"draft_hash": revised_hash, "status": "pass", "findings": []}
+        revised_fact_task, _ = run_role("fact_checker", revised_fact_input, revised_fact_output, (revised_task.task_id,))
+        final_review_input = {**review_input, "draft": revised_text, "draft_hash": revised_hash,
+                              "fact_check_verdict": revised_fact_output}
+        final_review = {"draft_hash": revised_hash, "verdict": "pass", "findings": [], "human_review_required": True}
+        run_role("editorial_reviewer", final_review_input, final_review, (revised_fact_task.task_id,))
+        self.assertEqual(review_next_action(final_review, revised_hash, corrections_attempted=1), "await_human_approval")
+        self.assertEqual([call["role_id"] for call in client.calls], [
+            "persona_writer", "fact_checker", "editorial_reviewer",
+            "persona_writer", "fact_checker", "editorial_reviewer",
+        ])
 
     def test_siwc_authorization_and_quota_http_failures_are_preserved_and_not_replayed(self) -> None:
         role = self._role("assignment_editor")

@@ -219,6 +219,27 @@ def review_matches_revision(review: Mapping[str, Any], article: Mapping[str, Any
     )
 
 
+def review_next_action(review: Mapping[str, Any], draft_hash: str, *, corrections_attempted: int) -> str:
+    """Route a version-bound review, allowing one reviewer-directed correction."""
+    if review.get("draft_hash") != draft_hash or review.get("human_review_required") is not True:
+        raise TaskFailure("editorial_review_stale_or_unsafe", "Revisão não corresponde ao texto ou remove gate humano.", blocked=True)
+    if not isinstance(corrections_attempted, int) or isinstance(corrections_attempted, bool) or corrections_attempted < 0:
+        raise ValueError("Contagem de correções inválida.")
+    verdict = review.get("verdict")
+    findings = review.get("findings")
+    if verdict not in {"pass", "revise", "hold"} or not isinstance(findings, (list, tuple)):
+        raise TaskFailure("editorial_review_invalid", "Revisão não contém veredito e achados válidos.", blocked=True)
+    if verdict == "pass":
+        return "await_human_approval"
+    if verdict == "hold":
+        return "hold"
+    if not findings or any(not isinstance(item, str) or not item.strip() for item in findings):
+        return "hold_missing_findings"
+    if corrections_attempted >= 1:
+        return "hold_correction_limit"
+    return "correct"
+
+
 def build_stage_input(
     *, stage: str, packet: Mapping[str, Any], previous_outputs: Mapping[str, Any],
 ) -> str:
