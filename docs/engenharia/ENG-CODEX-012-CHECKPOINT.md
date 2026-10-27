@@ -85,3 +85,19 @@
 ## Critérios ainda abertos
 
 O ciclo real de U06 continua pendente; também faltam handoffs fact-check/revisão U07, preview real em navegador U08, isolamento multipauta U09 e nova homologação U10 (bloqueada por autorização de pesquisa esgotada). A missão não está concluída enquanto algum critério obrigatório permanecer aberto.
+
+## Pausa solicitada — franquia restante em 1%
+
+- A Direção pediu para interromper o avanço e salvar o estado porque resta 1% de franquia. Nenhuma chamada SIWC/Plus, pesquisa pública, reprodução de resposta arquivada ou teste novo foi executado nesta pausa.
+- Revalidação ao vivo antes do checkpoint: branch `codex/eng-codex-012-architecture-contracts`, upstream `origin/codex/eng-codex-012-architecture-contracts`, árvore limpa; HEAD `d3ed75cf79570d3c449a05f4816daf57aa77cfa1` (`docs: checkpoint ENG-CODEX-012 U06 evidence`). PR #44 permanece aberta e draft, base `codex/eng-codex-011-live-factory`, sem comentários/reviews; Issue #42 permanece aberta e tem um comentário.
+- U06 está implementada e validada apenas offline conforme a seção anterior. O ciclo real do pedido do jornalista continua sem evidência útil e não pode ser reexecutado dentro do limite de pesquisa atual.
+- U07 foi auditada parcialmente nos artefatos privados ENG-011, em leitura somente. Story `story-8f51003939613c3329a967af`: o hash do texto integral original `37af1b1b1a4aa9e85906ae55cd6d3431fbd4e48a8ebcb40a77aef2c7e8180d23` coincide com `draft_hash` e `revision_hash` do fact-check arquivado. Existem manifests separados para original, revisão 02 e revisão 03; os hashes dos conteúdos bruto e integral foram conferidos. Há refs de recibo de uso, mas a conferência final de seus hashes não foi concluída. Não foi localizada resposta arquivada do papel `editorial_reviewer`; confirmar o estado exato da tarefa no ledger ao retomar. Nenhum texto integral privado foi copiado para o repositório.
+- Nenhuma alteração de código U07 foi feita antes da pausa. A checagem semântica do revisor em `agent_siwc.py` é somente uma lacuna candidata: conferir primeiro o contrato normativo da PR #43 antes de alterar seu comportamento.
+
+### Retomada segura
+
+1. Manter a execução offline e sem chamadas externas. Ler os trechos normativos U07/C05/C07 da PR #43 que governam fact-check, revisão, correções e versão.
+2. Fazer uma consulta mínima, somente leitura, ao ledger privado e aos manifests para concluir a validação dos hashes de recibo e confirmar se houve tarefa do revisor; não repetir inferência nem alterar arquivos privados.
+3. Só então implementar no owner compartilhado os gates de versão/checagem/revisão exigidos pelo contrato, acrescentando regressões focadas com executor fake; registrar quais partes continuam sem prova de agente real.
+4. Prosseguir para U08 usando apenas draft e imagem existentes com direitos comprováveis; abrir a prévia em HTTP local e registrar inspeção visual real. Depois validar isolamento multipauta U09 sem fetch externo.
+5. Manter U06 real e U10 bloqueadas até autorização específica para nova pesquisa pública. Preservar DNAs, PR #44 draft e aprovação humana pendente; não fazer merge, deploy ou publicação.
