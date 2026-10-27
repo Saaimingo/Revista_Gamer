@@ -405,6 +405,36 @@ class Checkpoint:
         return checkpoint
 
     @classmethod
+    def resume_after_assignment_pre_external(cls, root: Path, run_id: str) -> "Checkpoint":
+        """Read-only validation for a blocked writer handoff after the assignment is durable."""
+        checkpoint = cls.__new__(cls)
+        checkpoint.root = root
+        checkpoint.run_id = run_id
+        checkpoint.path = root / "checkpoint.json"
+        checkpoint.state = _load_json(checkpoint.path)
+        active = _load_json(root / "active-run.json")
+        events = checkpoint.state.get("events", [])
+        last = events[-1] if isinstance(events, list) and events else {}
+        allowed_status = {
+            "persona_load": "succeeded",
+            "resume_after_assignment_pre_external": "started",
+            "investigator_reused": "succeeded",
+            "assignment_result_reused": "succeeded",
+            "editorial_assignment": "succeeded",
+        }
+        stage = checkpoint.state.get("stage")
+        if (checkpoint.state.get("run_id") != run_id or active.get("run_id") != run_id
+                or active.get("status") != "blocked" or active.get("blocker_code") != "ValueError"
+                or stage not in allowed_status or last.get("stage") != stage
+                or last.get("status") != allowed_status.get(stage)):
+            raise RunBlocked("resume_assignment_pre_external_boundary_not_confirmed")
+        if stage == "resume_after_assignment_pre_external" and (
+                last.get("repeated_siwc_calls") != 0 or last.get("repeated_public_requests") != 0):
+            raise RunBlocked("resume_assignment_pre_external_checkpoint_is_invalid")
+        checkpoint.resume_recovery = "reuse_completed_investigator_and_assignment_before_writer"
+        return checkpoint
+
+    @classmethod
     def resume_after_source_registration_block(cls, root: Path, run_id: str) -> "Checkpoint":
         checkpoint = cls.__new__(cls)
         checkpoint.root = root
@@ -2302,6 +2332,7 @@ def run_live_factory(
     resume_after_pre_external_writer = False
     resume_after_writer_revision_failure = False
     resume_after_triage_pending = False
+    resume_after_assignment_pre_external = False
     resume_triage_event_started = False
     resume_triage_already_reused = False
     if resume_existing_run:
@@ -2335,6 +2366,15 @@ def run_live_factory(
             and last_checkpoint_event.get("stage") == "persona_load"
             and last_checkpoint_event.get("status") == "succeeded"
         )
+        resume_after_assignment_pre_external = (
+            active.get("blocker_code") == "ValueError"
+            and checkpoint_state.get("stage") in {
+                "persona_load", "resume_after_assignment_pre_external", "investigator_reused",
+                "assignment_result_reused", "editorial_assignment",
+            }
+            and last_checkpoint_event.get("stage") == checkpoint_state.get("stage")
+            and last_checkpoint_event.get("status") in {"succeeded", "started"}
+        )
         resume_after_writer_revision_failure = (
             checkpoint_state.get("stage") == "journalist_correction_agent"
             and last_checkpoint_event.get("stage") == "journalist_correction_agent"
@@ -2347,13 +2387,15 @@ def run_live_factory(
             and last_checkpoint_event.get("stage") == "journalist_original_agent"
             and last_checkpoint_event.get("status") == "blocked"
             and last_checkpoint_event.get("error_code") == "agent_contract_invalid"
-        ) or resume_after_source_registration or resume_after_writer_guard or resume_after_writer_revision_failure
+        ) or resume_after_source_registration or resume_after_writer_guard or resume_after_writer_revision_failure or resume_after_assignment_pre_external
         if resume_after_investigator:
             checkpoint = Checkpoint.resume_after_investigator(root, run_id)
         elif resume_after_source_registration:
             checkpoint = Checkpoint.resume_after_source_registration_block(root, run_id)
         elif resume_after_writer_revision_failure:
             checkpoint = Checkpoint.resume_after_writer_revision_failure(root, run_id)
+        elif resume_after_assignment_pre_external:
+            checkpoint = Checkpoint.resume_after_assignment_pre_external(root, run_id)
         elif resume_after_pre_external_writer:
             checkpoint = Checkpoint.resume_after_pre_external_writer_block(root, run_id)
         else:
@@ -2365,7 +2407,7 @@ def run_live_factory(
             resume_triage_already_reused = (
                 getattr(checkpoint, "resume_recovery", None) == "continue_after_durable_triage_reuse"
             )
-        if not resume_after_triage_pending:
+        if not resume_after_triage_pending and not resume_after_assignment_pre_external:
             _atomic_json(active_path, {**active, "status": "running", "updated_at": _now(), "branch": branch})
     else:
         if active_path.exists():
@@ -2496,6 +2538,64 @@ def run_live_factory(
             raise RunBlocked("resume_triage_artifact_integrity_check_failed")
         if not isinstance(triage_output, Mapping):
             raise RunBlocked("resume_triage_output_not_structured")
+        if resume_after_assignment_pre_external:
+            investigator_task_id = _task_id(run_token, "evidence_investigator", "live-dossier")
+            assignment_task_id = _task_id(run_token, "assignment_editor", "live-assignment")
+            investigator_task_record = queue.get(investigator_task_id)
+            assignment_task_record = queue.get(assignment_task_id)
+            if any(task is None or task.state != "succeeded" or task.attempts != 1
+                   or not task.external_request_started
+                   for task in (investigator_task_record, assignment_task_record)):
+                raise RunBlocked("resume_assignment_recovery_requires_completed_external_tasks")
+            raw_investigator_output, investigator_meta, investigator_usage_ref = _load_succeeded_role_output(
+                task_id=investigator_task_id, queue=queue, role_catalog=role_catalog,
+                response_store=response_store, root=root,
+            )
+            assignment_output_check, _, assignment_usage_ref = _load_succeeded_role_output(
+                task_id=assignment_task_id, queue=queue, role_catalog=role_catalog,
+                response_store=response_store, root=root,
+            )
+            normalization_path = root / "dossier" / "investigator-output-normalized.json"
+            if not normalization_path.is_file() or not investigator_usage_ref or not assignment_usage_ref:
+                raise RunBlocked("resume_assignment_recovery_artifacts_missing")
+            normalization = _load_json(normalization_path)
+            normalized_investigator_output = normalization.get("normalized_output")
+            investigator_response_sha = investigator_meta.get("response_sha256")
+            if (normalization.get("schema_version") != "ENG-CODEX-011-InvestigatorNormalization.v1"
+                    or normalization.get("task_id") != investigator_task_id
+                    or normalization.get("response_sha256") != investigator_response_sha
+                    or not isinstance(normalized_investigator_output, Mapping)
+                    or stable_hash(json_dumps(dict(normalized_investigator_output)))
+                    != normalization.get("normalized_output_sha256")
+                    or not isinstance(raw_investigator_output.get("claims"), list)):
+                raise RunBlocked("resume_assignment_recovery_investigator_normalization_invalid")
+            assignment_event = next((event for event in reversed(checkpoint.state.get("events", []))
+                                     if event.get("stage") == "editorial_assignment"
+                                     and event.get("status") == "succeeded"), None)
+            if (assignment_event is None or assignment_event.get("task_id") != assignment_task_id
+                    or assignment_output_check.get("candidate_item_id") != assignment_event.get("selected_candidate_id")
+                    or assignment_output_check.get("journalist_persona_id") != assignment_event.get("journalist_persona_id")):
+                raise RunBlocked("resume_assignment_recovery_editor_decision_mismatch")
+            writer_task_id = _task_id(run_token, "persona_writer", "original-draft")
+            writer_task_record = queue.get(writer_task_id)
+            if (writer_task_record is not None
+                    and (writer_task_record.state != "queued" or writer_task_record.attempts != 0
+                         or writer_task_record.external_request_started)):
+                raise RunBlocked("resume_assignment_recovery_writer_task_is_not_pre_external")
+            if checkpoint.state.get("stage") != "resume_after_assignment_pre_external":
+                checkpoint.state["status"] = "running"
+                checkpoint.event(
+                    "resume_after_assignment_pre_external", "started",
+                    investigator_task_id=investigator_task_id, assignment_task_id=assignment_task_id,
+                    investigator_usage_record_ref=investigator_usage_ref,
+                    assignment_usage_record_ref=assignment_usage_ref,
+                    repeated_siwc_calls=0, repeated_public_requests=0,
+                    recovery="reuse_successful_investigator_and_assignment_outputs",
+                )
+            else:
+                checkpoint.state["status"] = "running"
+                checkpoint.save()
+            _atomic_json(active_path, {**active, "status": "running", "updated_at": _now(), "branch": branch})
         if resume_after_triage_pending:
             checkpoint.state["status"] = "running"
             if not resume_triage_event_started and not resume_triage_already_reused:
@@ -2645,7 +2745,10 @@ def run_live_factory(
             task_id=investigator_task, queue=queue, role_catalog=role_catalog,
             response_store=response_store, root=root,
         )
-        recovery_path = root / "dossier" / "investigator-output-recovery.json"
+        recovery_path = root / "dossier" / (
+            "investigator-output-normalized.json"
+            if resume_after_assignment_pre_external else "investigator-output-recovery.json"
+        )
         if not recovery_path.is_file():
             raise RunBlocked("resume_investigator_normalization_artifact_missing")
         recovery = _load_json(recovery_path)
@@ -2654,6 +2757,9 @@ def run_live_factory(
         if (recovery.get("response_sha256") != investigator_response_sha
                 or not isinstance(normalized_investigator_output, Mapping)
                 or stable_hash(json_dumps(dict(normalized_investigator_output))) != recovery.get("normalized_output_sha256")
+                or (resume_after_assignment_pre_external
+                    and (recovery.get("schema_version") != "ENG-CODEX-011-InvestigatorNormalization.v1"
+                         or recovery.get("task_id") != investigator_task))
                 or raw_investigator_output.get("claims") is None):
             raise RunBlocked("resume_investigator_normalization_artifact_integrity_failed")
         investigator_output = dict(normalized_investigator_output)

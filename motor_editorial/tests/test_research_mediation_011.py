@@ -6,7 +6,7 @@ import unittest
 
 from motor_editorial.agent_contracts import AgentTaskEnvelope, ContractValidationError
 from motor_editorial.db import json_dumps, stable_hash
-from motor_editorial.research_mediation import mediate_requested_research
+from motor_editorial.research_mediation import mediate_requested_research, validate_policy
 
 
 def policy(*, routes: list[dict] | None = None) -> dict:
@@ -50,6 +50,19 @@ def mediate(
 
 
 class ResearchMediation011Tests(unittest.TestCase):
+    def test_explicit_conversation_authorization_ref_is_preserved_for_external_research(self) -> None:
+        trusted = policy()
+        trusted["authorization_ref"] = "conversation-ENG-CODEX-012-U10"
+
+        validated = validate_policy(
+            trusted, story_id="story-001", role_id="persona_writer", persona_id="ranzinza",
+        )
+
+        self.assertEqual(validated["authorization_ref"], "conversation-ENG-CODEX-012-U10")
+        trusted["authorization_ref"] = "unversioned-free-text"
+        with self.assertRaisesRegex(ValueError, "referencia de autorizacao versionada"):
+            validate_policy(trusted, story_id="story-001", role_id="persona_writer", persona_id="ranzinza")
+
     def test_accented_punctuation_paraphrase_routes_to_trusted_request(self) -> None:
         result = mediate([{
             "question": "Na versão mais recente, quais mudanças saíram no changelog oficial?",

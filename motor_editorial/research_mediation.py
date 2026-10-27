@@ -161,8 +161,14 @@ def validate_policy(policy: Any, *, story_id: str, role_id: str, persona_id: str
     external_routes = [route for route in routes if PUBLIC_SOURCES_SCOPE in route["allowed_scope"]]
     if external_routes:
         authorization_ref = _text(policy.get("authorization_ref"), "authorization_ref", 128)
-        if not re.fullmatch(r"(?:issue|github-issue)[:#-][0-9]+", authorization_ref, flags=re.IGNORECASE):
-            raise ValueError("Pesquisa externa exige uma autorizaÃ§Ã£o de Issue versionada")
+        issue_authorization = re.fullmatch(
+            r"(?:issue|github-issue)[:#-][0-9]+", authorization_ref, flags=re.IGNORECASE,
+        )
+        conversation_authorization = re.fullmatch(
+            r"conversation-[A-Za-z0-9][A-Za-z0-9._:-]{0,117}", authorization_ref,
+        )
+        if issue_authorization is None and conversation_authorization is None:
+            raise ValueError("Pesquisa externa exige referencia de autorizacao versionada")
         domains_raw = policy.get("authorized_domains")
         if not isinstance(domains_raw, (list, tuple)) or not domains_raw:
             raise ValueError("Pesquisa externa exige allowlist de domÃ­nios exatos")

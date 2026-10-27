@@ -536,6 +536,32 @@ class PersistedTriageResumeTests(unittest.TestCase):
             self.assertEqual(checkpoint.state["events"][-1]["repeated_siwc_calls"], 0)
             self.assertEqual(checkpoint.state["events"][-1]["repeated_public_requests"], 0)
 
+    def test_assignment_pre_external_resume_accepts_saved_value_error_without_checkpoint_mutation(self) -> None:
+        run_id = "eng-codex-012-fixture-run"
+        with tempfile.TemporaryDirectory(prefix="eng012-assignment-preexternal-resume-") as temporary:
+            root = Path(temporary)
+            (root / "active-run.json").write_text(json.dumps({
+                "run_id": run_id, "status": "blocked", "blocker_code": "ValueError",
+            }), encoding="utf-8")
+            state = {
+                "run_id": run_id, "stage": "persona_load", "status": "running",
+                "events": [
+                    {"stage": "editorial_assignment", "status": "succeeded", "task_id": "assignment-1"},
+                    {"stage": "persona_load", "status": "succeeded", "persona_id": "ranzinza"},
+                ],
+            }
+            checkpoint_path = root / "checkpoint.json"
+            original = json.dumps(state, ensure_ascii=False)
+            checkpoint_path.write_text(original, encoding="utf-8")
+
+            checkpoint = Checkpoint.resume_after_assignment_pre_external(root, run_id)
+
+            self.assertEqual(
+                checkpoint.resume_recovery,
+                "reuse_completed_investigator_and_assignment_before_writer",
+            )
+            self.assertEqual(checkpoint_path.read_text(encoding="utf-8"), original)
+
     def test_writer_revision_resume_accepts_only_saved_unknown_claim_blocker(self) -> None:
         run_id = "eng-codex-011-fixture-run"
         with tempfile.TemporaryDirectory(prefix="eng011-revision-checkpoint-") as temporary:
