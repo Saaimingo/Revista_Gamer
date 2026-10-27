@@ -4,6 +4,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 from motor_editorial.eng_codex_011 import (
     SOURCE_CANDIDATES,
@@ -13,6 +14,7 @@ from motor_editorial.eng_codex_011 import (
     _make_radar_profile,
     _map_persisted_live_items,
     _normalize_writer_claim_refs_against_section_evidence,
+    _read_completed_role_artifact,
     _register_source,
 )
 from motor_editorial.radar_store import RadarStore
@@ -20,6 +22,34 @@ from motor_editorial.radar_triage import EDITORIAL_TRIAGE_LANES, resolve_triage_
 
 
 class PersistedTriageResumeTests(unittest.TestCase):
+    def test_completed_role_artifact_reads_fresh_task_after_dispatch(self) -> None:
+        stale_snapshot = SimpleNamespace(state="queued", result=None)
+        persisted = SimpleNamespace(state="succeeded", result={"artifact_ref": {"ref": "response.json", "sha256": "a" * 64}})
+
+        class Queue:
+            def get(self, task_id):
+                self.task_id = task_id
+                return persisted
+
+        class Store:
+            def read_response(self, ref, digest):
+                self.args = (ref, digest)
+                return b"durable response"
+
+        queue, store = Queue(), Store()
+        task, ref, raw = _read_completed_role_artifact(queue, "continued-writer", store)
+        self.assertIsNot(task, stale_snapshot)
+        self.assertIs(task, persisted)
+        self.assertEqual(queue.task_id, "continued-writer")
+        self.assertEqual(store.args, ("response.json", "a" * 64))
+        self.assertEqual((ref["ref"], raw), ("response.json", b"durable response"))
+        persisted.state = "queued"
+        with self.assertRaisesRegex(RunBlocked, "completed_role_task_result_not_persisted"):
+            _read_completed_role_artifact(queue, "continued-writer", store)
+        persisted.state, persisted.result = "succeeded", {}
+        with self.assertRaisesRegex(RunBlocked, "completed_role_task_artifact_reference_missing"):
+            _read_completed_role_artifact(queue, "continued-writer", store)
+
     def test_source_registration_resume_requires_the_exact_saved_blocker(self) -> None:
         run_id = "eng-codex-011-fixture-run"
         with tempfile.TemporaryDirectory(prefix="eng011-checkpoint-resume-") as temporary:

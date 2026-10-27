@@ -1027,6 +1027,19 @@ def _dispatch_role(
     return structured, metadata, usage_ref
 
 
+def _read_completed_role_artifact(
+    queue: AgentQueue, task_id: str, response_store: SIWCResponseArtifactStore,
+) -> tuple[Any, Mapping[str, str], bytes]:
+    """Read the durable task again after dispatch; prior snapshots can be stale."""
+    task = queue.get(task_id)
+    if task is None or task.state != "succeeded" or not isinstance(task.result, Mapping):
+        raise RunBlocked("completed_role_task_result_not_persisted")
+    ref = task.result.get("artifact_ref")
+    if not isinstance(ref, Mapping) or not isinstance(ref.get("ref"), str) or not isinstance(ref.get("sha256"), str):
+        raise RunBlocked("completed_role_task_artifact_reference_missing")
+    return task, ref, response_store.read_response(ref["ref"], ref["sha256"])
+
+
 def _make_radar_profile(source: Mapping[str, str], source_id: str, *, details: bool = False, tag: str | None = None) -> tuple[SourceProfile, str]:
     if details:
         if tag is None:
@@ -2580,8 +2593,9 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
                 root=root, response_store=response_store, usage_store=usage_store,
                 checkpoint=checkpoint, stage="journalist_research_continuation_agent",
             )
-            continuation_raw_ref = working_task.result["artifact_ref"]
-            continuation_raw = response_store.read_response(continuation_raw_ref["ref"], continuation_raw_ref["sha256"])
+            working_task, continuation_raw_ref, continuation_raw = _read_completed_role_artifact(
+                queue, continuation.task_id, response_store,
+            )
             continuation_archive = version_archive.write(
                 task=working_task, envelope=working_envelope, raw_response=continuation_raw,
                 structured_story=working_output, response_ref=continuation_raw_ref, usage_ref=working_usage,
@@ -2721,9 +2735,7 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
             root=root, response_store=response_store, usage_store=usage_store,
             checkpoint=checkpoint, stage="journalist_correction_agent",
         )
-        revised_task = queue.get(revision_task)
-        revised_ref = revised_task.result["artifact_ref"]
-        revised_raw = response_store.read_response(revised_ref["ref"], revised_ref["sha256"])
+        revised_task, revised_ref, revised_raw = _read_completed_role_artifact(queue, revision_task, response_store)
         revised_archive = version_archive.write(
             task=revised_task, envelope=revision_envelope, raw_response=revised_raw,
             structured_story=revised_output, response_ref=revised_ref, usage_ref=revised_usage,
@@ -2813,9 +2825,9 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
             root=root, response_store=response_store, usage_store=usage_store,
             checkpoint=checkpoint, stage="journalist_review_correction_agent",
         )
-        review_revision_row = queue.get(review_revision_task)
-        review_revision_ref = review_revision_row.result["artifact_ref"]
-        review_revision_raw = response_store.read_response(review_revision_ref["ref"], review_revision_ref["sha256"])
+        review_revision_row, review_revision_ref, review_revision_raw = _read_completed_role_artifact(
+            queue, review_revision_task, response_store,
+        )
         review_revision_archive = version_archive.write(
             task=review_revision_row, envelope=review_revision_envelope, raw_response=review_revision_raw,
             structured_story=review_revision, response_ref=review_revision_ref, usage_ref=review_revision_usage,
@@ -2867,9 +2879,7 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
         leaked_markers = [marker for marker in INTERNAL_LEAK_MARKERS if marker.casefold() in body_for_checks.casefold()]
     checkpoint.event("editorial_review_routing", "succeeded" if review_action == "await_human_approval" else "blocked",
                      action=review_action, task_id=reviewer_task, draft_sha256=draft_hash)
-    reviewer_task_row = queue.get(reviewer_task)
-    reviewer_ref = reviewer_task_row.result["artifact_ref"]
-    reviewer_raw = response_store.read_response(reviewer_ref["ref"], reviewer_ref["sha256"])
+    reviewer_task_row, reviewer_ref, reviewer_raw = _read_completed_role_artifact(queue, reviewer_task, response_store)
     human_editorial_approval = "pending"
     final_integrity_ok = (
         research_completed
