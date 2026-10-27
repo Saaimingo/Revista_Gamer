@@ -6,7 +6,9 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
+from unittest.mock import Mock
 
+from motor_editorial.agent_contracts import ResearchPacket, ResearchRequest
 from motor_editorial.eng_codex_011 import (
     SOURCE_CANDIDATES,
     Checkpoint,
@@ -17,6 +19,9 @@ from motor_editorial.eng_codex_011 import (
     _normalize_writer_claim_refs_against_section_evidence,
     _read_completed_role_artifact,
     _advance_reviewer_correction,
+    _dispatch_reviewer_research_return,
+    RADAR_RESEARCH_TASK_TYPE,
+    RUN_MISSION,
     _register_source,
 )
 from motor_editorial.radar_store import RadarStore
@@ -26,6 +31,95 @@ from motor_editorial.usage_meter import StoryVersionArchive
 
 
 class PersistedTriageResumeTests(unittest.TestCase):
+    def test_reviewer_correction_research_returns_once_to_same_journalist_within_budget(self) -> None:
+        request = ResearchRequest.from_mapping({
+            "schema_version": "1.1", "request_id": "review-research-1", "parent_task_id": "writer-correction-1",
+            "story_id": "story-1", "story_revision_id": "story-revision-review-01",
+            "requester_role_id": "persona_writer", "requester_persona_id": "persona-a",
+            "research_profile_id": "radar.general.v1", "research_profile_version": "1.0.0",
+            "question": "Confirme o detalhe publicado na versão selecionada.", "queries": ["release notes tag"],
+            "entity_ids": [], "required_evidence_kinds": ["official_statement"],
+            "preferred_source_ids": ["source-selected"], "preferred_domains": ["api.github.com"],
+            "languages": ["en"], "time_window": {}, "versions_configurations": {},
+            "known_evidence_ids": [], "exclusions": [], "max_sources": 1, "max_requests": 1,
+            "max_bytes": 10000, "max_duration_seconds": 10, "reason": "Complete official release evidence.",
+            "allowed_scope": ["read:radar_index", "read:registered_public_sources"],
+            "idempotency_key": "review-research-idem-1", "human_gate_if_sensitive": True,
+        })
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "public-research-log.json").write_text(
+                json.dumps({"mission": RUN_MISSION, "requests": []}), encoding="utf-8",
+            )
+            radar_task = SimpleNamespace(
+                task_id="radar-task-1", task_type=RADAR_RESEARCH_TASK_TYPE,
+                payload={"research_request": request.to_dict()}, state="queued",
+                external_request_started=False, result=None,
+            )
+            continuation = SimpleNamespace(
+                task_id="writer-return-1", task_type="agent.role.persona_writer",
+                payload={"research_packet": {"request_id": request.request_id},
+                         "research_cycle_already_used": True},
+                state="succeeded", result={"artifact_ref": {"ref": "raw.json", "sha256": "a" * 64}},
+            )
+
+            class Queue:
+                def list_tasks(self, limit=1000):
+                    return [radar_task, continuation] if routed else [radar_task]
+
+                def get(self, task_id):
+                    return radar_task if task_id == radar_task.task_id else continuation
+
+            routed = False
+            queue = Queue()
+            dispatcher = Mock()
+
+            def dispatch_one(task_id):
+                self.assertEqual(task_id, radar_task.task_id)
+                radar_task.state = "succeeded"
+                radar_task.result = {"packet": {"request_id": request.request_id}}
+                return SimpleNamespace(state="succeeded")
+
+            dispatcher.dispatch_one.side_effect = dispatch_one
+
+            def route(task):
+                nonlocal routed
+                self.assertIs(task, radar_task)
+                routed = True
+
+            router = Mock(side_effect=route)
+            provider = SimpleNamespace(last_execution={"endpoint": "https://api.github.com/releases/tag/x", "http_status": 200,
+                                                       "fetched_at": "2026-10-27T00:00:00Z", "payload_bytes": 20,
+                                                       "payload_sha256": "b" * 64})
+            archive = Mock()
+            archive.write.return_value = {"manifest_ref": "story/manifest.json", "full_text_sha256": "c" * 64}
+            writer_output = {"title": "Título", "dek": "Linha fina", "sections": [{"heading": "Seção", "body": "Texto"}]}
+            with patch("motor_editorial.eng_codex_011.ResearchPacket.from_mapping",
+                       return_value=SimpleNamespace(request_id=request.request_id, document_refs=(object(),), claim_refs=())), \
+                 patch("motor_editorial.eng_codex_011.envelope_from_payload",
+                       return_value=SimpleNamespace(story_id="story-1", persona_id="persona-a")), \
+                 patch("motor_editorial.eng_codex_011._dispatch_role",
+                       return_value=(writer_output, {"model": "gpt-6-luna", "reasoning_effort": "max"}, {"ref": "usage.json", "sha256": "d" * 64})), \
+                 patch("motor_editorial.eng_codex_011._read_completed_role_artifact",
+                       return_value=(continuation, {"ref": "raw.json", "sha256": "a" * 64}, b"raw")):
+                result = _dispatch_reviewer_research_return(
+                    request=request, writer_task_id="writer-correction-1", queue=queue,
+                    dispatcher=dispatcher, router=router, role_catalog=object(), provider=provider,
+                    detail_source_id="source-selected", research_completed=False,
+                    root=root, response_store=object(), usage_store=object(), checkpoint=Mock(), version_archive=archive,
+                )
+            self.assertEqual(result[0], writer_output)
+            self.assertEqual(result[1].story_id, "story-1")
+            self.assertEqual(result[1].persona_id, "persona-a")
+            self.assertEqual(result[2], continuation)
+            self.assertIs(result[5].request_id, request.request_id)
+            dispatcher.dispatch_one.assert_called_once_with(radar_task.task_id)
+            router.assert_called_once_with(radar_task)
+            archive.write.assert_called_once()
+            saved_log = json.loads((root / "public-research-log.json").read_text(encoding="utf-8"))
+            self.assertEqual(len(saved_log["requests"]), 1)
+            self.assertEqual(saved_log["requests"][0]["status"], "observed")
+
     def test_reviewer_correction_branch_rechecks_and_stops_on_holds(self) -> None:
         original = {"title": "Title", "dek": "Dek", "sections": [{"heading": "H", "body": "Original"}]}
         original_text = StoryVersionArchive._render(original)
@@ -64,11 +158,13 @@ class PersistedTriageResumeTests(unittest.TestCase):
             args = dict(
                 reviewer_output=review, reviewer_task="review-1", reviewer_envelope=object(),
                 draft_hash=original_hash, editorial_brief={}, final_dossier={}, writing_constraints={},
-                story_text=original_text, research_completed=False, queue=queue, role_catalog=object(),
+                story_text=original_text, research_completed=False, queue=queue,
+                role_catalog=SimpleNamespace(validate_result=lambda *_: SimpleNamespace(requested_research=None)),
                 profiles={}, run_id="run", run_token="token", story_id="story", snapshot_ids=[], root=Path("."),
                 detail_source_id="source", selected={"source": {}, "tag_name": "tag", "evidence_ids": []},
                 persona_id="persona", package={"version": "v1"}, persona_text="DNA", research_packet=None,
-                initial_packet=None, dispatcher=object(), response_store=SimpleNamespace(read_response=lambda *_: b"raw"),
+                initial_packet=None, dispatcher=object(), router=object(), provider=object(),
+                response_store=SimpleNamespace(read_response=lambda *_: b"raw"),
                 usage_store=object(), checkpoint=checkpoint, version_archive=archive,
                 fact_checker_input={"draft": original_text, "draft_hash": original_hash},
                 reviewer_input={"draft": original_text, "draft_hash": original_hash, "fact_check_verdict": fact},
@@ -102,7 +198,7 @@ class PersistedTriageResumeTests(unittest.TestCase):
         self.assertEqual(calls, ["journalist_review_correction_agent"])
         self.assertEqual(len(archived), 1)
         result, calls, _, _, _ = exercise({**revision, "requested_research": ["fonte adicional"]})
-        self.assertEqual(result, "review_correction_research_return_not_yet_integrated")
+        self.assertEqual(result, "review_correction_research_request_not_accepted_by_motor")
         self.assertEqual(calls, ["journalist_review_correction_agent"])
         result, calls, _, _, _ = exercise(revision, fact_status="revise")
         self.assertEqual(result, "review_correction_fact_check_not_pass")

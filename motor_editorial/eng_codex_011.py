@@ -1,4 +1,4 @@
-"""Single-run live factory proof for ENG-CODEX-011.
+"""Single-run live factory proof reused by ENG-CODEX-011 and ENG-CODEX-012.
 
 The runner joins the existing Radar, AgentQueue/TaskDispatcher, SIWC role
 executor, ResearchService/ResearchResultRouter, StoryVersionArchive and layout
@@ -84,7 +84,7 @@ from .layout.engine import (
 )
 from .layout.index import LayoutReferenceIndex
 from .layout.pipeline import _materialize_references, _read_fixture
-from .orchestration import AgentProfile, AgentQueue, TaskDispatcher
+from .orchestration import AgentProfile, AgentQueue, AgentTask, TaskDispatcher
 from .radar_connectors import RadarConnectorService, SourceProfile
 from .radar_incremental import IncrementalRadarService
 from .radar_policy import PersistentDomainQuotaGuard
@@ -110,12 +110,19 @@ from .usage_meter import (
 
 REPOSITORY = Path(__file__).resolve().parents[1]
 PRIVATE_ROOT = Path.home() / ".codex" / "Revista_Gamer" / "eng-codex-011-live-factory"
+PRIVATE_BASE_ROOT = Path.home() / ".codex" / "Revista_Gamer"
 GITHUB_DOMAIN = "api.github.com"
 DAILY_QUOTA = 8
 TOTAL_REQUEST_BUDGET = 4
 MAX_CANDIDATES_TO_EDITOR = 12
 MODEL_ID = "gpt-6-luna"
 REASONING_EFFORT = "high"
+RUN_MISSION = "ENG-CODEX-011"
+RUN_ID_PREFIX = "eng-codex-011"
+TASK_ID_PREFIX = "e011"
+EXPECTED_BRANCH = "codex/eng-codex-011-live-factory"
+AUTHORIZATION_REF = "github-issue-41"
+FRANCHISE_OBSERVATION_PERCENT: int | None = 76
 ROBOTS_SNAPSHOT = "User-agent: *\nAllow: /\n"
 ROBOTS_PROVENANCE = (
     "https://api.github.com/robots.txt returned HTTP 404 during the authorized preflight; "
@@ -233,13 +240,15 @@ class Checkpoint:
         self.run_id = run_id
         self.path = root / "checkpoint.json"
         self.state: dict[str, Any] = {
-            "mission": "ENG-CODEX-011",
+            "mission": RUN_MISSION,
             "run_id": run_id,
             "started_at": _now(),
             "updated_at": _now(),
             "status": "running",
             "stage": "preflight",
-            "budget": {"public_domain": GITHUB_DOMAIN, "daily_quota": DAILY_QUOTA, "total_requests_max": TOTAL_REQUEST_BUDGET,
+            "budget": {"version": f"{RUN_MISSION}-public-research-budget.v1",
+                       "authorization_ref": AUTHORIZATION_REF, "public_domain": GITHUB_DOMAIN,
+                       "daily_quota": DAILY_QUOTA, "total_requests_max": TOTAL_REQUEST_BUDGET,
                        "parallel_requests": 1, "siwc_calls_max_per_task": 1, "retries": 0},
             "events": [],
         }
@@ -390,15 +399,15 @@ def _ensure_git_branch() -> str:
     branch = subprocess.check_output(
         ["git", "branch", "--show-current"], cwd=REPOSITORY, text=True, encoding="utf-8"
     ).strip()
-    if branch != "codex/eng-codex-011-live-factory":
-        raise RunBlocked("wrong_eng_011_branch")
+    if branch != EXPECTED_BRANCH:
+        raise RunBlocked("wrong_live_factory_branch")
     return branch
 
 
 def _task_id(run_token: str, role_id: str, stage: str) -> str:
     safe_role = re.sub(r"[^a-z0-9-]", "-", role_id.casefold())
     safe_stage = re.sub(r"[^a-z0-9-]", "-", stage.casefold())
-    return f"e011-{run_token}-{safe_role}-{safe_stage}"
+    return f"{TASK_ID_PREFIX}-{run_token}-{safe_role}-{safe_stage}"
 
 
 def _source_profile(source: Mapping[str, str], *, endpoint: str, source_id: str, label: str) -> SourceProfile:
@@ -424,7 +433,7 @@ def _source_profile(source: Mapping[str, str], *, endpoint: str, source_id: str,
 
 def _register_source(store: RadarStore, profile: SourceProfile, display_name: str, endpoint: str) -> None:
     metadata = {
-        "mission": "ENG-CODEX-011",
+        "mission": RUN_MISSION,
         "connector_kind": "public_api",
         "host_allowlist": [GITHUB_DOMAIN],
         "access": "public unauthenticated release metadata",
@@ -832,7 +841,7 @@ def _new_role_task(
         task_id=task_id,
         run_id=run_id,
         story_id=story_id,
-        edition_id="eng-codex-011-internal-preview",
+        edition_id=f"{RUN_MISSION.lower()}-internal-preview",
         input_payload=input_payload,
         persona_id=persona_id,
         persona_version=persona_version,
@@ -840,8 +849,8 @@ def _new_role_task(
         input_artifact_refs=[{"ref": f"private://task-inputs/{task_id}.json", "sha256": _sha(input_bytes)}],
         source_snapshot_ids=source_snapshot_ids,
         usage_guardrails={"max_calls": 1, "max_iterations": 1},
-        idempotency_key=f"eng-codex-011:{run_id}:{role_id}:{stage}",
-        correlation_id=f"eng-codex-011:{story_id}",
+        idempotency_key=f"{RUN_MISSION.lower()}:{run_id}:{role_id}:{stage}",
+        correlation_id=f"{RUN_MISSION.lower()}:{story_id}",
         requires_human_gate=True,
         research_mediation_policy=research_policy,
     )
@@ -1551,7 +1560,7 @@ def _make_med_policy(source_id: str, source: Mapping[str, str], tag: str, story_
     return {
         "schema_version": POLICY_SCHEMA_VERSION,
         "story_revision_id": story_revision_id,
-        "authorization_ref": "github-issue-41",
+        "authorization_ref": AUTHORIZATION_REF,
         "authorized_domains": [GITHUB_DOMAIN],
         "routes": [{
             "route_id": "selected-github-release-details",
@@ -1573,7 +1582,7 @@ def _make_med_policy(source_id: str, source: Mapping[str, str], tag: str, story_
 
 def _create_png(path: Path, title: str, subtitle: str) -> dict[str, Any]:
     """Use a private original ImageGen image when supplied, or draw locally."""
-    image_source = os.environ.get("ENGCODEX011_IMAGE_PATH")
+    image_source = os.environ.get("ENGCODEX_IMAGE_PATH") or os.environ.get("ENGCODEX011_IMAGE_PATH")
     if image_source:
         source_path = Path(image_source).expanduser().resolve(strict=True)
         image_bytes = source_path.read_bytes()
@@ -1653,12 +1662,12 @@ def _write_usage_summary(root: Path) -> dict[str, Any]:
         values = [row.get(metric) for row in records if isinstance(row.get(metric), int) and not isinstance(row.get(metric), bool)]
         totals[metric] = {"reported_count": len(values), "sum_reported": sum(values) if values else None}
     value = {
-        "schema_version": "ENG-CODEX-011-Usage.v1",
+        "schema_version": f"{RUN_MISSION}-Usage.v1",
         "source": "SIWC response metadata usage and duration_ms; no token or franchise conversion",
         "calls": records,
         "totals": totals,
         "by_persona": summary,
-        "franchise_observation": {"percent": 76, "source": "direction report", "measured_by_provider": False},
+        "franchise_observation": {"percent": FRANCHISE_OBSERVATION_PERCENT, "source": "direction report", "measured_by_provider": False},
         "paid_api_calls": 0,
     }
     _atomic_json(root / "usage-report.json", value)
@@ -1757,7 +1766,7 @@ def _create_story_package(
     }
     payload = {
         "story_id": story_id,
-        "edition_id": "eng-codex-011-internal-preview",
+        "edition_id": f"{RUN_MISSION.lower()}-internal-preview",
         "story_revision": 1,
         "title": str(writer_output["title"]),
         "dek": str(writer_output["dek"]),
@@ -1843,8 +1852,8 @@ def _serve(preview_root: Path, port_file: Path) -> int:
     from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
     root = preview_root.resolve()
-    if not root.is_dir() or not root.is_relative_to(PRIVATE_ROOT.resolve()):
-        raise SystemExit("preview_root_outside_private_eng011_root")
+    if not root.is_dir() or not root.is_relative_to(PRIVATE_BASE_ROOT.resolve()):
+        raise SystemExit("preview_root_outside_private_codex_project_root")
     handler = partial(SimpleHTTPRequestHandler, directory=str(root))
     server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     _atomic_json(port_file, {"host": "127.0.0.1", "port": server.server_address[1], "pid": os.getpid()})
@@ -1855,11 +1864,124 @@ def _serve(preview_root: Path, port_file: Path) -> int:
     return 0
 
 
+def _dispatch_reviewer_research_return(
+    *, request: ResearchRequest, writer_task_id: str, queue: AgentQueue,
+    dispatcher: TaskDispatcher, router: ResearchResultRouter, role_catalog: AgentRoleCatalog,
+    provider: GitHubReleaseResearchProvider, detail_source_id: str, research_completed: bool,
+    root: Path, response_store: SIWCResponseArtifactStore, usage_store: AgentUsageArtifactStore,
+    checkpoint: Checkpoint, version_archive: StoryVersionArchive,
+) -> tuple[dict[str, Any], AgentTaskEnvelope, AgentTask, dict[str, Any] | None, dict[str, Any] | None, ResearchPacket]:
+    """Execute one budgeted correction research request and return it to its same writer."""
+    if research_completed:
+        raise RunBlocked("review_correction_research_cycle_already_used")
+    if (request.parent_task_id != writer_task_id or request.requester_role_id != "persona_writer"
+            or request.preferred_source_ids != (detail_source_id,)
+            or any(domain != GITHUB_DOMAIN for domain in request.preferred_domains)):
+        raise RunBlocked("review_correction_research_scope_or_parent_mismatch")
+    research_task = next((row for row in queue.list_tasks(limit=1000)
+                          if row.task_type == RADAR_RESEARCH_TASK_TYPE
+                          and isinstance(row.payload.get("research_request"), Mapping)
+                          and row.payload["research_request"].get("request_id") == request.request_id), None)
+    if research_task is None:
+        raise RunBlocked("review_correction_research_not_enqueued_by_shared_router")
+
+    public_log_path = root / "public-research-log.json"
+    public_log = _load_json(public_log_path)
+    request_rows = public_log.get("requests")
+    if (public_log.get("mission") != RUN_MISSION or not isinstance(request_rows, list)
+            or len(request_rows) > TOTAL_REQUEST_BUDGET
+            or (RUN_MISSION != "ENG-CODEX-011"
+                and public_log.get("budget_version") != f"{RUN_MISSION}-public-research-budget.v1")):
+        raise RunBlocked("review_correction_public_budget_record_invalid")
+    log_row = next((row for row in request_rows if isinstance(row, Mapping)
+                    and row.get("research_request_id") == request.request_id), None)
+    if research_task.state != "succeeded" and log_row is None:
+        if len(request_rows) >= TOTAL_REQUEST_BUDGET or request.max_requests > TOTAL_REQUEST_BUDGET - len(request_rows):
+            raise RunBlocked("review_correction_public_request_budget_exhausted")
+        log_row = {
+            "source_id": detail_source_id,
+            "requested_url": None,
+            "status": "started",
+            "http_status": None,
+            "fetched_at": _now(),
+            "bytes": None,
+            "sha256": None,
+            "research_request_id": request.request_id,
+            "origin_task_id": writer_task_id,
+            "scope": "reviewer_correction_journalist_requested_same_story_official_release_details",
+            "budget_version": f"{RUN_MISSION}-public-research-budget.v1",
+        }
+        request_rows.append(log_row)
+        public_log["requests"] = request_rows
+        _atomic_json(public_log_path, public_log)
+
+    if research_task.state != "succeeded":
+        if research_task.state not in {"queued", "retry_wait"} or research_task.external_request_started:
+            raise RunBlocked("review_correction_research_external_state_uncertain_no_retry")
+        outcome = dispatcher.dispatch_one(research_task.task_id)
+        research_task = queue.get(research_task.task_id)
+        if research_task is None or outcome.state != "succeeded" or research_task.state != "succeeded":
+            raise RunBlocked("review_correction_radar_research_did_not_succeed")
+    radar_result = research_task.result or {}
+    packet = ResearchPacket.from_mapping(radar_result.get("packet"))
+    if packet.request_id != request.request_id or not (packet.document_refs or packet.claim_refs):
+        raise RunBlocked("review_correction_research_return_has_no_usable_evidence")
+    router(research_task)
+    if log_row is not None:
+        execution = provider.last_execution or {}
+        log_row.update({
+            "status": "observed" if execution.get("http_status") == 200 else (
+                "cache_reused" if radar_result.get("cache_hit") else "blocked"
+            ),
+            "requested_url": execution.get("endpoint"),
+            "http_status": execution.get("http_status"),
+            "fetched_at": execution.get("fetched_at") or _now(),
+            "bytes": execution.get("payload_bytes"),
+            "sha256": execution.get("payload_sha256"),
+            "provider_called": bool(execution.get("endpoint")),
+            "packet_id": radar_result.get("packet_id"),
+            "returned_documents": len(packet.document_refs),
+            "returned_claims": len(packet.claim_refs),
+        })
+        public_log["requests"] = request_rows
+        _atomic_json(public_log_path, public_log)
+    continuation = next((row for row in queue.list_tasks(limit=1000)
+                         if row.task_type == "agent.role.persona_writer"
+                         and row.payload.get("research_packet", {}).get("request_id") == request.request_id), None)
+    if continuation is None:
+        raise RunBlocked("review_correction_research_not_returned_to_same_journalist")
+    continuation_envelope = envelope_from_payload(continuation.payload)
+    if (continuation_envelope.story_id != request.story_id
+            or continuation_envelope.persona_id != request.requester_persona_id
+            or continuation.payload.get("research_cycle_already_used") is not True):
+        raise RunBlocked("review_correction_research_continuation_binding_invalid")
+    continuation_output, continuation_meta, continuation_usage = _dispatch_role(
+        dispatcher=dispatcher, queue=queue, task_id=continuation.task_id, envelope=continuation_envelope,
+        root=root, response_store=response_store, usage_store=usage_store,
+        checkpoint=checkpoint, stage="journalist_review_correction_research_return_agent",
+    )
+    if not isinstance(continuation_output, dict):
+        raise RunBlocked("review_correction_research_continuation_output_missing")
+    continuation_row, response_ref, raw_response = _read_completed_role_artifact(
+        queue, continuation.task_id, response_store,
+    )
+    archived = version_archive.write(
+        task=continuation_row, envelope=continuation_envelope, raw_response=raw_response,
+        structured_story=continuation_output, response_ref=response_ref, usage_ref=continuation_usage,
+    )
+    checkpoint.event("review_correction_research_return", "succeeded",
+                     request_id=request.request_id, research_task_id=research_task.task_id,
+                     continuation_task_id=continuation.task_id,
+                     returned_documents=len(packet.document_refs), returned_claims=len(packet.claim_refs),
+                     manifest_ref=archived["manifest_ref"], full_text_sha256=archived["full_text_sha256"])
+    return continuation_output, continuation_envelope, continuation_row, continuation_meta, continuation_usage, packet
+
+
 def _advance_reviewer_correction(
     *, reviewer_output, reviewer_task, reviewer_envelope, draft_hash, editorial_brief,
     final_dossier, writing_constraints, story_text, research_completed, queue, role_catalog,
     profiles, run_id, run_token, story_id, snapshot_ids, root, detail_source_id, selected,
-    persona_id, package, persona_text, research_packet, initial_packet, dispatcher,
+    persona_id, package, persona_text, research_packet, initial_packet, dispatcher, router, provider,
     response_store, usage_store, checkpoint, version_archive, fact_checker_input,
     reviewer_input, current_writer_output, current_writer_task, current_writer_envelope,
     current_writer_meta, current_writer_usage, current_fact_output, current_fact_task_id,
@@ -1907,7 +2029,27 @@ def _advance_reviewer_correction(
                          manifest_ref=review_revision_archive["manifest_ref"],
                          full_text_sha256=review_revision_archive["full_text_sha256"])
         if review_revision.get("requested_research"):
-            raise RunBlocked("review_correction_research_return_not_yet_integrated")
+            correction_result = role_catalog.validate_result(
+                review_revision_envelope, review_revision_row.result or {},
+            )
+            correction_request = correction_result.requested_research
+            if correction_request is None:
+                raise RunBlocked("review_correction_research_request_not_accepted_by_motor")
+            (review_revision, review_revision_envelope, review_revision_row, review_revision_meta,
+             review_revision_usage, research_packet) = _dispatch_reviewer_research_return(
+                request=correction_request, writer_task_id=review_revision_task, queue=queue,
+                dispatcher=dispatcher, router=router, role_catalog=role_catalog, provider=provider,
+                detail_source_id=detail_source_id, research_completed=research_completed,
+                root=root, response_store=response_store, usage_store=usage_store,
+                checkpoint=checkpoint, version_archive=version_archive,
+            )
+            review_revision_task = review_revision_row.task_id
+            continuation_result = role_catalog.validate_result(
+                review_revision_envelope, review_revision_row.result or {},
+            )
+            if continuation_result.requested_research is not None:
+                raise RunBlocked("review_correction_research_cycle_limit_exceeded")
+            research_completed = True
         revised_text = StoryVersionArchive._render(review_revision)
         revised_hash = stable_hash(revised_text)
         if revised_hash == draft_hash:
@@ -1954,11 +2096,46 @@ def _advance_reviewer_correction(
         reviewer_task, reviewer_envelope, reviewer_output, current_writer_output,
         current_writer_task, current_writer_envelope, current_writer_meta, current_writer_usage,
         current_fact_output, current_fact_task_id, story_text, draft_hash, leaked_markers,
+        research_completed, research_packet,
     )
 
 
-def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = False) -> dict[str, Any]:
+def run_live_factory(
+    root: Path = PRIVATE_ROOT,
+    *,
+    resume_existing_run: bool = False,
+    model_id: str = MODEL_ID,
+    reasoning_effort: str = REASONING_EFFORT,
+    mission: str = RUN_MISSION,
+    run_id_prefix: str = RUN_ID_PREFIX,
+    task_id_prefix: str = TASK_ID_PREFIX,
+    expected_branch: str = EXPECTED_BRANCH,
+    authorization_ref: str = AUTHORIZATION_REF,
+    total_request_budget: int = TOTAL_REQUEST_BUDGET,
+    daily_quota: int = DAILY_QUOTA,
+    franchise_observation_percent: int | None = FRANCHISE_OBSERVATION_PERCENT,
+    verified_model_catalog: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    global PRIVATE_ROOT, MODEL_ID, REASONING_EFFORT, RUN_MISSION, RUN_ID_PREFIX, TASK_ID_PREFIX
+    global EXPECTED_BRANCH, AUTHORIZATION_REF, TOTAL_REQUEST_BUDGET, DAILY_QUOTA, FRANCHISE_OBSERVATION_PERCENT
+    PRIVATE_ROOT = root.expanduser().resolve()
+    MODEL_ID = model_id
+    REASONING_EFFORT = reasoning_effort
+    RUN_MISSION = mission
+    RUN_ID_PREFIX = run_id_prefix
+    TASK_ID_PREFIX = task_id_prefix
+    EXPECTED_BRANCH = expected_branch
+    AUTHORIZATION_REF = authorization_ref
+    TOTAL_REQUEST_BUDGET = total_request_budget
+    DAILY_QUOTA = daily_quota
+    FRANCHISE_OBSERVATION_PERCENT = franchise_observation_percent
+    if (not RUN_MISSION.startswith("ENG-CODEX-") or not RUN_ID_PREFIX.startswith("eng-codex-")
+            or not re.fullmatch(r"e[0-9]{3}", TASK_ID_PREFIX) or TOTAL_REQUEST_BUDGET < 1
+            or DAILY_QUOTA < 1 or not MODEL_ID or not REASONING_EFFORT):
+        raise RunBlocked("live_run_configuration_invalid")
     root = root.expanduser().resolve()
+    if not root.is_relative_to(PRIVATE_BASE_ROOT.resolve()):
+        raise RunBlocked("private_evidence_root_outside_codex_project_directory")
     root.mkdir(parents=True, exist_ok=True)
     active_path = root / "active-run.json"
     branch = _ensure_git_branch()
@@ -1972,7 +2149,7 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
         if active.get("status") != "blocked" or active.get("branch") != branch:
             raise RunBlocked("resume_run_state_or_branch_mismatch")
         run_id = active.get("run_id")
-        if not isinstance(run_id, str) or not run_id.startswith("eng-codex-011-"):
+        if not isinstance(run_id, str) or not run_id.startswith(RUN_ID_PREFIX + "-"):
             raise RunBlocked("resume_run_id_invalid")
         run_token = run_id.rsplit("-", 1)[-1]
         checkpoint_state = _load_json(root / "checkpoint.json")
@@ -2024,7 +2201,7 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
         if active_path.exists():
             raise RunBlocked("existing_eng_011_run_prevents_redundant_execution")
         run_token = uuid.uuid4().hex[:12]
-        run_id = f"eng-codex-011-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{run_token}"
+        run_id = f"{RUN_ID_PREFIX}-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{run_token}"
         checkpoint = Checkpoint(root, run_id)
         _atomic_json(active_path, {"run_id": run_id, "status": "running", "started_at": _now(), "branch": branch})
     usage_store = AgentUsageArtifactStore(root)
@@ -2038,6 +2215,23 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
         if not any(event.get("stage") == "model_preflight" and event.get("status") == "succeeded"
                    and event.get("model") == MODEL_ID for event in checkpoint.state.get("events", [])):
             raise RunBlocked("resume_model_preflight_not_proven_in_prior_run")
+    elif verified_model_catalog is not None:
+        catalog_models = verified_model_catalog.get("visible_models")
+        if (verified_model_catalog.get("schema_version") != "siwc-model-catalog-observation.v1"
+                or verified_model_catalog.get("mission") != RUN_MISSION
+                or not isinstance(catalog_models, list)
+                or not all(isinstance(item, str) for item in catalog_models)
+                or verified_model_catalog.get("request_count") != 1
+                or verified_model_catalog.get("paid_api_calls") != 0):
+            raise RunBlocked("model_catalog_observation_invalid")
+        visible_models = set(catalog_models)
+        checkpoint.event("model_preflight", "succeeded" if MODEL_ID in visible_models else "blocked",
+                         model=MODEL_ID if MODEL_ID in visible_models else None,
+                         visible_model_count=len(visible_models), api_calls=0,
+                         reused_observation=True,
+                         observation_sha256=hashlib.sha256(json.dumps(verified_model_catalog, ensure_ascii=False,
+                                                                       sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest(),
+                         observed_at=verified_model_catalog.get("observed_at"), paid_api_calls=0)
     else:
         model_rows = client.models()
         visible_models = {
@@ -2093,8 +2287,10 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
     if resume_existing_run:
         public_log = _load_json(root / "public-research-log.json")
         request_rows = public_log.get("requests", [])
-        if (public_log.get("mission") != "ENG-CODEX-011" or public_log.get("run_id") != run_id
-                or not isinstance(request_rows, list) or len(request_rows) > TOTAL_REQUEST_BUDGET):
+        if (public_log.get("mission") != RUN_MISSION or public_log.get("run_id") != run_id
+                or not isinstance(request_rows, list) or len(request_rows) > TOTAL_REQUEST_BUDGET
+                or (RUN_MISSION != "ENG-CODEX-011"
+                    and public_log.get("budget_version") != f"{RUN_MISSION}-public-research-budget.v1")):
             raise RunBlocked("resume_public_request_budget_or_run_identity_mismatch")
         batch_id = public_log.get("batch_id")
         triage_task_id = f"radar-triage-{batch_id}"
@@ -2142,6 +2338,7 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
     else:
         checkpoint.event("preflight", "succeeded", model=MODEL_ID, reasoning_effort=REASONING_EFFORT,
                          source_allowlist=[GITHUB_DOMAIN], daily_quota=DAILY_QUOTA, total_requests_max=TOTAL_REQUEST_BUDGET,
+                         budget_version=f"{RUN_MISSION}-public-research-budget.v1",
                          branch=branch, research_provider="bounded GitHub releases metadata", retries=0)
         radar_service = RadarGeneralService(
             store=radar_store,
@@ -2171,9 +2368,12 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
                 "documents": len(item.documents),
             })
         _atomic_json(root / "public-research-log.json", {
-            "mission": "ENG-CODEX-011",
+            "mission": RUN_MISSION,
             "run_id": run_id,
-            "authorization_ref": "github-issue-41",
+            "authorization_ref": AUTHORIZATION_REF,
+            "budget_version": f"{RUN_MISSION}-public-research-budget.v1",
+            "budget": {"daily_quota": DAILY_QUOTA, "total_requests_max": TOTAL_REQUEST_BUDGET,
+                       "parallel_requests": 1, "retries": 0, "authorized_domain": GITHUB_DOMAIN},
             "robots_provenance": ROBOTS_PROVENANCE,
             "terms_provenance": TERMS_PROVENANCE,
             "requests": request_rows,
@@ -2343,7 +2543,7 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
     assignment_input = build_assignment_editor_input(
         candidate_dossier_artifact,
         edition_state={
-            "edition_id": "eng-codex-011",
+            "edition_id": RUN_MISSION.lower(),
             "current_date": "2026-10-26",
             "active_story_ids": [],
             "decision_owner": "direction",
@@ -2615,7 +2815,8 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
                                 if isinstance(row, Mapping)
                                 and row.get("research_request_id") == research_request.request_id), None)
         if research_task.state != "succeeded" and request_log_row is None:
-            if len(request_rows) >= TOTAL_REQUEST_BUDGET:
+            if (len(request_rows) >= TOTAL_REQUEST_BUDGET
+                    or research_request.max_requests > TOTAL_REQUEST_BUDGET - len(request_rows)):
                 raise RunBlocked("authorized_public_request_budget_is_exhausted")
             request_log_row = {
                 "source_id": detail_source_id,
@@ -2628,6 +2829,7 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
                 "research_request_id": research_request.request_id,
                 "origin_task_id": writer_task,
                 "scope": "journalist_requested_official_release_details",
+                "budget_version": f"{RUN_MISSION}-public-research-budget.v1",
             }
             request_rows.append(request_log_row)
             public_log["requests"] = request_rows
@@ -2909,6 +3111,7 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
         story_id=story_id, snapshot_ids=snapshot_ids, root=root, detail_source_id=detail_source_id,
         selected=selected, persona_id=persona_id, package=package, persona_text=persona_text,
         research_packet=research_packet, initial_packet=initial_packet, dispatcher=dispatcher,
+        router=router, provider=provider,
         response_store=response_store, usage_store=usage_store, checkpoint=checkpoint, version_archive=version_archive,
         fact_checker_input=fact_checker_input, reviewer_input=reviewer_input,
         current_writer_output=current_writer_output, current_writer_task=current_writer_task,
@@ -2989,7 +3192,7 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
     usage_report = _write_usage_summary(root)
     archive_index = version_archive.directory / hashlib.sha256(story_id.encode("utf-8")).hexdigest()[:32] / "INDEX.json"
     report = {
-        "mission": "ENG-CODEX-011",
+        "mission": RUN_MISSION,
         "run_id": run_id,
         "status": "awaiting_browser_visual_verification" if final_integrity_ok else "blocked_or_partial",
         "branch": branch,
@@ -3010,7 +3213,7 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
         "preview_validation": preview_check,
         "usage_report": str(root / "usage-report.json"),
         "usage_total_tokens": usage_report["totals"]["total_tokens"],
-        "franchise_observation_percent": 76,
+        "franchise_observation_percent": FRANCHISE_OBSERVATION_PERCENT,
         "paid_api_calls": 0,
         "published": False,
         "deployed": False,
@@ -3029,12 +3232,26 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
 
 
 def main(argv: list[str] | None = None) -> int:
+    global PRIVATE_ROOT
     parser = argparse.ArgumentParser(prog="python -m motor_editorial.eng_codex_011")
     subparsers = parser.add_subparsers(dest="command", required=True)
-    run_parser = subparsers.add_parser("run", help="execute one authorized ENG-011 live newsroom proof")
-    run_parser.add_argument("--image-path", type=Path, help="private original PNG for the internal preview")
-    resume_parser = subparsers.add_parser("resume", help="resume after the persisted successful Radar triage without repeating it")
-    resume_parser.add_argument("--image-path", type=Path, help="private original PNG for the internal preview")
+    run_parser = subparsers.add_parser("run", help="execute one explicitly budgeted live newsroom proof")
+    resume_parser = subparsers.add_parser("resume", help="resume one persisted newsroom proof without repeating completed external work")
+    for run_options in (run_parser, resume_parser):
+        run_options.add_argument("--image-path", type=Path, help="private original PNG for the internal preview")
+        run_options.add_argument("--root", type=Path, default=PRIVATE_ROOT, help="private evidence directory under ~/.codex/Revista_Gamer")
+        run_options.add_argument("--model-id", default=MODEL_ID)
+        run_options.add_argument("--reasoning-effort", default=REASONING_EFFORT)
+        run_options.add_argument("--mission", default=RUN_MISSION)
+        run_options.add_argument("--run-id-prefix", default=RUN_ID_PREFIX)
+        run_options.add_argument("--task-id-prefix", default=TASK_ID_PREFIX)
+        run_options.add_argument("--expected-branch", default=EXPECTED_BRANCH)
+        run_options.add_argument("--authorization-ref", default=AUTHORIZATION_REF)
+        run_options.add_argument("--total-request-budget", type=int, default=TOTAL_REQUEST_BUDGET)
+        run_options.add_argument("--daily-quota", type=int, default=DAILY_QUOTA)
+        run_options.add_argument("--franchise-observation-percent", type=int, default=FRANCHISE_OBSERVATION_PERCENT)
+        run_options.add_argument("--model-catalog-observation", type=Path,
+                                 help="private JSON observation from the already completed SIWC catalog preflight")
     serve = subparsers.add_parser("serve", help=argparse.SUPPRESS)
     serve.add_argument("preview_root", type=Path)
     serve.add_argument("port_file", type=Path)
@@ -3042,9 +3259,30 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "serve":
         return _serve(args.preview_root, args.port_file)
     try:
+        PRIVATE_ROOT = args.root.expanduser().resolve()
         if args.image_path is not None:
-            os.environ["ENGCODEX011_IMAGE_PATH"] = str(args.image_path.expanduser().resolve())
-        report = run_live_factory(resume_existing_run=args.command == "resume")
+            os.environ["ENGCODEX_IMAGE_PATH"] = str(args.image_path.expanduser().resolve())
+        catalog_observation = None
+        if args.model_catalog_observation is not None:
+            observation_path = args.model_catalog_observation.expanduser().resolve()
+            if not observation_path.is_relative_to(PRIVATE_ROOT):
+                raise RunBlocked("model_catalog_observation_outside_private_run_root")
+            catalog_observation = _load_json(observation_path)
+        report = run_live_factory(
+            PRIVATE_ROOT,
+            resume_existing_run=args.command == "resume",
+            model_id=args.model_id,
+            reasoning_effort=args.reasoning_effort,
+            mission=args.mission,
+            run_id_prefix=args.run_id_prefix,
+            task_id_prefix=args.task_id_prefix,
+            expected_branch=args.expected_branch,
+            authorization_ref=args.authorization_ref,
+            total_request_budget=args.total_request_budget,
+            daily_quota=args.daily_quota,
+            franchise_observation_percent=args.franchise_observation_percent,
+            verified_model_catalog=catalog_observation,
+        )
     except RunBlocked as error:
         root = PRIVATE_ROOT.expanduser().resolve()
         root.mkdir(parents=True, exist_ok=True)
