@@ -13,7 +13,7 @@ import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
-from typing import Any, Mapping, Protocol, Sequence
+from typing import Any, Callable, Mapping, Protocol, Sequence
 from urllib.parse import urlsplit
 
 from .agent_contracts import (
@@ -35,6 +35,9 @@ _STOP_WORDS = frozenset({
     "the", "um", "uma", "what", "when", "where", "which", "who", "with",
 })
 _TOKEN_RE = re.compile(r"[\w%]+", re.UNICODE)
+_DIAGNOSTIC_CODE_RE = re.compile(r"^[a-z][a-z0-9_.-]{0,127}$")
+_DIAGNOSTIC_TYPE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.]{0,127}$")
+RESEARCH_EXECUTION_DIAGNOSTIC_SCHEMA_VERSION = "1.0"
 
 
 @dataclass(frozen=True)
@@ -63,6 +66,7 @@ class ResearchBudget:
     allowed_scope: tuple[str, ...]
     preferred_source_ids: tuple[str, ...]
     preferred_domains: tuple[str, ...]
+    before_external_request: Callable[[], None] | None = None
 
 
 @dataclass(frozen=True)
@@ -119,6 +123,56 @@ class ResearchProvider(Protocol):
 
 
 @dataclass(frozen=True)
+class ResearchExecutionDiagnostic:
+    """Internal, sanitized failure metadata kept apart from editorial prose."""
+
+    phase: str
+    code: str
+    exception_type: str
+    schema_version: str = RESEARCH_EXECUTION_DIAGNOSTIC_SCHEMA_VERSION
+
+    def __post_init__(self) -> None:
+        if self.schema_version != RESEARCH_EXECUTION_DIAGNOSTIC_SCHEMA_VERSION:
+            raise ValueError("ResearchExecutionDiagnostic schema_version is unsupported.")
+        if not isinstance(self.phase, str) or not _DIAGNOSTIC_CODE_RE.fullmatch(self.phase):
+            raise ValueError("ResearchExecutionDiagnostic.phase must be a safe code.")
+        if not isinstance(self.code, str) or not _DIAGNOSTIC_CODE_RE.fullmatch(self.code):
+            raise ValueError("ResearchExecutionDiagnostic.code must be a safe code.")
+        if not isinstance(self.exception_type, str) or not _DIAGNOSTIC_TYPE_RE.fullmatch(self.exception_type):
+            raise ValueError("ResearchExecutionDiagnostic.exception_type must be a type name.")
+
+    @classmethod
+    def from_exception(cls, error: Exception) -> "ResearchExecutionDiagnostic":
+        phase = getattr(error, "phase", "provider_search")
+        code = getattr(error, "code", "provider_execution_failed")
+        if not isinstance(phase, str) or not _DIAGNOSTIC_CODE_RE.fullmatch(phase):
+            phase = "provider_search"
+        if not isinstance(code, str) or not _DIAGNOSTIC_CODE_RE.fullmatch(code):
+            code = "provider_execution_failed"
+        exception_type = type(error).__name__
+        if not _DIAGNOSTIC_TYPE_RE.fullmatch(exception_type):
+            exception_type = "Exception"
+        return cls(phase=phase, code=code, exception_type=exception_type)
+
+    @classmethod
+    def from_mapping(cls, value: Any) -> "ResearchExecutionDiagnostic":
+        if not isinstance(value, Mapping) or set(value) != {"schema_version", "phase", "code", "exception_type"}:
+            raise ValueError("ResearchExecutionDiagnostic does not match its versioned schema.")
+        return cls(
+            schema_version=value["schema_version"], phase=value["phase"], code=value["code"],
+            exception_type=value["exception_type"],
+        )
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "schema_version": self.schema_version,
+            "phase": self.phase,
+            "code": self.code,
+            "exception_type": self.exception_type,
+        }
+
+
+@dataclass(frozen=True)
 class ResearchExecutionResult:
     request_id: str
     story_id: str
@@ -128,6 +182,7 @@ class ResearchExecutionResult:
     cache_hit: bool
     index_hit_count: int
     provider_called: bool
+    execution_diagnostic: ResearchExecutionDiagnostic | None = None
 
 
 def _utc_iso(value: str | datetime | None) -> str:
@@ -212,7 +267,13 @@ class ResearchService:
             raise ValueError("ResearchService exige ao menos um ResearchProfile.")
         self.profiles = profile_map
 
-    def execute(self, request: ResearchRequest, *, now: str | datetime | None = None) -> ResearchExecutionResult:
+    def execute(
+        self,
+        request: ResearchRequest,
+        *,
+        now: str | datetime | None = None,
+        before_external_request: Callable[[], None] | None = None,
+    ) -> ResearchExecutionResult:
         if not isinstance(request, ResearchRequest):
             raise ValueError("ResearchService exige ResearchRequest versionado.")
         fetched_at = _utc_iso(now)
@@ -252,6 +313,7 @@ class ResearchService:
             constraints.append("only the shared Radar index was searched; no external retriever is configured")
 
         provider_called = False
+        execution_diagnostic: ResearchExecutionDiagnostic | None = None
         retry_at: str | None = None
         packet_ids = list(references)
         packet_claims = list(claims)
@@ -267,18 +329,30 @@ class ResearchService:
             and missing_evidence
         ):
             provider_called = True
+            external_request_started = False
+
+            def mark_external_request_started() -> None:
+                nonlocal external_request_started
+                if external_request_started:
+                    return
+                if before_external_request is not None:
+                    before_external_request()
+                external_request_started = True
+
             budget = ResearchBudget(
                 max_sources=remaining_source_budget, max_requests=request.max_requests,
                 max_bytes=request.max_bytes, max_duration_seconds=request.max_duration_seconds,
                 allowed_scope=tuple(request.allowed_scope),
                 preferred_source_ids=tuple(request.preferred_source_ids),
                 preferred_domains=tuple(request.preferred_domains),
+                before_external_request=mark_external_request_started,
             )
             try:
                 provider_result = self.provider.search(
                     request, profile, cached_document_ids=local_ids, budget=budget,
                 )
             except Exception as error:
+                execution_diagnostic = ResearchExecutionDiagnostic.from_exception(error)
                 provider_result = ResearchProviderResult(
                     status="blocked", constraints=(f"retriever unavailable ({type(error).__name__})",),
                 )
@@ -287,6 +361,9 @@ class ResearchService:
                 provider_result = ResearchProviderResult(status="blocked", constraints=(violation,))
             else:
                 violation = self._budget_violation(budget, provider_result)
+                if provider_result.requests_used > 0 and not external_request_started:
+                    mark_external_request_started()
+                    violation = violation or "retriever omitted the durable pre-request boundary callback"
                 if set(provider_result.missing_evidence) - set(request.required_evidence_kinds):
                     violation = "retriever returned an unrequested missing_evidence category"
             provider_documents: list[dict[str, Any]] = []
@@ -295,6 +372,7 @@ class ResearchService:
                     provider_documents = self._validate_provider_references(request, provider_result, profile)
                 except RadarStoreError as error:
                     violation = str(error)
+                    execution_diagnostic = ResearchExecutionDiagnostic.from_exception(error)
             if violation is None:
                 combined_source_ids = cached_source_ids | {str(document["source_id"]) for document in provider_documents}
                 if len(combined_source_ids) > request.max_sources:
@@ -323,8 +401,9 @@ class ResearchService:
                 lineage = [lineage_by_key[key] for key in sorted(lineage_by_key, key=lambda item: tuple(str(part or "") for part in item))]
                 excerpts = list(dict.fromkeys([*excerpts, *provider_excerpts]))
                 last_material = max((value for value in (last_material, provider_last_material) if value), default=None)
+                current_claim_rows = {row["claim_id"]: row for row in self.store.list_rows("radar_claims")}
                 available_claim_kinds = {
-                    claim_rows.get(claim_id, {}).get("epistemic_status")
+                    current_claim_rows.get(claim_id, {}).get("epistemic_status")
                     for claim_id in packet_claims
                 }
                 reported_missing = set(provider_result.missing_evidence)
@@ -355,6 +434,7 @@ class ResearchService:
         )
         return self._result(
             request, packet, packet_id=packet_id, index_hits=len(local_documents), provider_called=provider_called,
+            execution_diagnostic=execution_diagnostic,
         )
 
     def _validate_request(self, request: ResearchRequest, profile: ResearchProfile | None) -> str | None:
@@ -428,7 +508,8 @@ class ResearchService:
                 return False
             if request.preferred_source_ids and document["source_id"] not in request.preferred_source_ids:
                 return False
-            host = urlsplit(document["canonical_url"]).hostname or ""
+            source_url = str(source.get("canonical_url") or "")
+            host = urlsplit(source_url).hostname or ""
             if request.preferred_domains and not any(_domain_matches(host, item) for item in request.preferred_domains):
                 return False
             if allowed_languages and (document["language"] or "und").casefold() not in allowed_languages:
@@ -700,7 +781,13 @@ class ResearchService:
                 raise RadarStoreError("Retriever referenced a document without allowed policy.")
             if request.preferred_source_ids and document["source_id"] not in request.preferred_source_ids:
                 raise RadarStoreError("Retriever exceeded preferred_source_ids.")
-            host = urlsplit(document["canonical_url"]).hostname or ""
+            # A retrieved API document can canonically point to its public web
+            # page (for example github.com) while the request was authorized
+            # against the registered API source (api.github.com). Scope the
+            # lookup against the registered source endpoint; keep the document
+            # canonical URL for citation and attribution.
+            source_url = str(source.get("canonical_url") or "")
+            host = urlsplit(source_url).hostname or ""
             if request.preferred_domains and not any(_domain_matches(host, domain) for domain in request.preferred_domains):
                 raise RadarStoreError("Retriever exceeded preferred_domains.")
             if allowed_languages and (document["language"] or "und").casefold() not in allowed_languages:
@@ -810,9 +897,11 @@ class ResearchService:
     def _result(
         request: ResearchRequest, packet: ResearchPacket, *, packet_id: str | None,
         index_hits: int, provider_called: bool, cache_hit: bool = False,
+        execution_diagnostic: ResearchExecutionDiagnostic | None = None,
     ) -> ResearchExecutionResult:
         return ResearchExecutionResult(
             request_id=request.request_id, story_id=request.story_id,
             story_revision_id=request.story_revision_id, packet=packet, packet_id=packet_id,
             cache_hit=cache_hit, index_hit_count=index_hits, provider_called=provider_called,
+            execution_diagnostic=execution_diagnostic,
         )

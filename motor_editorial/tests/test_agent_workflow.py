@@ -26,7 +26,7 @@ from motor_editorial.agent_workflow import (
 )
 from motor_editorial.db import Store, json_dumps, stable_hash
 from motor_editorial.orchestration import AgentQueue, TaskDispatcher, VALIDATION_PROFILE
-from motor_editorial.radar_store import RadarStore
+from motor_editorial.radar_store import RadarStore, RadarStoreError
 from motor_editorial.research_service import (
     PUBLIC_SOURCES_SCOPE,
     RADAR_INDEX_SCOPE,
@@ -194,6 +194,25 @@ class BlockedProvider:
         )
 
 
+class RaisingProvider:
+    def search(self, request, profile, *, cached_document_ids, budget):
+        raise RadarStoreError(
+            "private store exception detail must remain internal",
+            code="read_key_not_allowed", phase="store_read",
+        )
+
+
+class BoundaryProvider:
+    def search(self, request, profile, *, cached_document_ids, budget):
+        self.called = True
+        if budget.before_external_request is not None:
+            budget.before_external_request()
+        return ResearchProviderResult(
+            status="blocked", missing_evidence=request.required_evidence_kinds,
+            constraints=("offline boundary fixture",), requests_used=1,
+        )
+
+
 class AgentWorkflowTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory(prefix="revista-agent-workflow-e13-")
@@ -304,11 +323,120 @@ class AgentWorkflowTests(unittest.TestCase):
         self.assertEqual(research_outcome.state, "succeeded", research_outcome.error_code)
         research_task = queue.get(research_tasks[0].task_id)
         self.assertEqual(research_task.result["packet"]["status"], "blocked")
+        self.assertFalse(research_task.external_request_started)
         continuations = [
             task for task in queue.list_tasks()
             if task.task_type == "agent.role.evidence_investigator" and task.task_id != parent_id
         ]
         self.assertEqual(continuations, [])
+
+    def test_legacy_queued_continuation_with_blocked_empty_packet_stops_before_executor(self) -> None:
+        queue = AgentQueue(Store(self.motor_path, self.artifact_dir))
+        executor = SyntheticRoleExecutor()
+        dispatcher, _ = self.dispatcher(queue, role_executor=executor)
+        envelope, input_payload = make_envelope(self.profile_a, "story-legacy-blocked-packet")
+        blocked_packet = ResearchPacket.create(
+            request_id="archived-blocked-request",
+            status="blocked",
+            missing_evidence=["official_statement"],
+            constraints=["The archived retrieval produced no usable evidence."],
+            fetched_at="2026-10-26T00:00:00Z",
+        )
+
+        # Model a queued task written before enqueue_contract_task gained its
+        # guard. The dispatcher is the last shared boundary before any role
+        # executor, including for rows already present in the durable ledger.
+        task_id = queue.enqueue(
+            task_type="agent.role.evidence_investigator",
+            payload={
+                "agent_task_envelope": envelope.to_dict(),
+                "input": input_payload,
+                "research_packet": blocked_packet.to_dict(),
+                "research_cycle_already_used": True,
+            },
+            profile=VALIDATION_PROFILE,
+            executor_id=executor.executor_id,
+            idempotency_key=envelope.idempotency_key,
+            task_id=envelope.task_id,
+        )
+
+        outcome = dispatcher.dispatch_one(task_id)
+        task = queue.get(task_id)
+
+        self.assertEqual((outcome.state, outcome.error_code), ("blocked", "agent_contract_invalid"))
+        self.assertEqual(task.attempts, 1)
+        self.assertEqual(task.state, "blocked")
+        self.assertIsNone(task.result)
+        self.assertEqual(executor.calls, [])
+
+    def test_contract_enqueue_rejects_blocked_empty_research_packet(self) -> None:
+        queue = AgentQueue(Store(self.motor_path, self.artifact_dir))
+        envelope, input_payload = make_envelope(self.profile_a, "story-empty-packet-enqueue")
+        blocked_packet = ResearchPacket.create(
+            request_id="empty-blocked-request",
+            status="blocked",
+            missing_evidence=["official_statement"],
+            constraints=["No usable evidence was retrieved."],
+            fetched_at="2026-10-26T00:00:00Z",
+        )
+
+        with self.assertRaisesRegex(ValueError, "ResearchPacket bloqueado e vazio"):
+            enqueue_contract_task(
+                queue, envelope, input_payload, catalog=self.catalog,
+                executor_profile=VALIDATION_PROFILE,
+                executor_id=SyntheticRoleExecutor.executor_id,
+                research_packet=blocked_packet,
+                research_cycle_already_used=True,
+            )
+
+        self.assertEqual(queue.list_tasks(), [])
+
+    def test_research_task_marks_external_boundary_only_when_provider_requests_it(self) -> None:
+        provider = BoundaryProvider()
+        self.research_service = ResearchService(store=self.radar_store, provider=provider)
+        queue = AgentQueue(Store(self.motor_path, self.artifact_dir))
+        router = ResearchResultRouter(
+            queue=queue, catalog=self.catalog, executor_profiles=self.execution_profiles,
+        )
+        dispatcher, _executor = self.dispatcher(
+            queue, router=router, role_executor=PublicScopeRoleExecutor(),
+        )
+        parent_id, _envelope = self.enqueue_role(queue, self.profile_a, "story-external-boundary")
+        self.assertEqual(dispatcher.dispatch_one(parent_id).state, "succeeded")
+        research_task = next(task for task in queue.list_tasks() if task.task_type == RADAR_RESEARCH_TASK_TYPE)
+
+        outcome = dispatcher.dispatch_one(research_task.task_id)
+
+        self.assertEqual(outcome.state, "succeeded")
+        self.assertTrue(provider.called)
+        self.assertTrue(queue.get(research_task.task_id).external_request_started)
+
+    def test_provider_diagnostic_survives_in_the_durable_task_result(self) -> None:
+        self.research_service = ResearchService(store=self.radar_store, provider=RaisingProvider())
+        queue = AgentQueue(Store(self.motor_path, self.artifact_dir))
+        router = ResearchResultRouter(
+            queue=queue, catalog=self.catalog, executor_profiles=self.execution_profiles,
+        )
+        dispatcher, _executor = self.dispatcher(
+            queue, router=router, role_executor=PublicScopeRoleExecutor(),
+        )
+        parent_id, _envelope = self.enqueue_role(queue, self.profile_a, "story-diagnostic")
+
+        self.assertEqual(dispatcher.dispatch_one(parent_id).state, "succeeded")
+        research_task = next(task for task in queue.list_tasks() if task.task_type == RADAR_RESEARCH_TASK_TYPE)
+        outcome = dispatcher.dispatch_one(research_task.task_id)
+        self.assertEqual(outcome.state, "succeeded", outcome.error_code)
+
+        restarted_queue = AgentQueue(Store(self.motor_path, self.artifact_dir))
+        durable_result = restarted_queue.get(research_task.task_id).result
+        self.assertEqual(durable_result["schema_version"], "1.1")  # type: ignore[index]
+        self.assertEqual(durable_result["execution_diagnostic"], {  # type: ignore[index]
+            "schema_version": "1.0",
+            "phase": "store_read",
+            "code": "read_key_not_allowed",
+            "exception_type": "RadarStoreError",
+        })
+        self.assertNotIn("private store exception", str(durable_result["packet"]))  # type: ignore[index]
 
     def test_restart_replays_success_result_and_routes_idempotently(self) -> None:
         first_queue = AgentQueue(Store(self.motor_path, self.artifact_dir))

@@ -6,7 +6,7 @@ import unittest
 
 from motor_editorial.agent_contracts import AgentTaskEnvelope, ContractValidationError
 from motor_editorial.db import json_dumps, stable_hash
-from motor_editorial.research_mediation import mediate_requested_research
+from motor_editorial.research_mediation import mediate_requested_research, validate_policy
 
 
 def policy(*, routes: list[dict] | None = None) -> dict:
@@ -33,18 +33,36 @@ def policy(*, routes: list[dict] | None = None) -> dict:
     }
 
 
-def mediate(suggestions: list[dict], trusted_policy: dict | None = None) -> dict:
+def mediate(
+    suggestions: list[dict],
+    trusted_policy: dict | None = None,
+    *,
+    persona_id: str = "ranzinza",
+) -> dict:
     return mediate_requested_research(
         suggestions,
         policy=trusted_policy if trusted_policy is not None else policy(),
         parent_task_id="writer-task-001",
         story_id="story-001",
         role_id="persona_writer",
-        persona_id="ranzinza",
+        persona_id=persona_id,
     )
 
 
 class ResearchMediation011Tests(unittest.TestCase):
+    def test_explicit_conversation_authorization_ref_is_preserved_for_external_research(self) -> None:
+        trusted = policy()
+        trusted["authorization_ref"] = "conversation-ENG-CODEX-012-U10"
+
+        validated = validate_policy(
+            trusted, story_id="story-001", role_id="persona_writer", persona_id="ranzinza",
+        )
+
+        self.assertEqual(validated["authorization_ref"], "conversation-ENG-CODEX-012-U10")
+        trusted["authorization_ref"] = "unversioned-free-text"
+        with self.assertRaisesRegex(ValueError, "referencia de autorizacao versionada"):
+            validate_policy(trusted, story_id="story-001", role_id="persona_writer", persona_id="ranzinza")
+
     def test_accented_punctuation_paraphrase_routes_to_trusted_request(self) -> None:
         result = mediate([{
             "question": "Na versão mais recente, quais mudanças saíram no changelog oficial?",
@@ -57,6 +75,7 @@ class ResearchMediation011Tests(unittest.TestCase):
         self.assertEqual(request["preferred_domains"], ["api.github.com"])
         self.assertEqual(request["allowed_scope"], ["read:radar_index", "read:registered_public_sources"])
         self.assertEqual(request["story_revision_id"], "story-rev-001")
+        self.assertLessEqual(result["matched_intent_score"], 1.0)
 
     def test_editorial_punctuation_emoji_and_long_title_do_not_break_route(self) -> None:
         long_context = " (build 1.2 / changelog: ‘versão oficial’ — teste com parênteses 🕹️)" * 20
@@ -118,6 +137,95 @@ class ResearchMediation011Tests(unittest.TestCase):
 
         self.assertEqual(result["status"], "hold_unmapped_suggestions")
         self.assertIsNone(result["request"])
+
+    def test_compatible_questions_are_consolidated_and_both_preserved(self) -> None:
+        first = {
+            "question": "What changed in the official project release and version?",
+            "purpose": "Check the selected tag changelog and release date.",
+        }
+        second = {
+            "question": "Which official changes were published with the release version?",
+            "purpose": "Verify the release notes and publication date for that tag.",
+        }
+
+        result = mediate([first, second])
+
+        self.assertEqual(result["status"], "enqueued_public_and_index")
+        self.assertEqual(result["consolidated_suggestion_indices"], [1, 2])
+        self.assertEqual(result["pending_research"], [])
+        self.assertEqual(
+            result["request"]["queries"],
+            [first["question"], first["purpose"], second["question"], second["purpose"]],
+        )
+        self.assertEqual(result["accepted_route_ids"], ["selected-release-details"])
+        replay = mediate([first, second])
+        self.assertEqual(replay["request"]["request_id"], result["request"]["request_id"])
+
+    def test_incompatible_questions_are_ranked_and_preserved_as_pending(self) -> None:
+        release_route = policy()["routes"][0]
+        hardware_route = {
+            **release_route,
+            "route_id": "hardware-performance-evidence",
+            "question": "Does the graphics driver change frame pacing?",
+            "purpose": "Find independent benchmarks for this GPU driver.",
+            "research_profile_id": "research.hardware.v1",
+            "required_evidence_kinds": ["independent_measurement"],
+            "reason": "Check independently measured hardware performance.",
+            "intent_terms": ["GPU driver", "benchmark", "frame pacing", "performance"],
+            "allowed_scope": ["read:radar_index"],
+            "preferred_source_ids": [],
+            "preferred_domains": [],
+        }
+        release_question = {
+            "question": "What changed in the official project release and version?",
+            "purpose": "Check the selected tag changelog and publication date.",
+        }
+        hardware_question = {
+            "question": "Does the graphics driver change frame pacing?",
+            "purpose": "Find independent benchmarks for this GPU driver.",
+        }
+
+        result = mediate(
+            [release_question, hardware_question],
+            policy(routes=[release_route, hardware_route]),
+        )
+
+        self.assertEqual(result["status"], "enqueued_index_only")
+        self.assertEqual(result["request"]["research_profile_id"], "research.hardware.v1")
+        self.assertEqual(result["consolidated_suggestion_indices"], [2])
+        self.assertEqual(len(result["pending_research"]), 1)
+        self.assertEqual(result["pending_research"][0]["question"], release_question["question"])
+        self.assertEqual(result["pending_research"][0]["purpose"], release_question["purpose"])
+        self.assertEqual(result["pending_research"][0]["reason"], "incompatible_trusted_route_within_request_budget")
+
+    def test_research_profile_follows_topic_even_when_persona_is_nina(self) -> None:
+        release_route = policy()["routes"][0]
+        hardware_route = {
+            **release_route,
+            "route_id": "hardware-performance-evidence",
+            "question": "Does the graphics driver change frame pacing?",
+            "purpose": "Find independent benchmarks for this GPU driver.",
+            "research_profile_id": "research.hardware.v1",
+            "required_evidence_kinds": ["independent_measurement"],
+            "reason": "Check independently measured hardware performance.",
+            "intent_terms": ["GPU driver", "benchmark", "frame pacing", "performance"],
+            "allowed_scope": ["read:radar_index"],
+            "preferred_source_ids": [],
+            "preferred_domains": [],
+        }
+
+        result = mediate(
+            [{
+                "question": "Does the graphics driver change frame pacing?",
+                "purpose": "Find independent benchmarks for this GPU driver.",
+            }],
+            policy(routes=[release_route, hardware_route]),
+            persona_id="nina-prisma",
+        )
+
+        self.assertEqual(result["status"], "enqueued_index_only")
+        self.assertEqual(result["request"]["research_profile_id"], "research.hardware.v1")
+        self.assertEqual(result["accepted_route_ids"], ["hardware-performance-evidence"])
 
     def test_legacy_envelope_v10_remains_compatible_and_cannot_carry_policy(self) -> None:
         profile_hash = "a" * 64

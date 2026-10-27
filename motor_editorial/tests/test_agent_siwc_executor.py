@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import io
+import copy
 import tempfile
 import unittest
 import uuid
@@ -16,6 +18,7 @@ from unittest.mock import patch
 from motor_editorial.agent_contracts import (
     AgentRoleProfile,
     AgentTaskEnvelope,
+    ContractValidationError,
     enqueue_contract_task,
     load_builtin_role_catalog,
 )
@@ -26,8 +29,11 @@ from motor_editorial.agent_siwc import (
     _research_cycle_already_used,
     register_siwc_role_executor,
 )
+from motor_editorial.usage_meter import AgentUsageArtifactStore, StoryVersionArchive
+from motor_editorial.editorial import review_next_action
 from motor_editorial.db import Store, json_dumps, stable_hash
 from motor_editorial.orchestration import AgentQueue, TaskDispatcher
+from motor_editorial.orchestration import TaskFailure
 from motor_editorial.siwc import CredentialStore, SIWCClient
 
 
@@ -40,10 +46,12 @@ class FakeRoleClient:
         outputs: dict[str, Any],
         raw_texts: dict[str, str] | None = None,
         on_external_start=None,
+        on_response_persisted=None,
     ):
         self.outputs = outputs
         self.raw_texts = raw_texts or {}
         self.on_external_start = on_external_start
+        self.on_response_persisted = on_response_persisted
         self.calls: list[dict[str, Any]] = []
 
     def editorial_stream_with_raw(self, **kwargs: Any) -> dict[str, Any]:
@@ -76,6 +84,8 @@ class FakeRoleClient:
             "output_state": "completed",
         }
         artifact = kwargs["response_sink"](raw_text, metadata)
+        if self.on_response_persisted is not None:
+            self.on_response_persisted(role_id, artifact)
         self.calls.append({"role_id": role_id, **kwargs})
         return {**metadata, "raw_artifact": artifact, "structured_output": self.outputs[role_id]}
 
@@ -215,12 +225,22 @@ class SIWCAgentRoleExecutorTests(unittest.TestCase):
             ])
             self.assertEqual(result["model_used"], "gpt-6-luna-2026-10-26")
             self.assertEqual(result["model_effort"], "max")
+            self.assertEqual(result["schema_version"], "1.1")
+            usage_ref = result["usage_receipt_ref"]
+            usage_record = AgentUsageArtifactStore(self.root / "private-artifacts").read(
+                usage_ref["ref"], usage_ref["sha256"],
+            )
+            self.assertEqual(usage_record["task_id"], task_id)
+            self.assertEqual(usage_record["attempt_number"], 1)
+            self.assertEqual(usage_record["input_tokens"], 12)
+            self.assertEqual(usage_record["output_tokens"], 20)
+            self.assertEqual(usage_record["total_tokens"], 32)
+            self.assertEqual(usage_record["latency_ms"], 1000.0)
             artifact_store = SIWCResponseArtifactStore(self.root / "private-artifacts")
             raw_bytes = artifact_store.read_response(result["artifact_ref"]["ref"], result["artifact_ref"]["sha256"])
             role_id = next(call["role_id"] for call in client.calls if call["context"].agent_task_envelope.task_id == task_id)
             self.assertEqual(raw_bytes, raw_by_role[role_id].encode("utf-8"))
-            metadata_path = self.root / "private-artifacts" / "siwc-role-responses" / f"{task_id}.metadata.json"
-            manifest = json.loads(metadata_path.read_text(encoding="utf-8"))
+            manifest = artifact_store.read_task_artifacts(task_id)["metadata"]
             self.assertEqual(manifest["output_validation"], "role_schema_valid")
             self.assertEqual(manifest["publication_state"], "not_published")
             self.assertEqual(manifest["role_id"], role_id)
@@ -233,6 +253,7 @@ class SIWCAgentRoleExecutorTests(unittest.TestCase):
             self.assertFalse(manifest["store"])
             self.assertTrue(manifest["stream"])
             self.assertTrue(manifest["response_completed"])
+            self.assertEqual(manifest["usage_receipt_ref"], usage_ref)
             self.assertNotIn(raw_by_role[role_id], json.dumps(result, ensure_ascii=False))
 
     def test_natural_language_claim_label_is_kept_in_raw_response_and_wrapped_with_safe_id(self) -> None:
@@ -250,9 +271,54 @@ class SIWCAgentRoleExecutorTests(unittest.TestCase):
         task = self.queue.get(task_id)
         claim_id = task.result["material_claims"][0]["claim_id"]
         self.assertRegex(claim_id, r"^claim-[a-f0-9]{24}$")
-        raw_path = self.root / "private-artifacts" / "siwc-role-responses" / f"{task_id}.response.json"
-        self.assertIn(source_label, raw_path.read_text(encoding="utf-8"))
+        response_store = SIWCResponseArtifactStore(self.root / "private-artifacts")
+        raw = response_store.read_task_artifacts(task_id)["response"].decode("utf-8")
+        self.assertIn(source_label, raw)
         self.assertNotEqual(claim_id, source_label)
+
+    def test_completed_response_is_recovered_after_dispatch_crash_without_second_provider_call(self) -> None:
+        role = self._role("assignment_editor")
+        fixture = self.fixtures["roles"][role.role_id]
+        task_id = self._enqueue(role, fixture["input"])
+        raw_text = " \n" + json.dumps(fixture["output"], ensure_ascii=False, separators=(",", ":")) + "\t\n"
+
+        def interrupt_after_persist(_role_id, _artifact):
+            raise TaskFailure("local_finalize_interrupted", "Local finalization stopped after durable response.", blocked=True)
+
+        first_client = FakeRoleClient(
+            {role.role_id: fixture["output"]},
+            {role.role_id: raw_text},
+            on_response_persisted=interrupt_after_persist,
+        )
+        first = self._dispatcher(first_client).dispatch_one(task_id)
+        self.assertEqual(first.state, "blocked")
+        persisted = self.queue.get(task_id)
+        self.assertTrue(persisted.external_request_started)
+        self.assertIsNone(persisted.result)
+        response_store = SIWCResponseArtifactStore(self.root / "private-artifacts")
+        bundle = response_store.read_task_artifacts(task_id)
+        self.assertEqual(bundle["response"], raw_text.encode("utf-8"))
+        original_response_hash = bundle["response_ref"]["sha256"]
+        original_usage_ref = bundle["metadata"]["usage_receipt_ref"]
+        manifest = dict(bundle["metadata"])
+        manifest.pop("usage_receipt_ref")
+        manifest_path = self.root / "private-artifacts" / manifest["metadata_artifact_ref"]
+        manifest_path.write_text(json.dumps(manifest, ensure_ascii=False), encoding="utf-8")
+
+        restarted_client = FakeRoleClient({role.role_id: fixture["output"]})
+        recovered = self._dispatcher(restarted_client).dispatch_one(task_id)
+
+        self.assertEqual(recovered.state, "succeeded")
+        self.assertEqual(recovered.error_code, "persisted_output_recovered")
+        self.assertEqual(restarted_client.calls, [])
+        recovered_task = self.queue.get(task_id)
+        self.assertEqual(recovered_task.attempts, 1)
+        self.assertEqual(recovered_task.result["artifact_ref"]["sha256"], original_response_hash)
+        self.assertEqual(recovered_task.result["output_hash"], original_response_hash)
+        self.assertEqual(recovered_task.result["usage_receipt_ref"], original_usage_ref)
+        self.assertEqual(response_store.read_response(
+            recovered_task.result["artifact_ref"]["ref"], recovered_task.result["artifact_ref"]["sha256"],
+        ), raw_text.encode("utf-8"))
 
     def test_persona_instruction_hash_preserves_trailing_newline(self) -> None:
         role = self._role("persona_writer")
@@ -287,9 +353,9 @@ class SIWCAgentRoleExecutorTests(unittest.TestCase):
         self.assertEqual(len(client.calls), 1)
         task = self.queue.get(task_id)
         self.assertEqual(task.state, "blocked")
-        response_path = self.root / "private-artifacts" / "siwc-role-responses" / f"{task_id}.response.json"
-        self.assertEqual(response_path.read_bytes(), raw_text.encode("utf-8"))
-        manifest = json.loads(response_path.with_name(f"{task_id}.metadata.json").read_text(encoding="utf-8"))
+        artifacts = SIWCResponseArtifactStore(self.root / "private-artifacts").read_task_artifacts(task_id)
+        self.assertEqual(artifacts["response"], raw_text.encode("utf-8"))
+        manifest = artifacts["metadata"]
         self.assertEqual(manifest["output_validation"], "role_schema_rejected")
         self.assertEqual(manifest["publication_state"], "not_published")
         self.assertEqual(self._dispatcher(client).dispatch_one(task_id).state, "idle")
@@ -370,8 +436,8 @@ class SIWCAgentRoleExecutorTests(unittest.TestCase):
         self.assertEqual(len(client.calls), 1)
         task = self.queue.get(task_id)
         self.assertEqual(task.state, "blocked")
-        manifest = self.root / "private-artifacts" / "siwc-role-responses" / f"{task_id}.metadata.json"
-        self.assertEqual(json.loads(manifest.read_text(encoding="utf-8"))["output_validation"], "evidence_or_revision_rejected")
+        manifest = SIWCResponseArtifactStore(self.root / "private-artifacts").read_task_artifacts(task_id)["metadata"]
+        self.assertEqual(manifest["output_validation"], "evidence_or_revision_rejected")
 
     def test_unknown_citation_and_stale_fact_check_are_blocked(self) -> None:
         role = self._role("persona_writer")
@@ -395,6 +461,170 @@ class SIWCAgentRoleExecutorTests(unittest.TestCase):
         outcome = self._dispatcher(client).dispatch_one(task_id)
         self.assertEqual(outcome.state, "blocked")
         self.assertEqual(outcome.error_code, "siwc_stale_draft_revision")
+
+    def test_review_inputs_require_the_current_text_and_fact_check_before_dispatch(self) -> None:
+        for role_id in ("fact_checker", "editorial_reviewer"):
+            role = self._role(role_id)
+            payload = copy.deepcopy(self.fixtures["roles"][role_id]["input"])
+            payload["draft"] += " Conteúdo alterado."
+            with self.subTest(role=role_id), self.assertRaisesRegex(ContractValidationError, "Hash da revisão"):
+                self._enqueue(role, payload)
+
+        role = self._role("editorial_reviewer")
+        payload = copy.deepcopy(self.fixtures["roles"][role.role_id]["input"])
+        payload["fact_check_verdict"]["draft_hash"] = "c" * 64
+        with self.assertRaisesRegex(ContractValidationError, "Checagem factual não corresponde"):
+            self._enqueue(role, payload)
+        payload["fact_check_verdict"]["draft_hash"] = payload["draft_hash"]
+        payload["fact_check_verdict"]["status"] = "unknown"
+        with self.assertRaisesRegex(ContractValidationError, "status ausente ou inválido"):
+            self._enqueue(role, payload)
+
+        payload["fact_check_verdict"]["status"] = "pass"
+        payload["fact_check_verdict"]["draft_hash"] = "c" * 64
+        envelope = _envelope(role, payload)
+        task_id = self.queue.enqueue(
+            task_type="agent.role.editorial_reviewer",
+            payload={"agent_task_envelope": envelope.to_dict(), "input": payload},
+            profile=SIWC_ROLE_EXECUTOR_PROFILE, executor_id=SIWC_ROLE_EXECUTOR_ID,
+            idempotency_key=envelope.idempotency_key, task_id=envelope.task_id,
+        )
+        client = FakeRoleClient({role.role_id: self.fixtures["roles"][role.role_id]["output"]})
+        outcome = self._dispatcher(client).dispatch_one(task_id)
+        self.assertEqual((outcome.state, outcome.error_code), ("blocked", "agent_contract_invalid"))
+        self.assertEqual(client.calls, [])
+
+    def test_review_cannot_remove_human_gate_or_override_fact_check(self) -> None:
+        role = self._role("editorial_reviewer")
+        fixture = self.fixtures["roles"][role.role_id]
+        cases = (
+            ("pass", False, "pass", "siwc_human_gate_removed"),
+            ("hold", True, "pass", "siwc_review_overrides_fact_check"),
+            ("revise", True, "pass", "siwc_review_overrides_fact_check"),
+            ("revise", True, "revise", None),
+        )
+        for fact_status, human_gate, review_status, expected_error in cases:
+            with self.subTest(fact_status=fact_status, human_gate=human_gate, review_status=review_status):
+                payload = copy.deepcopy(fixture["input"])
+                payload["fact_check_verdict"]["status"] = fact_status
+                output = copy.deepcopy(fixture["output"])
+                output["human_review_required"] = human_gate
+                output["verdict"] = review_status
+                task_id = self._enqueue(role, payload)
+                client = FakeRoleClient({role.role_id: output})
+                outcome = self._dispatcher(client).dispatch_one(task_id)
+                self.assertEqual(outcome.state, "blocked" if expected_error else "succeeded")
+                self.assertEqual(outcome.error_code, expected_error)
+                self.assertEqual(len(client.calls), 1)
+                if expected_error:
+                    metadata = SIWCResponseArtifactStore(self.root / "private-artifacts").read_task_artifacts(task_id)["metadata"]
+                    self.assertEqual(metadata["output_validation"], "evidence_or_revision_rejected")
+
+    def test_review_correction_keeps_persona_and_rechecks_new_full_version(self) -> None:
+        persona_text = "Identidade sintética de teste."
+        client = FakeRoleClient({})
+        dispatcher = self._dispatcher(client, persona_resolver=lambda _envelope: persona_text)
+        artifact_root = self.root / "private-artifacts"
+        response_store = SIWCResponseArtifactStore(artifact_root)
+        versions = StoryVersionArchive(artifact_root)
+
+        def run_role(role_id, payload, output, dependencies=()):
+            role = self._role(role_id)
+            writer = role_id == "persona_writer"
+            envelope = _envelope(role, payload, persona_id="persona-fixture" if writer else None,
+                                 persona_text=persona_text if writer else None)
+            task_id = enqueue_contract_task(
+                self.queue, envelope, payload, catalog=self.catalog,
+                executor_profile=SIWC_ROLE_EXECUTOR_PROFILE, executor_id=SIWC_ROLE_EXECUTOR_ID,
+                max_attempts=1, dependencies=dependencies,
+            )
+            client.outputs[role_id] = output
+            outcome = dispatcher.dispatch_one(task_id)
+            self.assertEqual(outcome.state, "succeeded")
+            return self.queue.get(task_id), envelope
+
+        writer_input = copy.deepcopy(self.fixtures["roles"]["persona_writer"]["input"])
+        writer_input["evidence_dossier"] = {
+            "evidence": [{"evidence_id": "fixture-evidence-01"}],
+            "claims": [{"claim_id": "claim-fixture-01"}],
+        }
+        original = copy.deepcopy(self.fixtures["roles"]["persona_writer"]["output"])
+        original_task, original_envelope = run_role("persona_writer", writer_input, original)
+
+        def archive(task, envelope, output):
+            ref = task.result["artifact_ref"]
+            return versions.write(task=task, envelope=envelope,
+                                  raw_response=response_store.read_response(ref["ref"], ref["sha256"]),
+                                  structured_story=output, response_ref=ref,
+                                  usage_ref=task.result["usage_receipt_ref"])
+
+        original_archive = archive(original_task, original_envelope, original)
+        original_text = StoryVersionArchive._render(original)
+        original_hash = stable_hash(original_text)
+        fact_input = {"draft": original_text, "draft_hash": original_hash,
+                      "evidence_dossier": writer_input["evidence_dossier"], "editorial_policy": {}}
+        fact_output = {"draft_hash": original_hash, "status": "pass", "findings": []}
+        fact_task, _ = run_role("fact_checker", fact_input, fact_output, (original_task.task_id,))
+        review_input = {"draft": original_text, "draft_hash": original_hash, "fact_check_verdict": fact_output,
+                        "editorial_brief": {}, "persona_ref": {"id": "persona-fixture"}}
+        review_output = {"draft_hash": original_hash, "verdict": "revise", "findings": ["Ajustar abertura."],
+                         "human_review_required": True}
+        review_task, _ = run_role("editorial_reviewer", review_input, review_output, (fact_task.task_id,))
+        self.assertEqual(review_next_action(review_output, original_hash, corrections_attempted=0), "correct")
+
+        revised_input = copy.deepcopy(writer_input)
+        revised_input["writing_constraints"].update({"prior_draft": original_text, "review_findings": review_output["findings"]})
+        revised = copy.deepcopy(original)
+        revised["sections"][0]["body"] += " Abertura revista."
+        revised_task, revised_envelope = run_role("persona_writer", revised_input, revised, (review_task.task_id,))
+        revised_archive = archive(revised_task, revised_envelope, revised)
+        revised_text = StoryVersionArchive._render(revised)
+        revised_hash = stable_hash(revised_text)
+        self.assertNotEqual(original_hash, revised_hash)
+        self.assertEqual((original_archive["version_kind"], revised_archive["version_kind"]), ("original", "revision"))
+        self.assertEqual(original_envelope.persona_hash, revised_envelope.persona_hash)
+        self.assertNotEqual(original_archive["full_text_ref"], revised_archive["full_text_ref"])
+
+        revised_fact_input = {**fact_input, "draft": revised_text, "draft_hash": revised_hash}
+        revised_fact_output = {"draft_hash": revised_hash, "status": "pass", "findings": []}
+        revised_fact_task, _ = run_role("fact_checker", revised_fact_input, revised_fact_output, (revised_task.task_id,))
+        final_review_input = {**review_input, "draft": revised_text, "draft_hash": revised_hash,
+                              "fact_check_verdict": revised_fact_output}
+        final_review = {"draft_hash": revised_hash, "verdict": "pass", "findings": [], "human_review_required": True}
+        run_role("editorial_reviewer", final_review_input, final_review, (revised_fact_task.task_id,))
+        self.assertEqual(review_next_action(final_review, revised_hash, corrections_attempted=1), "await_human_approval")
+        self.assertEqual([call["role_id"] for call in client.calls], [
+            "persona_writer", "fact_checker", "editorial_reviewer",
+            "persona_writer", "fact_checker", "editorial_reviewer",
+        ])
+        raw_path = artifact_root / original_archive["raw_response_ref"]
+        raw_path.unlink()
+        recovered = archive(original_task, original_envelope, original)
+        self.assertEqual(recovered["full_text_sha256"], original_archive["full_text_sha256"])
+        self.assertTrue(raw_path.is_file())
+        original_ref = original_task.result["artifact_ref"]
+        with self.assertRaisesRegex(ValueError, "Recibo de uso não corresponde"):
+            versions.write(task=original_task, envelope=original_envelope,
+                           raw_response=response_store.read_response(original_ref["ref"], original_ref["sha256"]),
+                           structured_story=original, response_ref=original_ref,
+                           usage_ref=revised_task.result["usage_receipt_ref"])
+        manifest_path = artifact_root / original_archive["manifest_ref"]
+        manifest_bytes = manifest_path.read_bytes()
+        altered_manifest = json.loads(manifest_bytes.decode("utf-8"))
+        altered_manifest["raw_response_ref"] = "../outside.json"
+        manifest_path.write_text(json.dumps(altered_manifest), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "Referência de versão arquivada fora"):
+            archive(original_task, original_envelope, original)
+        manifest_path.write_bytes(manifest_bytes)
+        full_path = artifact_root / original_archive["full_text_ref"]
+        full_path.write_text("corrompido", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "Versão de matéria existente diverge"):
+            archive(original_task, original_envelope, original)
+        full_path.write_text(original_text, encoding="utf-8")
+        usage_path = artifact_root / original_task.result["usage_receipt_ref"]["ref"]
+        usage_path.write_text("{}", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "Hash do recibo de uso"):
+            archive(original_task, original_envelope, original)
 
     def test_siwc_authorization_and_quota_http_failures_are_preserved_and_not_replayed(self) -> None:
         role = self._role("assignment_editor")
@@ -442,9 +672,9 @@ class SIWCAgentRoleExecutorTests(unittest.TestCase):
                 self.assertEqual(call_count, 1)
                 task = self.queue.get(task_id)
                 self.assertEqual(task.state, "blocked")
-                response_path = self.root / "private-artifacts" / "siwc-role-responses" / f"{task_id}.response.json"
-                self.assertEqual(response_path.read_bytes(), b"")
-                manifest = json.loads(response_path.with_name(f"{task_id}.metadata.json").read_text(encoding="utf-8"))
+                artifacts = SIWCResponseArtifactStore(self.root / "private-artifacts").read_task_artifacts(task_id)
+                self.assertEqual(artifacts["response"], b"")
+                manifest = artifacts["metadata"]
                 self.assertEqual(manifest["output_state"], "provider_error")
                 self.assertEqual(manifest["error_code"], expected_code)
                 self.assertFalse(manifest["response_completed"])
@@ -516,13 +746,15 @@ class SIWCAgentRoleExecutorTests(unittest.TestCase):
         self.assertEqual(second.error_code, "siwc_invalid_json_output")
         self.assertEqual(second_retry.state, "idle")
         self.assertEqual(urlopen_calls, 2)
-        root = self.root / "private-artifacts" / "siwc-role-responses"
-        self.assertEqual((root / f"{first_task_id}.response.json").read_bytes(), partial_text.encode("utf-8"))
-        first_manifest = json.loads((root / f"{first_task_id}.metadata.json").read_text(encoding="utf-8"))
+        response_store = SIWCResponseArtifactStore(self.root / "private-artifacts")
+        first_artifacts = response_store.read_task_artifacts(first_task_id)
+        self.assertEqual(first_artifacts["response"], partial_text.encode("utf-8"))
+        first_manifest = first_artifacts["metadata"]
         self.assertEqual(first_manifest["output_state"], "incomplete")
         self.assertFalse(first_manifest["response_completed"])
-        self.assertEqual((root / f"{second_task_id}.response.json").read_bytes(), invalid_json_text.encode("utf-8"))
-        second_manifest = json.loads((root / f"{second_task_id}.metadata.json").read_text(encoding="utf-8"))
+        second_artifacts = response_store.read_task_artifacts(second_task_id)
+        self.assertEqual(second_artifacts["response"], invalid_json_text.encode("utf-8"))
+        second_manifest = second_artifacts["metadata"]
         self.assertEqual(second_manifest["output_validation"], "invalid_json")
         self.assertTrue(second_manifest["response_completed"])
 
@@ -548,8 +780,11 @@ class SIWCAgentRoleExecutorTests(unittest.TestCase):
 
         restarted_client = FakeRoleClient({role.role_id: output})
         restarted_dispatcher = self._dispatcher(restarted_client)
-        self.assertEqual(restarted_dispatcher.dispatch_one(task_id).state, "idle")
+        recovered = restarted_dispatcher.dispatch_one(task_id)
+        self.assertEqual(recovered.state, "succeeded")
+        self.assertEqual(recovered.error_code, "persisted_output_recovered")
         self.assertEqual(restarted_client.calls, [])
+        self.assertEqual(self.queue.get(task_id).attempts, 1)
 
     def test_duplicate_contract_task_is_idempotent_and_different_payload_is_rejected(self) -> None:
         role = self._role("assignment_editor")
@@ -579,6 +814,78 @@ class SIWCAgentRoleExecutorTests(unittest.TestCase):
         response_path.write_bytes(b'{"answer":"changed"}')
         with self.assertRaisesRegex(ValueError, "Hash do artefato"):
             store.read_response(response["ref"], response["sha256"])
+
+    def test_request_and_response_artifacts_allow_exact_replay_but_reject_changed_bytes(self) -> None:
+        store = SIWCResponseArtifactStore(self.root / "private-artifacts")
+        task_id = "task-idempotent-artifacts"
+        request_record = {"task_id": task_id, "input_hash": "a" * 64}
+        first_request = store.write_request(task_id, request_record)
+        self.assertEqual(store.write_request(task_id, request_record), first_request)
+        with self.assertRaisesRegex(ValueError, "diverge"):
+            store.write_request(task_id, {"task_id": task_id, "input_hash": "b" * 64})
+        response = store.write_response(task_id, '{"answer":"same"}', {"response_completed": True})
+        self.assertEqual(store.write_response(task_id, '{"answer":"same"}', {"response_completed": True}), response)
+        with self.assertRaisesRegex(ValueError, "diverge"):
+            store.write_response(task_id, '{"answer":"changed"}', {"response_completed": True})
+
+    def test_response_and_manifest_are_committed_as_one_visible_bundle(self) -> None:
+        store = SIWCResponseArtifactStore(self.root / "private-artifacts")
+        task_id = "task-atomic-response-bundle"
+        store.write_request(task_id, {"task_id": task_id, "input_hash": "a" * 64})
+        original_write = store._write_new
+
+        def fail_manifest(path, payload):
+            if path.name == "metadata.json":
+                raise OSError("simulated local interruption before bundle commit")
+            return original_write(path, payload)
+
+        with patch.object(store, "_write_new", side_effect=fail_manifest):
+            with self.assertRaisesRegex(OSError, "simulated local interruption"):
+                store.write_response(task_id, '{"answer":"complete"}', {"response_completed": True})
+
+        self.assertFalse((store.directory / f"{task_id}.bundle").exists())
+        self.assertFalse((store.directory / f"{task_id}.response.json").exists())
+        self.assertFalse((store.directory / f"{task_id}.metadata.json").exists())
+        self.assertFalse(list(store.directory.glob(f".{task_id}.*.tmp")))
+
+    def test_legacy_flat_response_artifacts_remain_readable(self) -> None:
+        store = SIWCResponseArtifactStore(self.root / "private-artifacts")
+        task_id = "task-legacy-flat-response"
+        request_ref = store.write_request(task_id, {"task_id": task_id, "input_hash": "a" * 64})
+        request_path, response_path, metadata_path = store._paths(task_id)
+        response = b'{"answer":"legacy"}'
+        response_digest = hashlib.sha256(response).hexdigest()
+        manifest = {
+            "task_id": task_id,
+            "request_artifact_ref": request_ref["ref"],
+            "request_artifact_sha256": request_ref["sha256"],
+            "response_artifact_ref": response_path.relative_to(store.root).as_posix(),
+            "response_artifact_sha256": response_digest,
+            "artifact_sha256": response_digest,
+            "metadata_artifact_ref": metadata_path.relative_to(store.root).as_posix(),
+        }
+        response_path.write_bytes(response)
+        metadata_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        artifacts = store.read_task_artifacts(task_id)
+
+        self.assertEqual(artifacts["response"], response)
+        self.assertEqual(artifacts["response_ref"]["ref"], response_path.relative_to(store.root).as_posix())
+        self.assertEqual(artifacts["metadata"]["task_id"], task_id)
+
+    def test_usage_receipt_is_hash_checked_and_exact_write_is_idempotent(self) -> None:
+        store = AgentUsageArtifactStore(self.root / "private-artifacts")
+        record = {
+            "task_id": "task-usage-receipt", "attempt_number": 1,
+            "raw_response_sha256": "a" * 64, "input_tokens": 12,
+        }
+        receipt = store.write(record)
+        self.assertEqual(store.write(record), receipt)
+        self.assertEqual(store.read(receipt["ref"], receipt["sha256"]), record)
+        with self.assertRaisesRegex(ValueError, "diverge"):
+            store.write({**record, "input_tokens": 13})
+        with self.assertRaisesRegex(ValueError, "Hash do recibo"):
+            store.read(receipt["ref"], "b" * 64)
 
 
 if __name__ == "__main__":

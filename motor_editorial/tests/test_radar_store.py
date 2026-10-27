@@ -97,8 +97,16 @@ class RadarStoreTests(unittest.TestCase):
     def add_topic(self, topic_id: str = "topic-1") -> None:
         self.store.register_topic(topic_id=topic_id, canonical_key=f"key-{topic_id}", title="Pauta sintética", now=NOW)
 
+    def test_get_row_reads_topic_by_typed_primary_key(self) -> None:
+        self.add_topic("topic-readable")
+
+        topic = self.store.get_row("radar_topics", "topic_id", "topic-readable")
+
+        self.assertIsNotNone(topic)
+        self.assertEqual(topic["canonical_key"], "key-topic-readable")  # type: ignore[index]
+
     def test_schema_is_separate_versioned_and_runtime_path_is_refused(self) -> None:
-        self.assertEqual(RADAR_SCHEMA_VERSION, 7)
+        self.assertEqual(RADAR_SCHEMA_VERSION, 8)
         self.assertEqual(db.SCHEMA_VERSION, 7)
         names = self.store.table_names()
         self.assertGreaterEqual(
@@ -107,7 +115,7 @@ class RadarStoreTests(unittest.TestCase):
         )
         self.assertTrue(all(name.startswith("radar_") for name in names))
         with closing(self.store.connect()) as connection:
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 7)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 8)
             self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
         with self.assertRaisesRegex(RadarStoreError, "não pode abrir"):
             RadarStore(RUNTIME_DB_PATH)
@@ -230,7 +238,7 @@ class RadarStoreTests(unittest.TestCase):
             connection.commit()
         migrated = RadarStore(fixture_path)
         with closing(migrated.connect()) as connection:
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 7)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 8)
             columns = {row[1] for row in connection.execute("PRAGMA table_info(radar_documents)")}
             self.assertTrue({"body_sha256", "body_segment_hashes_json", "body_char_count", "origin_url"} <= columns)
             entity_columns = {row[1] for row in connection.execute("PRAGMA table_info(radar_entities)")}
@@ -253,14 +261,16 @@ class RadarStoreTests(unittest.TestCase):
 
         migrated = RadarStore(fixture_path)
         with closing(migrated.connect()) as connection:
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 7)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 8)
             table = connection.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name='radar_domain_quota_events'"
             ).fetchone()
             self.assertIsNotNone(table)
             self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
             connection.execute(
-                "INSERT INTO radar_domain_quota_events VALUES ('event', 'key', 'example.invalid', '2026-01-01', 'UTC', 1, ?)",
+                "INSERT INTO radar_domain_quota_events "
+                "(event_id, request_key, domain, quota_date, timezone_name, quota_limit, reserved_at) "
+                "VALUES ('event', 'key', 'example.invalid', '2026-01-01', 'UTC', 1, ?)",
                 (NOW,),
             )
             with self.assertRaises(sqlite3.IntegrityError):
@@ -269,6 +279,67 @@ class RadarStoreTests(unittest.TestCase):
                 )
             with self.assertRaises(sqlite3.IntegrityError):
                 connection.execute("DELETE FROM radar_domain_quota_events WHERE event_id='event'")
+
+    def test_v7_migration_preserves_fetch_and_quota_receipts(self) -> None:
+        fixture_path = self.root / "radar-v7-receipts.sqlite3"
+        self.add_source("source-v7")
+        url = "https://source-v7.example.invalid/feed"
+        fetch_id = self.store.record_fetch_event(
+            source_id="source-v7", request_url=url, observed_at=NOW, fetch_status="observed",
+            response_sha256=sha256("archived response"),
+        )
+        self.store.reserve_domain_request(
+            domain="source-v7.example.invalid", quota_date="2026-10-25", timezone_name="UTC",
+            quota_limit=2, request_key="key-v7", reserved_at=NOW,
+        )
+        with closing(self.store.connect()) as source, closing(sqlite3.connect(fixture_path)) as fixture:
+            source.backup(fixture)
+            fixture.execute("DROP TABLE radar_fetch_processing_events")
+            fixture.execute("DROP INDEX idx_radar_fetch_events_request_id")
+            fixture.execute("DROP INDEX idx_radar_quota_mission")
+            fixture.execute("DROP INDEX idx_radar_quota_source_mission")
+            for column in (
+                "profile_version", "source_profile_hash", "rejected_reason_counts_json", "rejected_count",
+                "candidate_count", "parse_reason_code", "parser_schema_id", "parse_status", "transport_status",
+                "payload_bytes", "content_type", "final_url", "http_status", "request_id",
+            ):
+                fixture.execute(f"ALTER TABLE radar_fetch_events DROP COLUMN {column}")
+            for column in ("source_mission_limit", "source_id", "mission_limit", "mission_id"):
+                fixture.execute(f"ALTER TABLE radar_domain_quota_events DROP COLUMN {column}")
+            fixture.execute("PRAGMA user_version = 7")
+            fixture.commit()
+
+        migrated = RadarStore(fixture_path)
+        with closing(migrated.connect()) as connection:
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 8)
+            fetch = connection.execute(
+                "SELECT * FROM radar_fetch_events WHERE fetch_event_id=?", (fetch_id,),
+            ).fetchone()
+            self.assertEqual(fetch["response_sha256"], sha256("archived response"))
+            self.assertEqual(fetch["transport_status"], "legacy")
+            self.assertEqual(fetch["parse_status"], "legacy")
+            quota = connection.execute(
+                "SELECT * FROM radar_domain_quota_events WHERE request_key='key-v7'",
+            ).fetchone()
+            self.assertEqual(quota["mission_id"], "legacy")
+            self.assertEqual(quota["request_key"], "key-v7")
+            self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
+        processing_id = migrated.record_fetch_processing_event(
+            fetch_event_id=fetch_id, request_id="request-v7", stage="parse",
+            status="not_attempted", candidate_count=0, rejected_count=0, documents_persisted=0,
+            reason_counts={}, recorded_at=NOW,
+        )
+        with closing(migrated.connect()) as connection:
+            with self.assertRaises(sqlite3.IntegrityError):
+                connection.execute(
+                    "UPDATE radar_fetch_processing_events SET status='parsed' WHERE processing_event_id=?",
+                    (processing_id,),
+                )
+            with self.assertRaises(sqlite3.IntegrityError):
+                connection.execute(
+                    "DELETE FROM radar_fetch_processing_events WHERE processing_event_id=?",
+                    (processing_id,),
+                )
 
     def test_domain_quota_reservations_are_atomic_idempotent_and_append_only(self) -> None:
         def reserve(index: int) -> bool:
@@ -412,6 +483,71 @@ class RadarStoreTests(unittest.TestCase):
                 connection.execute("UPDATE radar_fetch_events SET fetch_status='observed' WHERE fetch_event_id=?", (event_id,))
             with self.assertRaises(sqlite3.IntegrityError):
                 connection.execute("DELETE FROM radar_fetch_events WHERE fetch_event_id=?", (event_id,))
+
+    def test_fetch_pipeline_receipts_separate_transport_parse_and_ingest(self) -> None:
+        self.add_source()
+        request_id = "request-v8-1"
+        fetch_id = self.store.record_fetch_event(
+            source_id="source-1", request_url="https://source-1.example.invalid/feed?edition=pc&format=rss",
+            observed_at=NOW, fetch_status="observed", response_sha256=sha256("safe metadata"),
+            request_id=request_id, http_status=200,
+            final_url="https://source-1.example.invalid/feed?edition=pc&format=rss",
+            content_type="application/rss+xml", payload_bytes=13,
+            transport_status="response_received", parse_status="not_attempted",
+            parser_schema_id="rss_atom_v1", source_profile_hash=sha256("profile"), profile_version="r1",
+        )
+        self.assertEqual(self.store.record_fetch_event(
+            source_id="source-1", request_url="https://source-1.example.invalid/feed?edition=pc&format=rss",
+            observed_at=NOW, fetch_status="observed", response_sha256=sha256("safe metadata"),
+            request_id=request_id, http_status=200,
+            final_url="https://source-1.example.invalid/feed?edition=pc&format=rss",
+            content_type="application/rss+xml", payload_bytes=13,
+            transport_status="response_received", parse_status="not_attempted",
+            parser_schema_id="rss_atom_v1", source_profile_hash=sha256("profile"), profile_version="r1",
+        ), fetch_id)
+        with self.assertRaisesRegex(RadarStoreError, "request_id"):
+            self.store.record_fetch_event(
+                source_id="source-1", request_url="https://source-1.example.invalid/feed?edition=pc&format=rss",
+                observed_at=NOW, fetch_status="observed", response_sha256=sha256("different"),
+                request_id=request_id, http_status=200,
+                final_url="https://source-1.example.invalid/feed?edition=pc&format=rss",
+                content_type="application/rss+xml", payload_bytes=9,
+                transport_status="response_received", parse_status="not_attempted",
+                parser_schema_id="rss_atom_v1", source_profile_hash=sha256("profile"), profile_version="r1",
+            )
+
+        parse_id = self.store.record_fetch_processing_event(
+            fetch_event_id=fetch_id, request_id=request_id, stage="parse", status="parsed",
+            candidate_count=1, rejected_count=0, documents_persisted=0,
+            reason_counts={}, parser_schema_id="rss_atom_v1", recorded_at=NOW,
+        )
+        self.assertEqual(self.store.record_fetch_processing_event(
+            fetch_event_id=fetch_id, request_id=request_id, stage="parse", status="parsed",
+            candidate_count=1, rejected_count=0, documents_persisted=0,
+            reason_counts={}, parser_schema_id="rss_atom_v1", recorded_at=NOW,
+        ), parse_id)
+        self.store.record_fetch_processing_event(
+            fetch_event_id=fetch_id, request_id=request_id, stage="ingest", status="ingested",
+            candidate_count=1, rejected_count=0, documents_persisted=1,
+            reason_counts={}, artifact_refs=[{"document_id": "doc-1", "event_id": "obs-1"}],
+            parser_schema_id="rss_atom_v1", recorded_at=NOW,
+        )
+        events = self.store.list_fetch_processing_events(fetch_event_id=fetch_id)
+        self.assertEqual([event["stage"] for event in events], ["parse", "ingest"])
+        self.assertEqual(events[0]["status"], "parsed")
+        self.assertEqual(events[1]["documents_persisted"], 1)
+        self.assertNotIn("raw_body", " ".join(events[1].keys()))
+        with closing(self.store.connect()) as connection:
+            with self.assertRaises(sqlite3.IntegrityError):
+                connection.execute(
+                    "UPDATE radar_fetch_processing_events SET status='error' WHERE processing_event_id=?",
+                    (parse_id,),
+                )
+            with self.assertRaises(sqlite3.IntegrityError):
+                connection.execute(
+                    "DELETE FROM radar_fetch_processing_events WHERE processing_event_id=?",
+                    (parse_id,),
+                )
 
     def test_entities_aliases_topics_and_claim_history_are_linked(self) -> None:
         self.add_source()
@@ -605,7 +741,7 @@ class RadarStoreTests(unittest.TestCase):
         self.assertEqual(saved_request["schema_version"], "1.0")
         self.assertNotIn("story_revision_id", saved_request)
         with closing(migrated.connect()) as connection:
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 7)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 8)
             self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
 
     def test_v6_fixture_migrates_candidate_evaluation_state_and_typed_events(self) -> None:
@@ -640,7 +776,7 @@ class RadarStoreTests(unittest.TestCase):
         self.assertIsNone(event["from_evaluation_state"])  # type: ignore[index]
         self.assertIsNone(event["to_evaluation_state"])  # type: ignore[index]
         with closing(migrated.connect()) as connection:
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 7)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 8)
             self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
 
     def test_portfolio_candidate_lane_history_is_append_only(self) -> None:

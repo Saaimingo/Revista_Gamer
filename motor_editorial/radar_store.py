@@ -28,7 +28,7 @@ from .db import json_dumps, normalize_text, stable_hash
 from .orchestration import _assert_no_credentials
 
 
-RADAR_SCHEMA_VERSION = 7
+RADAR_SCHEMA_VERSION = 8
 _HASH_RE = re.compile(r"^[a-f0-9]{64}$")
 _LANGUAGE_TAG_RE = re.compile(r"^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$")
 _SENSITIVE_URL_KEYS = {
@@ -64,6 +64,11 @@ RUNTIME_DB_PATH = (Path(__file__).parent / "runtime" / "motor.sqlite3").resolve(
 
 class RadarStoreError(ValueError):
     """Raised when Radar data or schema state fails its local contract."""
+
+    def __init__(self, message: str, *, code: str = "radar_store_error", phase: str = "radar_store"):
+        super().__init__(message)
+        self.code = code
+        self.phase = phase
 
 
 def _text(value: Any, name: str, *, maximum: int = 4_000, optional: bool = False) -> str | None:
@@ -601,6 +606,9 @@ class RadarStore:
             if version == 6:
                 self._migrate_v6_to_v7(connection)
                 version = 7
+            if version == 7:
+                self._migrate_v7_to_v8(connection)
+                version = 8
             if version == RADAR_SCHEMA_VERSION:
                 check = connection.execute("PRAGMA quick_check").fetchone()[0]
                 if check != "ok":
@@ -617,10 +625,10 @@ class RadarStore:
                     "radar_research_requests", "radar_research_packets", "radar_candidates", "radar_candidate_events",
                     "radar_fetch_events", "radar_fetch_cache", "radar_republication_groups", "radar_republication_members",
                     "radar_entity_roles", "radar_interviews", "radar_interview_variants",
-                    "radar_domain_quota_events",
+                    "radar_domain_quota_events", "radar_fetch_processing_events",
                 }
                 if not required.issubset(tables):
-                    raise RadarStoreError("Banco marcado como Radar v7 sem as tabelas obrigatórias.")
+                    raise RadarStoreError("Banco marcado como Radar v8 sem as tabelas obrigatórias.")
                 unrelated = {name for name in tables if not name.startswith(("radar_", "sqlite_"))}
                 if unrelated:
                     raise RadarStoreError("Banco Radar v4 contém tabelas fora do namespace reservado.")
@@ -628,12 +636,12 @@ class RadarStore:
                     row["name"] for row in connection.execute("PRAGMA table_info(radar_claim_sources)").fetchall()
                 }
                 if "based_on_source_id" not in claim_source_columns:
-                    raise RadarStoreError("Banco marcado como Radar v7 sem a coluna de linhagem de alegações.")
+                    raise RadarStoreError("Banco marcado como Radar v8 sem a coluna de linhagem de alegações.")
                 request_columns = {
                     row["name"] for row in connection.execute("PRAGMA table_info(radar_research_requests)").fetchall()
                 }
                 if "story_revision_id" not in request_columns:
-                    raise RadarStoreError("Banco marcado como Radar v7 sem vínculo de revisão da pauta.")
+                    raise RadarStoreError("Banco marcado como Radar v8 sem vínculo de revisão da pauta.")
                 candidate_columns = {
                     row["name"] for row in connection.execute("PRAGMA table_info(radar_candidates)").fetchall()
                 }
@@ -643,7 +651,7 @@ class RadarStore:
                 if not {"evaluation_state", "membership_locked"}.issubset(candidate_columns) or not {
                     "event_kind", "from_evaluation_state", "to_evaluation_state",
                 }.issubset(candidate_event_columns):
-                    raise RadarStoreError("Banco marcado como Radar v7 sem estados/eventos da carteira.")
+                    raise RadarStoreError("Banco marcado como Radar v8 sem estados/eventos da carteira.")
                 portfolio_triggers = {
                     row["name"] for row in connection.execute(
                         "SELECT name FROM sqlite_master WHERE type='trigger'"
@@ -653,7 +661,22 @@ class RadarStore:
                     "radar_candidates_reactivate_on_observation",
                     "radar_candidates_reactivate_on_claim_event",
                 }.issubset(portfolio_triggers):
-                    raise RadarStoreError("Banco Radar v7 sem gatilhos de reavaliação de carteira.")
+                    raise RadarStoreError("Banco Radar v8 sem gatilhos de reavaliação de carteira.")
+                fetch_columns = {
+                    row["name"] for row in connection.execute("PRAGMA table_info(radar_fetch_events)").fetchall()
+                }
+                if not {
+                    "request_id", "http_status", "final_url", "content_type", "payload_bytes",
+                    "transport_status", "parse_status", "parser_schema_id", "parse_reason_code",
+                    "candidate_count", "rejected_count", "rejected_reason_counts_json",
+                    "source_profile_hash", "profile_version",
+                }.issubset(fetch_columns):
+                    raise RadarStoreError("Banco Radar v8 sem os campos de recibo de transporte e parse.")
+                quota_columns = {
+                    row["name"] for row in connection.execute("PRAGMA table_info(radar_domain_quota_events)").fetchall()
+                }
+                if not {"mission_id", "mission_limit", "source_id", "source_mission_limit"}.issubset(quota_columns):
+                    raise RadarStoreError("Banco Radar v8 sem campos de limite por missão e fonte.")
                 return
             raise RadarStoreError(f"Versão de schema Radar não suportada: {version}.")
 
@@ -991,6 +1014,101 @@ class RadarStore:
             connection.rollback()
             raise
 
+    @staticmethod
+    def _migrate_v7_to_v8(connection: sqlite3.Connection) -> None:
+        """Record transport, parser, and ingestion outcomes without retaining raw response bodies."""
+        connection.execute("BEGIN IMMEDIATE")
+        try:
+            tables = {
+                row[0] for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+            unexpected = {name for name in tables if not name.startswith(("radar_", "sqlite_"))}
+            if unexpected or not {"radar_fetch_events", "radar_sources", "radar_domain_quota_events"}.issubset(tables):
+                raise RadarStoreError("Migração v7→v8 recusada: banco não corresponde ao namespace do Radar.")
+            columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(radar_fetch_events)").fetchall()
+            }
+            additions = (
+                ("request_id", "TEXT"),
+                ("http_status", "INTEGER"),
+                ("final_url", "TEXT"),
+                ("content_type", "TEXT"),
+                ("payload_bytes", "INTEGER NOT NULL DEFAULT 0 CHECK (payload_bytes >= 0)"),
+                ("transport_status", "TEXT NOT NULL DEFAULT 'legacy'"),
+                ("parse_status", "TEXT NOT NULL DEFAULT 'legacy'"),
+                ("parser_schema_id", "TEXT"),
+                ("parse_reason_code", "TEXT"),
+                ("candidate_count", "INTEGER NOT NULL DEFAULT 0 CHECK (candidate_count >= 0)"),
+                ("rejected_count", "INTEGER NOT NULL DEFAULT 0 CHECK (rejected_count >= 0)"),
+                ("rejected_reason_counts_json", "TEXT NOT NULL DEFAULT '{}'"),
+                ("source_profile_hash", "TEXT"),
+                ("profile_version", "TEXT"),
+            )
+            for name, declaration in additions:
+                if name not in columns:
+                    connection.execute(f"ALTER TABLE radar_fetch_events ADD COLUMN {name} {declaration}")
+            connection.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_radar_fetch_events_request_id "
+                "ON radar_fetch_events(request_id) WHERE request_id IS NOT NULL"
+            )
+            quota_columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(radar_domain_quota_events)").fetchall()
+            }
+            for name, declaration in (
+                ("mission_id", "TEXT NOT NULL DEFAULT 'legacy'"),
+                ("mission_limit", "INTEGER NOT NULL DEFAULT 2147483647 CHECK (mission_limit >= 1)"),
+                ("source_id", "TEXT NOT NULL DEFAULT ''"),
+                ("source_mission_limit", "INTEGER NOT NULL DEFAULT 2147483647 CHECK (source_mission_limit >= 1)"),
+            ):
+                if name not in quota_columns:
+                    connection.execute(f"ALTER TABLE radar_domain_quota_events ADD COLUMN {name} {declaration}")
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_radar_quota_mission "
+                "ON radar_domain_quota_events(mission_id, quota_date, timezone_name)"
+            )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_radar_quota_source_mission "
+                "ON radar_domain_quota_events(source_id, mission_id, quota_date, timezone_name)"
+            )
+            connection.execute(
+                "CREATE TABLE IF NOT EXISTS radar_fetch_processing_events ("
+                "processing_event_id TEXT PRIMARY KEY, "
+                "fetch_event_id TEXT NOT NULL REFERENCES radar_fetch_events(fetch_event_id) ON DELETE RESTRICT, "
+                "request_id TEXT NOT NULL, "
+                "stage TEXT NOT NULL CHECK(stage IN ('parse','ingest')), "
+                "status TEXT NOT NULL CHECK(status IN ('legacy','not_attempted','parsed','parsed_empty','unsupported','invalid','blocked','ingested','partial','no_new_story','error')), "
+                "candidate_count INTEGER NOT NULL CHECK(candidate_count >= 0), "
+                "rejected_count INTEGER NOT NULL CHECK(rejected_count >= 0), "
+                "documents_persisted INTEGER NOT NULL CHECK(documents_persisted >= 0), "
+                "reason_counts_json TEXT NOT NULL DEFAULT '{}', "
+                "artifact_refs_json TEXT NOT NULL DEFAULT '[]', "
+                "outcome_code TEXT, parser_schema_id TEXT, recorded_at TEXT NOT NULL)"
+            )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_radar_fetch_processing_stage "
+                "ON radar_fetch_processing_events(fetch_event_id, stage, recorded_at)"
+            )
+            connection.execute(
+                "CREATE TRIGGER IF NOT EXISTS radar_fetch_processing_events_no_update "
+                "BEFORE UPDATE ON radar_fetch_processing_events "
+                "BEGIN SELECT RAISE(ABORT, 'fetch processing events are append-only'); END"
+            )
+            connection.execute(
+                "CREATE TRIGGER IF NOT EXISTS radar_fetch_processing_events_no_delete "
+                "BEFORE DELETE ON radar_fetch_processing_events "
+                "BEGIN SELECT RAISE(ABORT, 'fetch processing events are append-only'); END"
+            )
+            connection.execute("PRAGMA user_version = 8")
+            violations = connection.execute("PRAGMA foreign_key_check").fetchall()
+            if violations:
+                raise RadarStoreError("Migração Radar v7→v8 deixou referências sem destino.")
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+
     def reserve_domain_request(
         self,
         *,
@@ -1000,8 +1118,12 @@ class RadarStore:
         quota_limit: int,
         request_key: str,
         reserved_at: str,
+        mission_id: str | None = None,
+        mission_limit: int | None = None,
+        source_id: str | None = None,
+        source_mission_limit: int | None = None,
     ) -> bool:
-        """Atomically reserve one outbound request under a local-day domain cap."""
+        """Atomically reserve one request against host/day, mission, and source/mission caps."""
         from .radar_policy import normalize_domain
 
         domain = normalize_domain(domain)
@@ -1013,18 +1135,31 @@ class RadarStore:
         timezone_name = _text(timezone_name, "timezone_name", maximum=128)  # type: ignore[assignment]
         request_key = _text(request_key, "request_key", maximum=256)  # type: ignore[assignment]
         reserved_at = _timestamp(reserved_at, "reserved_at")  # type: ignore[assignment]
+        mission_id = _text(mission_id, "mission_id", maximum=256, optional=True) or "legacy"
+        source_id = _text(source_id, "source_id", maximum=256, optional=True) or ""
+        mission_limit = 2_147_483_647 if mission_limit is None else mission_limit
+        source_mission_limit = 2_147_483_647 if source_mission_limit is None else source_mission_limit
         if isinstance(quota_limit, bool) or not isinstance(quota_limit, int) or quota_limit < 1:
             raise RadarStoreError("quota_limit precisa ser inteiro positivo.")
+        if isinstance(mission_limit, bool) or not isinstance(mission_limit, int) or mission_limit < 1:
+            raise RadarStoreError("mission_limit precisa ser inteiro positivo.")
+        if isinstance(source_mission_limit, bool) or not isinstance(source_mission_limit, int) or source_mission_limit < 1:
+            raise RadarStoreError("source_mission_limit precisa ser inteiro positivo.")
+        if source_mission_limit != 2_147_483_647 and not source_id:
+            raise RadarStoreError("Limite por fonte exige source_id.")
         with closing(self.connect()) as connection:
             connection.execute("BEGIN IMMEDIATE")
             try:
                 existing = connection.execute(
-                    "SELECT domain, quota_date, timezone_name FROM radar_domain_quota_events WHERE request_key=?",
+                    "SELECT domain, quota_date, timezone_name, mission_id, mission_limit, source_id, source_mission_limit "
+                    "FROM radar_domain_quota_events WHERE request_key=?",
                     (request_key,),
                 ).fetchone()
                 if existing is not None:
                     if (existing["domain"], existing["quota_date"], existing["timezone_name"]) != (
                         domain, quota_date, timezone_name,
+                    ) or (existing["mission_id"], existing["mission_limit"], existing["source_id"], existing["source_mission_limit"]) != (
+                        mission_id, mission_limit, source_id, source_mission_limit,
                     ):
                         raise RadarStoreError("request_key já foi usado por outra reserva de quota.")
                     connection.commit()
@@ -1037,17 +1172,57 @@ class RadarStore:
                 if used >= quota_limit:
                     connection.commit()
                     return False
+                mission_used = connection.execute(
+                    """SELECT COUNT(*) FROM radar_domain_quota_events
+                       WHERE mission_id=?""",
+                    (mission_id,),
+                ).fetchone()[0]
+                if mission_used >= mission_limit:
+                    connection.commit()
+                    return False
+                if source_id:
+                    source_mission_used = connection.execute(
+                        """SELECT COUNT(*) FROM radar_domain_quota_events
+                           WHERE source_id=? AND mission_id=?""",
+                        (source_id, mission_id),
+                    ).fetchone()[0]
+                    if source_mission_used >= source_mission_limit:
+                        connection.commit()
+                        return False
                 connection.execute(
                     """INSERT INTO radar_domain_quota_events
-                       (event_id, request_key, domain, quota_date, timezone_name, quota_limit, reserved_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                    (str(uuid.uuid4()), request_key, domain, quota_date, timezone_name, quota_limit, reserved_at),
+                       (event_id, request_key, domain, quota_date, timezone_name, quota_limit, reserved_at,
+                        mission_id, mission_limit, source_id, source_mission_limit)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (str(uuid.uuid4()), request_key, domain, quota_date, timezone_name, quota_limit, reserved_at,
+                     mission_id, mission_limit, source_id, source_mission_limit),
                 )
                 connection.commit()
                 return True
             except Exception:
                 connection.rollback()
                 raise
+
+    def mission_quota_usage(
+        self, *, mission_id: str, source_id: str | None = None,
+    ) -> int:
+        mission_id = _text(mission_id, "mission_id", maximum=256)  # type: ignore[assignment]
+        if source_id is not None:
+            source_id = _text(source_id, "source_id", maximum=256)  # type: ignore[assignment]
+        with closing(self.connect()) as connection:
+            if source_id is None:
+                row = connection.execute(
+                    """SELECT COUNT(*) FROM radar_domain_quota_events
+                       WHERE mission_id=?""",
+                    (mission_id,),
+                ).fetchone()
+            else:
+                row = connection.execute(
+                    """SELECT COUNT(*) FROM radar_domain_quota_events
+                       WHERE source_id=? AND mission_id=?""",
+                    (source_id, mission_id),
+                ).fetchone()
+            return int(row[0])
 
     def domain_quota_usage(self, *, domain: str, quota_date: str, timezone_name: str) -> int:
         from .radar_policy import normalize_domain
@@ -1192,6 +1367,13 @@ class RadarStore:
         self, *, source_id: str, request_url: str, observed_at: str, fetch_status: str,
         response_sha256: str | None = None, etag: str | None = None,
         last_modified: str | None = None, retry_at: str | None = None,
+        request_id: str | None = None, http_status: int | None = None, final_url: str | None = None,
+        content_type: str | None = None, payload_bytes: int = 0,
+        transport_status: str = "legacy", parse_status: str = "legacy",
+        parser_schema_id: str | None = None, parse_reason_code: str | None = None,
+        candidate_count: int = 0, rejected_count: int = 0,
+        rejected_reason_counts: Mapping[str, int] | None = None,
+        source_profile_hash: str | None = None, profile_version: str | None = None,
     ) -> str:
         source_id = _text(source_id, "source_id", maximum=256)  # type: ignore[assignment]
         request_url = _url(request_url, "request_url")  # type: ignore[assignment]
@@ -1200,24 +1382,168 @@ class RadarStore:
         etag = _text(etag, "etag", maximum=1_000, optional=True)
         last_modified = _text(last_modified, "last_modified", maximum=256, optional=True)
         retry_at = _timestamp(retry_at, "retry_at", optional=True)
+        request_id = _text(request_id, "request_id", maximum=256, optional=True)
+        final_url = _url(final_url, "final_url", optional=True)
+        content_type = _text(content_type, "content_type", maximum=256, optional=True)
+        parser_schema_id = _text(parser_schema_id, "parser_schema_id", maximum=128, optional=True)
+        profile_version = _text(profile_version, "profile_version", maximum=128, optional=True)
+        source_profile_hash = _sha256(source_profile_hash, "source_profile_hash", optional=True)
+        if parse_reason_code is not None and (
+            not isinstance(parse_reason_code, str) or not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", parse_reason_code)
+        ):
+            raise RadarStoreError("parse_reason_code precisa ser código técnico sanitizado.")
+        if transport_status not in {"legacy", "not_started", "response_received", "uncertain"}:
+            raise RadarStoreError("transport_status inválido para histórico do Radar.")
+        if parse_status not in {"legacy", "not_attempted", "parsed", "parsed_empty", "unsupported", "invalid"}:
+            raise RadarStoreError("parse_status inválido para histórico do Radar.")
+        for name, value, maximum in (
+            ("payload_bytes", payload_bytes, 5_000_000),
+            ("candidate_count", candidate_count, 10_000),
+            ("rejected_count", rejected_count, 10_000),
+        ):
+            if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= maximum:
+                raise RadarStoreError(f"{name} fora do limite do recibo Radar.")
+        if http_status is not None and (
+            isinstance(http_status, bool) or not isinstance(http_status, int) or not 100 <= http_status <= 599
+        ):
+            raise RadarStoreError("http_status precisa estar entre 100 e 599.")
+        reason_counts = dict(rejected_reason_counts or {})
+        if any(
+            not isinstance(code, str) or not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", code)
+            or isinstance(count, bool) or not isinstance(count, int) or count < 1
+            for code, count in reason_counts.items()
+        ):
+            raise RadarStoreError("rejected_reason_counts precisa conter códigos tipados e contagens positivas.")
+        reasons_json = _json(reason_counts, "rejected_reason_counts", max_bytes=32_000)
         if fetch_status not in {"observed", "not_modified", "removed", "forbidden", "rate_limited", "error", "blocked"}:
             raise RadarStoreError("fetch_status inválido para histórico do Radar.")
         event_id = uuid.uuid4().hex
         with closing(self.connect()) as connection:
             try:
+                if request_id is not None:
+                    existing = connection.execute(
+                        "SELECT * FROM radar_fetch_events WHERE request_id=?", (request_id,),
+                    ).fetchone()
+                    if existing is not None:
+                        expected = {
+                            "source_id": source_id, "request_url": request_url, "observed_at": observed_at,
+                            "fetch_status": fetch_status, "response_sha256": response_sha256,
+                            "etag": etag, "last_modified": last_modified, "retry_at": retry_at,
+                            "http_status": http_status, "final_url": final_url, "content_type": content_type,
+                            "payload_bytes": payload_bytes, "transport_status": transport_status,
+                            "parse_status": parse_status, "parser_schema_id": parser_schema_id,
+                            "parse_reason_code": parse_reason_code, "candidate_count": candidate_count,
+                            "rejected_count": rejected_count, "rejected_reason_counts_json": reasons_json,
+                            "source_profile_hash": source_profile_hash, "profile_version": profile_version,
+                        }
+                        if any(existing[key] != value for key, value in expected.items()):
+                            raise RadarStoreError("request_id já foi usado por outro recibo Radar.")
+                        return str(existing["fetch_event_id"])
                 connection.execute(
                     """INSERT INTO radar_fetch_events
                        (fetch_event_id, source_id, request_url, observed_at, fetch_status,
-                        response_sha256, etag, last_modified, retry_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        response_sha256, etag, last_modified, retry_at, request_id, http_status,
+                        final_url, content_type, payload_bytes, transport_status, parse_status,
+                        parser_schema_id, parse_reason_code, candidate_count, rejected_count,
+                        rejected_reason_counts_json, source_profile_hash, profile_version)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (event_id, source_id, request_url, observed_at, fetch_status,
-                     response_sha256, etag, last_modified, retry_at),
+                     response_sha256, etag, last_modified, retry_at, request_id, http_status,
+                     final_url, content_type, payload_bytes, transport_status, parse_status,
+                     parser_schema_id, parse_reason_code, candidate_count, rejected_count,
+                     reasons_json, source_profile_hash, profile_version),
                 )
                 connection.commit()
                 return event_id
             except sqlite3.IntegrityError as error:
                 connection.rollback()
                 raise RadarStoreError("FetchEvent sem fonte registrada ou inválido.") from error
+
+    def record_fetch_processing_event(
+        self, *, fetch_event_id: str, request_id: str, stage: str, status: str,
+        candidate_count: int, rejected_count: int, documents_persisted: int,
+        reason_counts: Mapping[str, int] | None, recorded_at: str,
+        outcome_code: str | None = None, parser_schema_id: str | None = None,
+        artifact_refs: Iterable[Mapping[str, Any]] = (),
+    ) -> str:
+        fetch_event_id = _text(fetch_event_id, "fetch_event_id", maximum=256)  # type: ignore[assignment]
+        request_id = _text(request_id, "request_id", maximum=256)  # type: ignore[assignment]
+        recorded_at = _timestamp(recorded_at, "recorded_at")  # type: ignore[assignment]
+        if stage == "parse":
+            allowed_statuses = {"not_attempted", "parsed", "parsed_empty", "unsupported", "invalid"}
+        elif stage == "ingest":
+            allowed_statuses = {"not_attempted", "blocked", "ingested", "partial", "no_new_story", "error"}
+        else:
+            raise RadarStoreError("stage precisa ser parse ou ingest.")
+        if status not in allowed_statuses:
+            raise RadarStoreError("status não é válido para a etapa de processamento.")
+        counts = dict(reason_counts or {})
+        for name, value in (
+            ("candidate_count", candidate_count), ("rejected_count", rejected_count),
+            ("documents_persisted", documents_persisted),
+        ):
+            if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 10_000:
+                raise RadarStoreError(f"{name} fora do limite de processamento Radar.")
+        if any(
+            not isinstance(code, str) or not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", code)
+            or isinstance(count, bool) or not isinstance(count, int) or count < 1
+            for code, count in counts.items()
+        ):
+            raise RadarStoreError("reason_counts precisa conter códigos tipados e contagens positivas.")
+        if outcome_code is not None and (
+            not isinstance(outcome_code, str) or not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", outcome_code)
+        ):
+            raise RadarStoreError("outcome_code precisa ser código técnico sanitizado.")
+        parser_schema_id = _text(parser_schema_id, "parser_schema_id", maximum=128, optional=True)
+        refs = [dict(item) for item in artifact_refs]
+        if len(refs) > 10_000:
+            raise RadarStoreError("artifact_refs excedeu o limite de candidatos.")
+        reasons_json = _json(counts, "processing_reason_counts", max_bytes=32_000)
+        refs_json = _json(refs, "processing_artifact_refs", max_bytes=256_000)
+        record = {
+            "fetch_event_id": fetch_event_id, "request_id": request_id, "stage": stage,
+            "status": status, "candidate_count": candidate_count, "rejected_count": rejected_count,
+            "documents_persisted": documents_persisted, "reason_counts_json": reasons_json,
+            "artifact_refs_json": refs_json, "outcome_code": outcome_code,
+            "parser_schema_id": parser_schema_id, "recorded_at": recorded_at,
+        }
+        event_id = stable_hash(json_dumps(record))
+        with closing(self.connect()) as connection:
+            try:
+                connection.execute(
+                    """INSERT OR IGNORE INTO radar_fetch_processing_events
+                       (processing_event_id, fetch_event_id, request_id, stage, status,
+                        candidate_count, rejected_count, documents_persisted, reason_counts_json,
+                        artifact_refs_json, outcome_code, parser_schema_id, recorded_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (event_id, fetch_event_id, request_id, stage, status, candidate_count,
+                     rejected_count, documents_persisted, reasons_json, refs_json,
+                     outcome_code, parser_schema_id, recorded_at),
+                )
+                row = connection.execute(
+                    "SELECT processing_event_id FROM radar_fetch_processing_events WHERE processing_event_id=?",
+                    (event_id,),
+                ).fetchone()
+                if row is None:
+                    raise RadarStoreError("Evento de processamento não foi persistido.")
+                connection.commit()
+                return str(row["processing_event_id"])
+            except sqlite3.IntegrityError as error:
+                connection.rollback()
+                raise RadarStoreError("Evento de processamento sem fetch durável correspondente.") from error
+            except Exception:
+                connection.rollback()
+                raise
+
+    def list_fetch_processing_events(self, *, fetch_event_id: str) -> list[dict[str, Any]]:
+        fetch_event_id = _text(fetch_event_id, "fetch_event_id", maximum=256)  # type: ignore[assignment]
+        with closing(self.connect()) as connection:
+            rows = connection.execute(
+                "SELECT * FROM radar_fetch_processing_events WHERE fetch_event_id=? "
+                "ORDER BY recorded_at, CASE stage WHEN 'parse' THEN 0 ELSE 1 END, processing_event_id",
+                (fetch_event_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
 
     def get_fetch_cache(self, *, source_id: str, request_url: str) -> dict[str, Any] | None:
         source_id = _text(source_id, "source_id", maximum=256)  # type: ignore[assignment]
@@ -2174,13 +2500,17 @@ class RadarStore:
             ("radar_sources", "source_id"), ("radar_documents", "document_id"),
             ("radar_entities", "entity_id"), ("radar_entity_roles", "role_id"),
             ("radar_interviews", "interview_id"),
+            ("radar_topics", "topic_id"),
             ("radar_claims", "claim_id"), ("radar_claim_events", "event_id"),
             ("radar_candidates", "candidate_id"), ("radar_candidate_events", "event_id"),
             ("radar_research_requests", "request_id"), ("radar_research_packets", "packet_id"),
             ("radar_republication_groups", "group_id"),
         }
         if (table, key_column) not in allowed:
-            raise RadarStoreError("Tabela/chave de leitura não suportada.")
+            raise RadarStoreError(
+                "Tabela/chave de leitura não suportada.",
+                code="read_key_not_allowed", phase="store_read",
+            )
         with closing(self.connect()) as connection:
             row = connection.execute(f"SELECT * FROM {table} WHERE {key_column}=?", (key_value,)).fetchone()
         return dict(row) if row is not None else None

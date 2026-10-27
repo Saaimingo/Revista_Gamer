@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 from motor_editorial.agent_contracts import ContractValidationError, ResearchRequest
-from motor_editorial.radar_store import RadarStore
+from motor_editorial.radar_store import RadarStore, RadarStoreError
 from motor_editorial.research_service import (
     DEFAULT_RESEARCH_PROFILES,
     PUBLIC_SOURCES_SCOPE,
@@ -71,15 +71,20 @@ def make_request(
 
 
 class FakeProvider:
-    def __init__(self, *results: ResearchProviderResult):
+    def __init__(self, *results: ResearchProviderResult | BaseException):
         self.results = list(results)
         self.calls: list[tuple[str, tuple[str, ...], int]] = []
 
     def search(self, request, profile, *, cached_document_ids, budget):
         self.calls.append((profile.profile_id, cached_document_ids, budget.max_sources))
+        if budget.before_external_request is not None:
+            budget.before_external_request()
         if not self.results:
             raise AssertionError("Unexpected provider call with no queued fixture result.")
-        return self.results.pop(0)
+        result = self.results.pop(0)
+        if isinstance(result, BaseException):
+            raise result
+        return result
 
 
 class ResearchServiceTests(unittest.TestCase):
@@ -241,6 +246,56 @@ class ResearchServiceTests(unittest.TestCase):
         self.assertIn("invalid ISO date", invalid_window.packet.constraints[0])
         self.assertEqual(provider.calls, [])
 
+    def test_preferred_domain_uses_registered_api_source_for_canonical_web_page(self) -> None:
+        self.store.register_source(
+            source_id="github-api-proton-detail",
+            display_name="Valve Proton release API",
+            canonical_url="https://api.github.com/repos/ValveSoftware/Proton/releases/tags/proton-11.0-2e",
+            source_type="public_api",
+            access_policy="allowed",
+            rights_status="unknown",
+            now=NOW,
+        )
+        self.store.register_document(
+            document_id="proton-release-detail",
+            source_id="github-api-proton-detail",
+            canonical_url="https://github.com/ValveSoftware/Proton/releases/tag/proton-11.0-2e",
+            resolved_url="https://github.com/ValveSoftware/Proton/releases/tag/proton-11.0-2e",
+            publisher="Valve Proton public releases",
+            language="en",
+            published_at="2026-10-09T17:49:01+00:00",
+            fetched_at=NOW,
+            content_sha256=sha256("metadata:proton-11.0-2e"),
+            normalized_sha256=sha256("normalized:proton-11.0-2e"),
+            title="Proton 11.0-2e",
+            access_policy="allowed",
+            rights_status="unknown",
+        )
+        provider = FakeProvider(ResearchProviderResult(
+            status="found", document_ids=("proton-release-detail",),
+            requests_used=1, bytes_read=2_120, sources_considered=1,
+        ))
+        service = ResearchService(store=self.store, provider=provider)
+        mapping = make_request(
+            request_id="proton-api-canonical-web",
+            profile_id="research.games.v1",
+            question="Proton 11.0-2e",
+            queries=("Proton 11.0-2e",),
+            allowed_scope=(RADAR_INDEX_SCOPE, PUBLIC_SOURCES_SCOPE),
+        ).to_dict()
+        mapping["preferred_source_ids"] = ["github-api-proton-detail"]
+        mapping["preferred_domains"] = ["api.github.com"]
+        request = ResearchRequest.from_mapping(mapping)
+
+        result = service.execute(request, now=NOW)
+
+        self.assertEqual(len(provider.calls), 1)
+        self.assertEqual(result.index_hit_count, 1)
+        self.assertEqual(result.packet.document_refs[0].ref, "radar://document/proton-release-detail")
+        self.assertEqual(result.packet.status, "partial")
+        self.assertEqual(result.packet.missing_evidence, ("official_statement",))
+        self.assertNotIn("preferred_domains", " ".join(result.packet.constraints))
+
     def test_provider_cache_replay_preserves_packet_id_and_avoids_repeated_call(self) -> None:
         provider = FakeProvider(ResearchProviderResult(
             status="not_found", missing_evidence=("official_statement",),
@@ -261,6 +316,30 @@ class ResearchServiceTests(unittest.TestCase):
         self.assertEqual(provider.calls[0][0], "research.hardware.v1")
         self.assertEqual(provider.calls[0][1], ())
         self.assertEqual(provider.calls[0][2], request.max_sources)
+
+    def test_provider_failure_diagnostic_is_structured_and_kept_out_of_packet_text(self) -> None:
+        provider = FakeProvider(RadarStoreError(
+            "private diagnostic message must not enter the editorial packet",
+            code="read_key_not_allowed", phase="store_read",
+        ))
+        service = ResearchService(store=self.store, provider=provider)
+        request = make_request(
+            request_id="provider-diagnostic", allowed_scope=(RADAR_INDEX_SCOPE, PUBLIC_SOURCES_SCOPE),
+        )
+
+        result = service.execute(request, now=NOW)
+
+        self.assertEqual(result.packet.status, "blocked")
+        self.assertIsNotNone(result.execution_diagnostic)
+        self.assertEqual(result.execution_diagnostic.to_dict(), {
+            "schema_version": "1.0",
+            "phase": "store_read",
+            "code": "read_key_not_allowed",
+            "exception_type": "RadarStoreError",
+        })
+        packet_text = str(result.packet.to_dict())
+        self.assertNotIn("private diagnostic message", packet_text)
+        self.assertIn("external retriever reported additional constraints", result.packet.constraints)
 
     def test_provider_results_are_budgeted_and_references_are_validated(self) -> None:
         self.add_document("matching-doc", "matching-source", "GPU 1440p benchmark methodology")
@@ -352,6 +431,71 @@ class ResearchServiceTests(unittest.TestCase):
         self.assertEqual(complete_local.packet.status, "found")
         self.assertEqual(complete_local.packet.missing_evidence, ())
         self.assertEqual(len(provider.calls), 1)
+
+    def test_claim_registered_during_provider_search_is_recognized_in_returned_packet(self) -> None:
+        source_id = "fresh-official-source"
+        document_id = "fresh-official-document"
+        claim_id = "fresh-official-claim"
+        store = self.store
+        self.store.register_source(
+            source_id=source_id, display_name="Fixture Studio", canonical_url="https://studio.example.invalid/",
+            source_type="publisher", access_policy="allowed", rights_status="authorized", now=NOW,
+        )
+
+        class RegisteringProvider:
+            def search(self, request, profile, *, cached_document_ids, budget):
+                budget.before_external_request()
+                store.register_document(
+                    document_id=document_id, source_id=source_id,
+                    canonical_url=f"https://studio.example.invalid/{document_id}", publisher="Fixture Studio",
+                    language="en", published_at="2026-10-24T12:00:00+00:00", fetched_at=NOW,
+                    content_sha256=sha256("fresh-body"), normalized_sha256=sha256("fresh-normalized"),
+                    title="Studio confirms the official patch update", summary_snippet="Official patch details.",
+                    access_policy="allowed", rights_status="authorized", content_retention="short_excerpt",
+                )
+                store.register_topic(
+                    topic_id="fresh-topic", canonical_key="studio:official-patch",
+                    title="Official patch update", now=NOW,
+                )
+                store.register_entity(
+                    entity_id="fresh-studio", entity_kind="organization", canonical_name="Fixture Studio",
+                    language="en", source_document_id=document_id, now=NOW,
+                )
+                store.link_document_entity(
+                    document_id=document_id, entity_id="fresh-studio", relation_type="statement_by",
+                )
+                store.register_claim(
+                    claim_id=claim_id, topic_id="fresh-topic",
+                    statement="The studio confirms the official patch update.",
+                    epistemic_status="official_statement", asserted_by_entity_id="fresh-studio",
+                    reported_by_source_id=source_id,
+                    source_document_id=document_id, first_seen_at=NOW,
+                    confidence_in_attribution=1.0, confidence_in_content=1.0,
+                )
+                return ResearchProviderResult(
+                    status="found", document_ids=(document_id,), claim_ids=(claim_id,),
+                    requests_used=1, bytes_read=100, sources_considered=1, elapsed_seconds=0.1,
+                )
+
+        service = ResearchService(store=self.store, provider=RegisteringProvider())
+        request = make_request(
+            request_id="fresh-claim-after-search", profile_id="research.games.v1",
+            question="What does the studio confirm about the official patch update?",
+            queries=("studio confirms official patch update",),
+            allowed_scope=(RADAR_INDEX_SCOPE, PUBLIC_SOURCES_SCOPE),
+            required_evidence_kinds=("official_statement",),
+        )
+
+        result = service.execute(request, now=NOW)
+
+        self.assertTrue(result.provider_called)
+        self.assertEqual(
+            result.packet.status, "found",
+            {"packet": result.packet.to_dict(), "diagnostic": result.execution_diagnostic.to_dict() if result.execution_diagnostic else None},
+        )
+        self.assertEqual(result.packet.missing_evidence, ())
+        self.assertEqual(result.packet.claim_refs, (claim_id,))
+        self.assertEqual(result.packet.document_refs[0].ref, f"radar://document/{document_id}")
 
     def test_rate_limited_packet_retries_only_after_retry_at(self) -> None:
         provider = FakeProvider(

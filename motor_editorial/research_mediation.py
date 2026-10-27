@@ -14,7 +14,8 @@ from .research_service import DEFAULT_RESEARCH_PROFILES, PUBLIC_SOURCES_SCOPE, R
 
 
 POLICY_SCHEMA_VERSION = "ResearchMediationPolicy.v1"
-MEDIATION_VERSION = "1.1.0"
+MEDIATION_VERSION = "1.2.0"
+_REQUEST_ID_COMPAT_VERSION = "1.1.0"
 MAX_SUGGESTIONS = 2
 MAX_SOURCES = 5
 MAX_REQUESTS = 1
@@ -160,8 +161,14 @@ def validate_policy(policy: Any, *, story_id: str, role_id: str, persona_id: str
     external_routes = [route for route in routes if PUBLIC_SOURCES_SCOPE in route["allowed_scope"]]
     if external_routes:
         authorization_ref = _text(policy.get("authorization_ref"), "authorization_ref", 128)
-        if not re.fullmatch(r"(?:issue|github-issue)[:#-][0-9]+", authorization_ref, flags=re.IGNORECASE):
-            raise ValueError("Pesquisa externa exige uma autorizaÃ§Ã£o de Issue versionada")
+        issue_authorization = re.fullmatch(
+            r"(?:issue|github-issue)[:#-][0-9]+", authorization_ref, flags=re.IGNORECASE,
+        )
+        conversation_authorization = re.fullmatch(
+            r"conversation-[A-Za-z0-9][A-Za-z0-9._:-]{0,117}", authorization_ref,
+        )
+        if issue_authorization is None and conversation_authorization is None:
+            raise ValueError("Pesquisa externa exige referencia de autorizacao versionada")
         domains_raw = policy.get("authorized_domains")
         if not isinstance(domains_raw, (list, tuple)) or not domains_raw:
             raise ValueError("Pesquisa externa exige allowlist de domÃ­nios exatos")
@@ -195,8 +202,22 @@ def _route_score(question: str, purpose: str, route: Mapping[str, Any]) -> tuple
     anchors = set().union(*(_tokens(str(item)) for item in route.get("intent_terms", ()))) if route.get("intent_terms") else set()
     anchors.update(_tokens(f"{route['question']} {route['purpose']}"))
     overlap = len(query_tokens & anchors)
-    denominator = max(1, min(5, len(query_tokens)))
+    # Keep confidence within [0, 1]. A five-token cap let long queries and
+    # synonym expansion produce scores above one, which could outrank an
+    # exact match on a different route during the one-request budget choice.
+    denominator = max(1, len(query_tokens))
     return overlap, overlap / denominator
+
+
+def _routes_compatible(left: Mapping[str, Any], right: Mapping[str, Any]) -> bool:
+    """Only consolidate requests that share the same trusted retrieval boundary."""
+
+    fields = (
+        "research_profile_id", "research_profile_version", "required_evidence_kinds",
+        "entity_ids", "preferred_source_ids", "preferred_domains", "languages", "time_window",
+        "versions_configurations", "known_evidence_ids", "exclusions", "allowed_scope",
+    )
+    return all(left.get(field) == right.get(field) for field in fields)
 
 
 def mediate_requested_research(
@@ -282,23 +303,50 @@ def mediate_requested_research(
         return base
     accepted.sort(key=lambda item: (-item[5], item[0]))
     suggestion_index, route, question, purpose, overlap, score = accepted[0]
-    if len(accepted) > MAX_REQUESTS:
-        base["pending_research"].extend(
-            {"suggestion_index": item[0], "reason": "request_limit"} for item in accepted[MAX_REQUESTS:]
-        )
+    consolidated = [accepted[0]]
+    for item in accepted[1:]:
+        item_index, item_route, item_question, item_purpose, _item_overlap, _item_score = item
+        if _routes_compatible(route, item_route):
+            consolidated.append(item)
+        else:
+            base["pending_research"].append({
+                "suggestion_index": item_index,
+                "question": item_question,
+                "purpose": item_purpose,
+                "route_id": item_route["route_id"],
+                "reason": "incompatible_trusted_route_within_request_budget",
+            })
+    consolidated.sort(key=lambda item: item[0])
     profile = _profile_index()[(route["research_profile_id"], route["research_profile_version"])]
     allowed_scope = tuple(route["allowed_scope"])
     if RADAR_INDEX_SCOPE not in profile.allowed_scopes or set(allowed_scope) - set(profile.allowed_scopes):
         base["status"] = "hold_profile_disallows_requested_scope"
         base["pending_research"] = [{"suggestion_index": suggestion_index, "reason": "profile_scope_mismatch"}]
         return base
-    binding = {
-        "parent_task_id": parent_task_id, "story_id": story_id,
-        "story_revision_id": validated["story_revision_id"], "route_id": route["route_id"],
-        "question": question, "purpose": purpose,
-        "profile": [route["research_profile_id"], route["research_profile_version"]],
-        "policy_version": MEDIATION_VERSION,
-    }
+    request_queries = list(dict.fromkeys(
+        query
+        for item in consolidated
+        for query in (item[2], item[3])
+    ))
+    route_ids = list(dict.fromkeys(item[1]["route_id"] for item in consolidated))
+    if len(consolidated) == 1:
+        # Keep archived one-question IDs stable so recovery reuses the same
+        # request and never spends the source quota again.
+        binding = {
+            "parent_task_id": parent_task_id, "story_id": story_id,
+            "story_revision_id": validated["story_revision_id"], "route_id": route["route_id"],
+            "question": question, "purpose": purpose,
+            "profile": [route["research_profile_id"], route["research_profile_version"]],
+            "policy_version": _REQUEST_ID_COMPAT_VERSION,
+        }
+    else:
+        binding = {
+            "parent_task_id": parent_task_id, "story_id": story_id,
+            "story_revision_id": validated["story_revision_id"], "route_ids": route_ids,
+            "queries": request_queries,
+            "profile": [route["research_profile_id"], route["research_profile_version"]],
+            "policy_version": MEDIATION_VERSION,
+        }
     binding_hash = stable_hash(json_dumps(binding))
     request = ResearchRequest.from_mapping({
         "schema_version": "1.1",
@@ -308,7 +356,7 @@ def mediate_requested_research(
         "requester_role_id": role_id, "requester_persona_id": persona_id,
         "research_profile_id": route["research_profile_id"],
         "research_profile_version": route["research_profile_version"],
-        "question": question, "queries": [question, purpose],
+        "question": question, "queries": request_queries,
         "entity_ids": route["entity_ids"], "required_evidence_kinds": route["required_evidence_kinds"],
         "preferred_source_ids": route["preferred_source_ids"], "preferred_domains": route["preferred_domains"],
         "languages": route["languages"] or ["pt-BR"], "time_window": route["time_window"],
@@ -316,13 +364,17 @@ def mediate_requested_research(
         "known_evidence_ids": route["known_evidence_ids"], "exclusions": route["exclusions"],
         "max_sources": MAX_SOURCES, "max_requests": MAX_REQUESTS,
         "max_bytes": MAX_BYTES, "max_duration_seconds": MAX_DURATION_SECONDS,
-        "reason": f"{route['reason'].strip()} Journalist purpose: {purpose}"[:2_000],
+        "reason": (
+            f"{route['reason'].strip()} Consolidated suggestion indices: "
+            f"{','.join(str(item[0]) for item in consolidated)}; purposes are preserved in queries."
+        )[:2_000],
         "allowed_scope": list(allowed_scope),
         "idempotency_key": f"research-{binding_hash[:48]}", "human_gate_if_sensitive": False,
     })
-    base["accepted_route_ids"] = [route["route_id"]]
+    base["accepted_route_ids"] = route_ids
     base["matched_intent_overlap"] = overlap
     base["matched_intent_score"] = round(score, 4)
+    base["consolidated_suggestion_indices"] = [item[0] for item in consolidated]
     base["status"] = "enqueued_public_and_index" if PUBLIC_SOURCES_SCOPE in allowed_scope else "enqueued_index_only"
     base["request"] = request.to_dict()
     return base

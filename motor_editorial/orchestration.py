@@ -423,6 +423,27 @@ class AgentQueue:
                 "state": state, "lease_generation": row["lease_generation"],
             })
 
+    def _suppress_external_retry(self, connection: Any, now: str) -> None:
+        """Move legacy ready tasks with an external attempt out of the retry queue."""
+        candidates = connection.execute(
+            """SELECT * FROM agent_tasks
+               WHERE state IN ('queued', 'retry_wait') AND external_request_started = 1"""
+        ).fetchall()
+        for row in candidates:
+            connection.execute(
+                """UPDATE agent_tasks SET state = 'uncertain', available_at = ?,
+                       error_code = 'external_result_requires_recovery',
+                       error_summary = 'External attempt is persisted; local artifact recovery is required.'
+                   WHERE id = ? AND state IN ('queued', 'retry_wait') AND external_request_started = 1""",
+                (now, row["id"]),
+            )
+            self._event(connection, row["id"], "external_retry_suppressed", row["attempts"], {
+                "previous_state": row["state"],
+                "previous_error_code": row["error_code"],
+                "external_request_started": True,
+                "automatic_retry_suppressed": True,
+            })
+
     @staticmethod
     def _owns_lease(row: Any, lease_owner: str | None, lease_generation: int,
                     now: str) -> bool:
@@ -450,6 +471,7 @@ class AgentQueue:
         lease_until = _lease_iso(instant + timedelta(seconds=lease_seconds))
         with self.store.transaction() as connection:
             self._recover_expired(connection, now_iso)
+            self._suppress_external_retry(connection, now_iso)
             self._block_failed_dependencies(connection, now_iso)
             if task_id:
                 row = connection.execute(
@@ -598,159 +620,179 @@ class AgentQueue:
             })
             return True
 
-    def recover_completed_external_output(
+    def adopt_persisted_external_result(
         self,
         task_id: str,
         result: Mapping[str, Any],
         *,
         response_sha256: str,
+        expected_input_hash: str | None = None,
         now: datetime | str | None = None,
     ) -> bool:
-        """Adopt an already completed SIWC response after a local result-envelope bug.
-
-        This narrow transition never dispatches or repeats the provider call. The
-        caller must verify the persisted response bytes, role schema, evidence
-        references, and result envelope before invoking it.
-        """
-        expected_error_code = "siwc_result_envelope_invalid"
+        """Adopt a locally validated provider response without another external call."""
         if not isinstance(response_sha256, str) or not re.fullmatch(r"[a-f0-9]{64}", response_sha256):
             raise ValueError("response_sha256 precisa ser SHA-256 hexadecimal minúsculo.")
-        artifact_ref = result.get("artifact_ref") if isinstance(result, Mapping) else None
-        if (not isinstance(artifact_ref, Mapping)
-                or artifact_ref.get("sha256") != response_sha256
-                or result.get("output_hash") != response_sha256):
-            raise ValueError("Resultado recuperado precisa apontar ao hash exato da resposta externa.")
-        _assert_no_credentials(result, "recovered_result")
+        artifact_ref = result.get("artifact_ref")
+        if (
+            not isinstance(artifact_ref, Mapping)
+            or artifact_ref.get("sha256") != response_sha256
+            or result.get("output_hash") != response_sha256
+            or (result.get("task_id") is not None and result.get("task_id") != task_id)
+            or (expected_input_hash is not None and result.get("input_hash") != expected_input_hash)
+        ):
+            raise ValueError("Resultado recuperado precisa estar vinculado à tarefa, ao input e à resposta exata.")
+        if result.get("schema_version") == "1.1":
+            receipt = result.get("usage_receipt_ref")
+            if (
+                not isinstance(receipt, Mapping)
+                or not isinstance(receipt.get("ref"), str)
+                or not isinstance(receipt.get("sha256"), str)
+                or not re.fullmatch(r"[a-f0-9]{64}", receipt["sha256"])
+            ):
+                raise ValueError("AgentResultEnvelope v1.1 recuperado exige referência ao recibo de consumo.")
+        _assert_no_credentials(result, "recovered_external_result")
         encoded = json_dumps(dict(result))
         if len(encoded.encode("utf-8")) > 1_000_000:
             raise ValueError("Resultado recuperado excede o limite local de 1 MB.")
         now_iso = _lease_iso(now)
         with self.store.transaction() as connection:
             row = connection.execute("SELECT * FROM agent_tasks WHERE id = ?", (task_id,)).fetchone()
-            if row is None:
-                return False
-            if (row["state"] != "blocked" or row["error_code"] != expected_error_code
-                    or not row["external_request_started"] or row["attempts"] != 1
-                    or row["max_attempts"] != 1 or row["result_json"] is not None):
+            if (
+                row is None
+                or row["state"] not in {"blocked", "uncertain", "failed"}
+                or not row["external_request_started"]
+                or row["result_json"] is not None
+            ):
                 return False
             updated = connection.execute(
                 """UPDATE agent_tasks SET state = 'succeeded', result_json = ?, completed_at = ?,
                        error_code = NULL, error_summary = NULL
-                   WHERE id = ? AND state = 'blocked' AND error_code = ?
-                     AND external_request_started = 1 AND attempts = 1 AND result_json IS NULL""",
-                (encoded, now_iso, task_id, expected_error_code),
+                   WHERE id = ? AND state = ? AND external_request_started = 1 AND result_json IS NULL""",
+                (encoded, now_iso, task_id, row["state"]),
             )
             if updated.rowcount != 1:
                 return False
-            self._event(connection, task_id, "external_output_recovered", row["attempts"], {
-                "original_error_code": expected_error_code,
+            self._event(connection, task_id, "persisted_external_result_adopted", row["attempts"], {
+                "previous_state": row["state"],
+                "previous_error_code": row["error_code"],
                 "response_sha256": response_sha256,
                 "result_sha256": stable_hash(encoded),
-                "recovery": "validated_persisted_response_no_provider_retry",
+                "usage_receipt_sha256": (
+                    result.get("usage_receipt_ref", {}).get("sha256")
+                    if isinstance(result.get("usage_receipt_ref"), Mapping) else None
+                ),
+                "provider_calls_repeated": 0,
             })
             return True
 
-    def reconcile_completed_research_handoff(
+    def reconcile_succeeded_result_fields(
         self,
         task_id: str,
-        result: Mapping[str, Any],
+        fields: Mapping[str, Any],
         *,
+        expected_result_sha256: str,
         response_sha256: str,
     ) -> bool:
-        """Attach one validated Motor request to an already completed writer result.
-
-        This transition is for a local mediation bug discovered after a completed
-        external response. It preserves the task attempt and response hash and
-        changes only the previously missing research handoff.
-        """
-        if not isinstance(response_sha256, str) or not re.fullmatch(r"[a-f0-9]{64}", response_sha256):
-            raise ValueError("response_sha256 precisa ser SHA-256 hexadecimal minúsculo.")
-        _assert_no_credentials(result, "reconciled_result")
-        encoded = json_dumps(dict(result))
-        if len(encoded.encode("utf-8")) > 1_000_000:
-            raise ValueError("Resultado reconciliado excede o limite local de 1 MB.")
-        artifact_ref = result.get("artifact_ref") if isinstance(result, Mapping) else None
-        request = result.get("requested_research") if isinstance(result, Mapping) else None
-        if (
-            not isinstance(artifact_ref, Mapping)
-            or artifact_ref.get("sha256") != response_sha256
-            or result.get("output_hash") != response_sha256
-            or not isinstance(request, Mapping)
-            or request.get("parent_task_id") != task_id
-            or not isinstance(request.get("request_id"), str)
-        ):
-            raise ValueError("Handoff reconciliado precisa apontar à resposta e à tarefa de origem exatas.")
+        """Attach absent, locally derived fields to a succeeded response envelope."""
+        for name, digest in (("expected_result_sha256", expected_result_sha256), ("response_sha256", response_sha256)):
+            if not isinstance(digest, str) or not re.fullmatch(r"[a-f0-9]{64}", digest):
+                raise ValueError(f"{name} precisa ser SHA-256 hexadecimal minúsculo.")
+        if not fields or any(not isinstance(key, str) or not key for key in fields):
+            raise ValueError("fields precisa conter campos versionados para reconciliar.")
+        _assert_no_credentials(fields, "reconciled_result_fields")
         with self.store.transaction() as connection:
             row = connection.execute("SELECT * FROM agent_tasks WHERE id = ?", (task_id,)).fetchone()
-            if row is None:
+            if row is None or row["state"] != "succeeded" or row["result_json"] is None:
                 return False
-            old_result = json.loads(row["result_json"]) if row["result_json"] else None
-            payload = json.loads(row["payload_json"])
-            envelope = payload.get("agent_task_envelope") if isinstance(payload, Mapping) else None
-            policy = envelope.get("research_mediation_policy") if isinstance(envelope, Mapping) else None
+            old_result = json.loads(row["result_json"])
+            if not isinstance(old_result, Mapping) or stable_hash(row["result_json"]) != expected_result_sha256:
+                return False
+            artifact_ref = old_result.get("artifact_ref")
             if (
-                row["task_type"] != "agent.role.persona_writer"
-                or row["state"] != "succeeded"
-                or not row["external_request_started"]
-                or not isinstance(old_result, Mapping)
-                or old_result.get("requested_research") is not None
-                or not isinstance(envelope, Mapping)
-                or request.get("story_id") != envelope.get("story_id")
-                or request.get("requester_role_id") != envelope.get("role_id")
-                or request.get("requester_persona_id") != envelope.get("persona_id")
-                or not isinstance(policy, Mapping)
-                or request.get("story_revision_id") != policy.get("story_revision_id")
+                not isinstance(artifact_ref, Mapping)
+                or artifact_ref.get("sha256") != response_sha256
+                or old_result.get("output_hash") != response_sha256
             ):
                 return False
-            old_artifact = old_result.get("artifact_ref")
-            if not isinstance(old_artifact, Mapping) or old_artifact.get("sha256") != response_sha256:
+            if any(key in old_result and old_result[key] is not None for key in fields):
                 return False
-            expected_result = dict(old_result)
-            expected_result["requested_research"] = dict(request)
-            if dict(result) != expected_result:
-                return False
+            reconciled = {**dict(old_result), **dict(fields)}
+            encoded = json_dumps(reconciled)
+            if len(encoded.encode("utf-8")) > 1_000_000:
+                raise ValueError("Resultado reconciliado excede o limite local de 1 MB.")
             updated = connection.execute(
-                "UPDATE agent_tasks SET result_json = ? WHERE id = ? AND state = 'succeeded' AND external_request_started = 1",
-                (encoded, task_id),
+                """UPDATE agent_tasks SET result_json = ? WHERE id = ? AND state = 'succeeded'
+                   AND result_json = ?""",
+                (encoded, task_id, row["result_json"]),
             )
             if updated.rowcount != 1:
                 return False
-            self._event(connection, task_id, "completed_research_handoff_reconciled", row["attempts"], {
-                "response_sha256": response_sha256,
-                "request_id": request["request_id"],
+            self._event(connection, task_id, "persisted_result_fields_reconciled", row["attempts"], {
+                "fields": sorted(fields),
+                "previous_result_sha256": expected_result_sha256,
                 "result_sha256": stable_hash(encoded),
+                "response_sha256": response_sha256,
                 "provider_calls_repeated": 0,
             })
             return True
 
-    def reopen_pre_external_contract_failure(self, task_id: str) -> bool:
-        """Allow one corrected dispatch when a task was blocked before any provider call."""
-        expected_error_code = "agent_contract_invalid"
+    def requeue_pre_external_failure(self, task_id: str, *, expected_error_code: str) -> bool:
+        """Requeue a blocked task only when its failure predates every external call."""
+        if not isinstance(expected_error_code, str) or not expected_error_code.strip():
+            raise ValueError("expected_error_code precisa ser informado.")
         with self.store.transaction() as connection:
             row = connection.execute("SELECT * FROM agent_tasks WHERE id = ?", (task_id,)).fetchone()
-            if row is None:
+            if (
+                row is None or row["state"] != "blocked" or row["error_code"] != expected_error_code
+                or row["external_request_started"] or row["result_json"] is not None
+            ):
                 return False
-            if (row["task_type"] != "agent.role.persona_writer" or row["state"] != "blocked"
-                    or row["error_code"] != expected_error_code or row["external_request_started"]
-                    or row["attempts"] != 1 or row["max_attempts"] != 1 or row["result_json"] is not None):
-                return False
+            next_max_attempts = max(row["max_attempts"], row["attempts"] + 1)
             updated = connection.execute(
-                """UPDATE agent_tasks SET state = 'queued', max_attempts = 2,
-                       completed_at = NULL, error_code = NULL, error_summary = NULL
-                   WHERE id = ? AND state = 'blocked' AND error_code = ?
-                     AND external_request_started = 0 AND attempts = 1
-                     AND max_attempts = 1 AND result_json IS NULL""",
-                (task_id, expected_error_code),
+                """UPDATE agent_tasks SET state = 'queued', max_attempts = ?, completed_at = NULL,
+                       error_code = NULL, error_summary = NULL
+                   WHERE id = ? AND state = 'blocked' AND external_request_started = 0 AND result_json IS NULL""",
+                (next_max_attempts, task_id),
             )
             if updated.rowcount != 1:
                 return False
-            self._event(connection, task_id, "pre_external_contract_reopened", row["attempts"], {
+            self._event(connection, task_id, "pre_external_failure_requeued", row["attempts"], {
                 "original_error_code": expected_error_code,
                 "external_request_started": False,
-                "next_attempt": 2,
+                "next_attempt": row["attempts"] + 1,
+                "max_attempts": next_max_attempts,
                 "provider_calls_repeated": 0,
             })
             return True
+
+    def recover_completed_external_output(
+        self, task_id: str, result: Mapping[str, Any], *, response_sha256: str,
+        now: datetime | str | None = None,
+    ) -> bool:
+        """Compatibility alias; recovery invariants live in the generic queue transition."""
+        return self.adopt_persisted_external_result(
+            task_id, result, response_sha256=response_sha256, now=now,
+        )
+
+    def reconcile_completed_research_handoff(
+        self, task_id: str, result: Mapping[str, Any], *, response_sha256: str,
+    ) -> bool:
+        """Compatibility adapter for attaching one absent derived result field."""
+        current = self.get(task_id)
+        request = result.get("requested_research") if isinstance(result, Mapping) else None
+        if current is None or not isinstance(current.result, Mapping) or not isinstance(request, Mapping):
+            return False
+        return self.reconcile_succeeded_result_fields(
+            task_id, {"requested_research": dict(request)},
+            expected_result_sha256=stable_hash(json_dumps(current.result)),
+            response_sha256=response_sha256,
+        )
+
+    def reopen_pre_external_contract_failure(self, task_id: str) -> bool:
+        """Compatibility alias for a pre-external contract failure."""
+        return self.requeue_pre_external_failure(
+            task_id, expected_error_code="agent_contract_invalid",
+        )
 
     def fail(
         self,
@@ -772,7 +814,7 @@ class AgentQueue:
             if failure.blocked:
                 state = "blocked"
                 available_at = row["available_at"]
-            elif failure.uncertain:
+            elif failure.uncertain or (failure.retryable and row["external_request_started"]):
                 state = "uncertain"
                 available_at = row["available_at"]
             elif failure.retryable and row["attempts"] < row["max_attempts"]:
@@ -797,7 +839,10 @@ class AgentQueue:
             self._event(connection, task_id, state, row["attempts"], {
                 "error_code": failure.code,
                 "retryable": failure.retryable,
-                "uncertain": failure.uncertain,
+                "uncertain": failure.uncertain or (failure.retryable and row["external_request_started"]),
+                "automatic_retry_suppressed_after_external_start": bool(
+                    failure.retryable and row["external_request_started"]
+                ),
                 "lease_generation": lease_generation,
             })
             return state
@@ -1283,12 +1328,76 @@ class TaskDispatcher:
         self.deterministic_task_routes = dict(deterministic_task_routes or {})
         self.result_router = result_router
 
+    def _recovery_invocation(self, task: AgentTask) -> tuple[Any, Any]:
+        if self.role_catalog is None or not task.task_type.startswith("agent.role."):
+            raise ValueError("Role catalog is not available for local task recovery.")
+        from .agent_contracts import envelope_from_payload
+
+        envelope = envelope_from_payload(task.payload)
+        if envelope.task_id != task.task_id or task.task_type != f"agent.role.{envelope.role_id}":
+            raise ValueError("Persisted task identity does not match its role envelope.")
+        persona_instructions = None
+        if envelope.role_id == "persona_writer" and self.persona_instruction_resolver is not None:
+            persona_instructions = self.persona_instruction_resolver(envelope)
+        invocation = self.role_catalog.prepare_invocation(
+            envelope,
+            input_payload=task.payload.get("input"),
+            research_packet=task.payload.get("research_packet"),
+            persona_instructions=persona_instructions,
+        )
+        return envelope, invocation
+
+    def _attempt_local_recovery(self, task_id: str | None) -> DispatchOutcome | None:
+        candidates = (
+            [self.queue.get(task_id)] if task_id else self.queue.list_tasks(limit=1000)
+        )
+        for task in candidates:
+            if (
+                task is None or task.state not in {"blocked", "uncertain", "failed"}
+                or not task.external_request_started or task.result is not None
+            ):
+                continue
+            executor = self.executors.get(task.executor_id)
+            recover = getattr(executor, "recover_persisted", None)
+            if executor is None or not callable(recover):
+                continue
+            try:
+                envelope, invocation = self._recovery_invocation(task)
+                candidate = recover(task, invocation)
+                if not isinstance(candidate, Mapping):
+                    continue
+                validated = self.role_catalog.validate_result(envelope, candidate, invocation.role_profile).to_dict()
+                adopted = self.queue.adopt_persisted_external_result(
+                    task.task_id,
+                    validated,
+                    response_sha256=str(validated.get("output_hash", "")),
+                    expected_input_hash=envelope.input_hash,
+                )
+                if not adopted:
+                    continue
+                if self.result_router is not None:
+                    completed_task = self.queue.get(task.task_id)
+                    if completed_task is not None:
+                        try:
+                            self.result_router(completed_task)
+                        except Exception:
+                            return DispatchOutcome(task.task_id, "succeeded", "workflow_route_pending")
+                return DispatchOutcome(task.task_id, "succeeded", "persisted_output_recovered")
+            except Exception:
+                # Local replay is best-effort and cannot turn an uncertain provider
+                # call into a retry. The durable state and its original evidence stay.
+                continue
+        return None
+
     def dispatch_one(
         self,
         task_id: str | None = None,
         *,
         now: datetime | str | None = None,
     ) -> DispatchOutcome:
+        recovered = self._attempt_local_recovery(task_id)
+        if recovered is not None:
+            return recovered
         task = self.queue.claim_next(
             task_id=task_id, lease_seconds=self.lease_seconds, now=now
         )

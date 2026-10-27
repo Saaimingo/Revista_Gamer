@@ -12,10 +12,12 @@ from motor_editorial.agent_contracts import (
     AGENT_ROLE_PROFILE_SCHEMA_VERSION,
     AgentRoleCatalog,
     AgentRoleProfile,
+    AgentResultEnvelope,
     AgentTaskEnvelope,
     ContractValidationError,
     ResearchPacket,
     ResearchRequest,
+    build_role_task_envelope,
     enqueue_contract_task,
     validate_json_schema,
 )
@@ -289,6 +291,18 @@ class AgentContractTests(unittest.TestCase):
         with self.assertRaises(ContractValidationError):
             self.catalog.validate_result(envelope, malformed)
 
+    def test_result_envelope_v1_1_requires_usage_receipt_and_keeps_v1_0_readable(self) -> None:
+        envelope = task_envelope(self.profile)
+        original = result_for(envelope)
+        self.assertEqual(AgentResultEnvelope.from_mapping(original).schema_version, "1.0")
+        current = {**original, "schema_version": "1.1"}
+        with self.assertRaisesRegex(ContractValidationError, "recibo de consumo"):
+            AgentResultEnvelope.from_mapping(current)
+        current["usage_receipt_ref"] = {"ref": "agent-usage/task.attempt-001.json", "sha256": "d" * 64}
+        result = AgentResultEnvelope.from_mapping(current)
+        self.assertEqual(result.usage_receipt_ref.sha256, "d" * 64)
+        self.assertEqual(result.to_dict()["usage_receipt_ref"], current["usage_receipt_ref"])
+
     def test_dispatcher_loads_contract_and_persists_result_in_existing_queue_ledger(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -312,6 +326,28 @@ class AgentContractTests(unittest.TestCase):
         self.assertEqual(executor.calls, 1)
         self.assertEqual(executor.context.role_profile.content_hash, self.profile.content_hash)
         self.assertEqual(executor.context.untrusted_evidence["packet"], None)
+
+    def test_shared_role_task_builder_binds_profile_input_sources_and_gate(self) -> None:
+        envelope = build_role_task_envelope(
+            self.profile,
+            task_id="task-generated-001",
+            run_id="run-generated-001",
+            story_id="story-generated-001",
+            input_payload=self.input_payload,
+            idempotency_key="handoff:generated-001",
+            correlation_id="story-generated-001",
+            source_snapshot_ids=["snapshot-z", "snapshot-a", "snapshot-a"],
+            input_artifact_refs=[{"ref": "artifact://input-001", "sha256": "d" * 64}],
+            edition_id="edition-generated-001",
+        )
+
+        resolved = self.catalog.validate_task(envelope, input_payload=self.input_payload)
+        self.assertEqual(resolved.content_hash, self.profile.content_hash)
+        self.assertEqual(envelope.input_payload_hash, stable_hash(json_dumps(self.input_payload)))
+        self.assertEqual(envelope.source_snapshot_ids, ("snapshot-a", "snapshot-z"))
+        self.assertEqual(envelope.requires_human_gate, self.profile.human_review_gate["required"])
+        self.assertEqual(envelope.usage_guardrails, {"max_calls": 1, "max_iterations": 1})
+        self.assertEqual(envelope.input_artifact_refs[0].sha256, "d" * 64)
 
     def test_dispatcher_blocks_contract_mismatch_before_executor_runs(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

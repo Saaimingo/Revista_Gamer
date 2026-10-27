@@ -84,7 +84,8 @@ def build_usage_record(
         outcome = "success" if response_completed else "failed"
     return {
         "schema_version": USAGE_RECORD_SCHEMA_VERSION,
-        "recorded_at": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+        "recorded_at": metadata.get("completed_at") if isinstance(metadata.get("completed_at"), str)
+            else datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
         "test_id": metadata.get("test_id") or brief.get("test_id") or brief.get("case_id"),
         "task_id": task.task_id,
         "attempt_number": task.attempts,
@@ -110,6 +111,7 @@ def build_usage_record(
         "reasoning_effort": effort,
         "provider_call_outcome": outcome,
         "provider_call_status": "completed" if response_completed else "incomplete_or_unreported",
+        "provider_response_id": metadata.get("response_id") if isinstance(metadata.get("response_id"), str) else None,
         "schema_status": schema_status,
         "input_tokens": _token(usage, "input_tokens", "prompt_tokens"),
         "output_tokens": _token(usage, "output_tokens", "completion_tokens"),
@@ -156,8 +158,43 @@ class AgentUsageArtifactStore:
         payload = json_dumps(dict(record)).encode("utf-8")
         _assert_no_credentials(payload.decode("utf-8"), "agent_usage_record")
         path = self.directory / f"{task_id}.attempt-{attempt:03d}.json"
-        self._write_new(path, payload)
+        if path.exists():
+            existing = path.read_bytes()
+            if existing != payload:
+                raise ValueError("Registro de uso existente diverge do mesmo task/attempt; sobrescrita bloqueada.")
+        else:
+            self._write_new(path, payload)
         return {"ref": path.relative_to(self.root).as_posix(), "sha256": _sha256(payload)}
+
+    def read(self, ref: str, expected_sha256: str) -> dict[str, Any]:
+        candidate = (self.root / Path(ref)).resolve()
+        if not candidate.is_relative_to(self.directory) or not candidate.is_file():
+            raise ValueError("ReferÃªncia de recibo de uso fora do diretÃ³rio local permitido.")
+        payload = candidate.read_bytes()
+        if _sha256(payload) != expected_sha256:
+            raise ValueError("Hash do recibo de uso nÃ£o confere com a referÃªncia persistida.")
+        value = json.loads(payload.decode("utf-8"))
+        if not isinstance(value, dict):
+            raise ValueError("Recibo de uso precisa conter um objeto JSON.")
+        return value
+
+    def read_for_attempt(self, task_id: str, attempt: int) -> tuple[dict[str, Any], dict[str, str]] | None:
+        task_id = _safe_id(task_id, "task_id")
+        if isinstance(attempt, bool) or not isinstance(attempt, int) or attempt < 1:
+            raise ValueError("attempt precisa ser inteiro positivo.")
+        path = self.directory / f"{task_id}.attempt-{attempt:03d}.json"
+        if not path.is_file():
+            return None
+        payload = path.read_bytes()
+        value = json.loads(payload.decode("utf-8"))
+        if not isinstance(value, dict):
+            raise ValueError("Recibo de uso precisa conter um objeto JSON.")
+        if value.get("task_id") != task_id or value.get("attempt_number") != attempt:
+            raise ValueError("Recibo de uso não corresponde à tentativa solicitada.")
+        return value, {
+            "ref": path.relative_to(self.root).as_posix(),
+            "sha256": _sha256(payload),
+        }
 
     @staticmethod
     def _write_new(path: Path, payload: bytes) -> None:
@@ -222,6 +259,13 @@ class StoryVersionArchive:
         ):
             raise ValueError("story_id invÃ¡lido para armazenamento privado.")
         task_id = _safe_id(task.task_id, "task_id")
+        if usage_ref is not None:
+            if not isinstance(usage_ref, Mapping) or not isinstance(usage_ref.get("ref"), str) or not isinstance(usage_ref.get("sha256"), str):
+                raise ValueError("Referência de recibo de uso inválida.")
+            receipt = AgentUsageArtifactStore(self.root).read(usage_ref["ref"], usage_ref["sha256"])
+            if (receipt.get("task_id") != task_id or receipt.get("attempt_number") != task.attempts
+                    or receipt.get("raw_response_sha256") != _sha256(raw_response)):
+                raise ValueError("Recibo de uso não corresponde à tarefa, tentativa e resposta arquivadas.")
         story_key = _sha256(story_id.encode("utf-8"))[:32]
         story_dir = (self.directory / story_key).resolve()
         if not story_dir.is_relative_to(self.directory):
@@ -230,8 +274,25 @@ class StoryVersionArchive:
         existing_manifest = next(story_dir.glob(f"**/{task_id}/manifest.json"), None)
         if existing_manifest is not None:
             current = json.loads(existing_manifest.read_text(encoding="utf-8"))
-            if current.get("raw_response_sha256") != _sha256(raw_response) or current.get("full_text_sha256") != _sha256(markdown):
+            if (current.get("task_id") != task_id or current.get("story_id") != story_id
+                    or current.get("persona_id") != envelope.persona_id
+                    or current.get("persona_version") != envelope.persona_version
+                    or current.get("persona_hash") != envelope.persona_hash
+                    or current.get("attempt_number") != task.attempts
+                    or current.get("response_ref") != dict(response_ref)
+                    or current.get("usage_record_ref") != (dict(usage_ref) if usage_ref else None)
+                    or current.get("raw_response_sha256") != _sha256(raw_response)
+                    or current.get("full_text_sha256") != _sha256(markdown)):
                 raise ValueError("Tarefa já arquivada com outro conteúdo; sobrescrita bloqueada.")
+            for field, name, payload in (
+                ("raw_response_ref", "response.raw.json", raw_response),
+                ("full_text_ref", "story.full.md", markdown),
+            ):
+                expected_path = (existing_manifest.parent / name).resolve()
+                ref = current.get(field)
+                if not isinstance(ref, str) or (self.root / ref).resolve() != expected_path or not expected_path.is_relative_to(story_dir):
+                    raise ValueError("Referência de versão arquivada fora do diretório esperado.")
+                self._write_idempotent(expected_path, payload)
             return {
                 "version_kind": current["version_kind"],
                 "revision_id": current["story_revision_id"],

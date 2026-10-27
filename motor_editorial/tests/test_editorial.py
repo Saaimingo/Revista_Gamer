@@ -26,6 +26,7 @@ from motor_editorial.editorial import (
     build_stage_input,
     normalize_source_packet,
     review_matches_revision,
+    review_next_action,
     validate_stage_output,
 )
 from motor_editorial.orchestration import AgentQueue, TaskDispatcher, TaskFailure
@@ -197,6 +198,19 @@ class EditorialPacketTests(unittest.TestCase):
         self.assertNotEqual(article_revision_sha256(draft), article_revision_sha256(corrected))
         changed_after_review = dict(draft, body_markdown=draft["body_markdown"] + " Alteração posterior [S1].")
         self.assertFalse(review_matches_revision(review, changed_after_review))
+
+    def test_review_directs_at_most_one_correction_of_the_same_version(self) -> None:
+        draft_hash = "a" * 64
+        review = {"draft_hash": draft_hash, "verdict": "revise", "findings": ["Ajustar o início."], "human_review_required": True}
+        self.assertEqual(review_next_action(review, draft_hash, corrections_attempted=0), "correct")
+        self.assertEqual(review_next_action(review, draft_hash, corrections_attempted=1), "hold_correction_limit")
+        self.assertEqual(review_next_action({**review, "findings": []}, draft_hash, corrections_attempted=0), "hold_missing_findings")
+        self.assertEqual(review_next_action({**review, "verdict": "hold"}, draft_hash, corrections_attempted=0), "hold")
+        self.assertEqual(review_next_action({**review, "verdict": "pass"}, draft_hash, corrections_attempted=0), "await_human_approval")
+        with self.assertRaises(TaskFailure):
+            review_next_action(review, "b" * 64, corrections_attempted=0)
+        with self.assertRaises(TaskFailure):
+            review_next_action({**review, "human_review_required": False}, draft_hash, corrections_attempted=0)
 
     def test_generated_text_must_cite_only_sources_in_packet(self) -> None:
         valid_ids = {"S1", "S2"}

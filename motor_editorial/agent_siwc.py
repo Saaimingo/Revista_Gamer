@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import uuid
 from collections.abc import Mapping
 from datetime import datetime, timezone
@@ -31,6 +32,17 @@ from .orchestration import (
 )
 from .research_mediation import mediate_requested_research
 from .siwc import SIWCClient, SIWCError, SIWC_REASONING_EFFORTS
+from .usage_meter import AgentUsageArtifactStore, build_usage_record
+
+
+def model_matches_requested(requested_model: str, returned_model: Any) -> bool:
+    """Accept the requested model ID and provider dated/versioned variants."""
+    return (
+        isinstance(requested_model, str)
+        and bool(requested_model)
+        and isinstance(returned_model, str)
+        and (returned_model == requested_model or returned_model.startswith(requested_model + "-"))
+    )
 
 
 SIWC_ROLE_EXECUTOR_ID = "siwc-agent-role"
@@ -92,6 +104,14 @@ class SIWCResponseArtifactStore:
         metadata_path = self.directory / f"{task_id}.metadata.json"
         return request_path, response_path, metadata_path
 
+    def artifact_paths(self, task_id: str) -> tuple[Path, Path, Path]:
+        """Resolve request, response and manifest paths for new and legacy artifacts."""
+        request_path, legacy_response_path, legacy_metadata_path = self._paths(task_id)
+        bundle = self.directory / f"{task_id}.bundle"
+        if bundle.is_dir():
+            return request_path, bundle / "response.json", bundle / "metadata.json"
+        return request_path, legacy_response_path, legacy_metadata_path
+
     @staticmethod
     def _write_new(path: Path, payload: bytes) -> None:
         temp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
@@ -113,7 +133,11 @@ class SIWCResponseArtifactStore:
         request_path, response_path, metadata_path = self._paths(task_id)
         del response_path, metadata_path
         payload = _json_bytes(record)
-        self._write_new(request_path, payload)
+        if request_path.exists():
+            if request_path.read_bytes() != payload:
+                raise ValueError("Artefato de entrada existente diverge da tarefa; sobrescrita bloqueada.")
+        else:
+            self._write_new(request_path, payload)
         return {
             "ref": request_path.relative_to(self.root).as_posix(),
             "sha256": hashlib.sha256(payload).hexdigest(),
@@ -125,7 +149,7 @@ class SIWCResponseArtifactStore:
         raw_response_text: str,
         metadata: Mapping[str, Any],
     ) -> dict[str, str]:
-        request_path, response_path, metadata_path = self._paths(task_id)
+        request_path, legacy_response_path, legacy_metadata_path = self._paths(task_id)
         if not request_path.is_file():
             raise ValueError("Artefato de entrada SIWC precisa existir antes da resposta.")
         if not isinstance(raw_response_text, str):
@@ -133,9 +157,12 @@ class SIWCResponseArtifactStore:
         _assert_no_credentials(raw_response_text, "siwc_raw_response")
         payload = raw_response_text.encode("utf-8")
         digest = hashlib.sha256(payload).hexdigest()
-        response_ref = response_path.relative_to(self.root).as_posix()
-        request_ref = request_path.relative_to(self.root).as_posix()
         request_digest = hashlib.sha256(request_path.read_bytes()).hexdigest()
+        bundle = self.directory / f"{task_id}.bundle"
+        bundle_response = bundle / "response.json"
+        bundle_metadata = bundle / "metadata.json"
+        response_ref = bundle_response.relative_to(self.root).as_posix()
+        request_ref = request_path.relative_to(self.root).as_posix()
         manifest = {
             **_plain_json(metadata),
             "task_id": task_id,
@@ -144,20 +171,61 @@ class SIWCResponseArtifactStore:
             "response_artifact_ref": response_ref,
             "response_artifact_sha256": digest,
             "artifact_sha256": digest,
-            "metadata_artifact_ref": metadata_path.relative_to(self.root).as_posix(),
+            "metadata_artifact_ref": bundle_metadata.relative_to(self.root).as_posix(),
         }
-        response_bytes = payload
-        metadata_bytes = _json_bytes(manifest)
-        self._write_new(response_path, response_bytes)
-        try:
-            self._write_new(metadata_path, metadata_bytes)
-        except Exception:
-            # Keep the original response immutable if its manifest cannot be written.
-            raise
-        return {"ref": response_ref, "sha256": digest}
+        if bundle.exists():
+            if not bundle_response.is_file() or not bundle_metadata.is_file():
+                raise ValueError("Pacote SIWC atômico está incompleto; sobrescrita bloqueada.")
+            existing_manifest = json.loads(bundle_metadata.read_text(encoding="utf-8"))
+            if (
+                bundle_response.read_bytes() != payload
+                or existing_manifest.get("task_id") != task_id
+                or existing_manifest.get("request_artifact_sha256") != request_digest
+                or existing_manifest.get("response_artifact_sha256") != digest
+            ):
+                raise ValueError("Resposta SIWC existente diverge do mesmo artefato; sobrescrita bloqueada.")
+            return {"ref": response_ref, "sha256": digest}
+        if legacy_response_path.exists() or legacy_metadata_path.exists():
+            if not legacy_response_path.is_file() or not legacy_metadata_path.is_file():
+                raise ValueError("Resposta SIWC legada parcial sem manifesto; sobrescrita bloqueada.")
+            legacy_manifest = json.loads(legacy_metadata_path.read_text(encoding="utf-8"))
+            legacy_digest = hashlib.sha256(legacy_response_path.read_bytes()).hexdigest()
+            if (
+                legacy_response_path.read_bytes() != payload
+                or legacy_manifest.get("task_id") != task_id
+                or legacy_manifest.get("request_artifact_sha256") != request_digest
+                or legacy_manifest.get("response_artifact_sha256") != digest
+            ):
+                raise ValueError("Resposta SIWC legada diverge do mesmo artefato; sobrescrita bloqueada.")
+            return {
+                "ref": legacy_response_path.relative_to(self.root).as_posix(),
+                "sha256": legacy_digest,
+            }
 
+        temp_bundle = self.directory / f".{task_id}.{uuid.uuid4().hex}.tmp"
+        temp_bundle.mkdir()
+        try:
+            self._write_new(temp_bundle / "response.json", payload)
+            self._write_new(temp_bundle / "metadata.json", _json_bytes(manifest))
+            try:
+                os.rename(temp_bundle, bundle)
+            except OSError:
+                if not bundle.is_dir():
+                    raise
+                existing_manifest = json.loads(bundle_metadata.read_text(encoding="utf-8"))
+                if (
+                    bundle_response.read_bytes() != payload
+                    or existing_manifest.get("task_id") != task_id
+                    or existing_manifest.get("request_artifact_sha256") != request_digest
+                    or existing_manifest.get("response_artifact_sha256") != digest
+                ):
+                    raise ValueError("Resposta SIWC concorrente diverge do mesmo artefato; sobrescrita bloqueada.") from None
+        finally:
+            if temp_bundle.exists():
+                shutil.rmtree(temp_bundle, ignore_errors=True)
+        return {"ref": response_ref, "sha256": digest}
     def update_metadata(self, task_id: str, updates: Mapping[str, Any]) -> None:
-        _, response_path, metadata_path = self._paths(task_id)
+        _, response_path, metadata_path = self.artifact_paths(task_id)
         if not response_path.is_file() or not metadata_path.is_file():
             raise ValueError("Resposta e manifesto SIWC precisam existir antes da atualização.")
         current = json.loads(metadata_path.read_text(encoding="utf-8"))
@@ -184,6 +252,39 @@ class SIWCResponseArtifactStore:
         if hashlib.sha256(payload).hexdigest() != expected_sha256:
             raise ValueError("Hash do artefato SIWC não confere com a referência persistida.")
         return payload
+
+
+    def read_task_artifacts(self, task_id: str) -> dict[str, Any]:
+        request_path, response_path, metadata_path = self.artifact_paths(task_id)
+        if not all(path.is_file() for path in (request_path, response_path, metadata_path)):
+            raise ValueError("Tarefa não possui pacote SIWC completo para retomada local.")
+        request_bytes = request_path.read_bytes()
+        request_digest = hashlib.sha256(request_bytes).hexdigest()
+        request = json.loads(request_bytes.decode("utf-8"))
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        if not isinstance(request, dict) or not isinstance(metadata, dict):
+            raise ValueError("Artefatos SIWC precisam conter objetos JSON.")
+        response_ref = response_path.relative_to(self.root).as_posix()
+        request_ref = request_path.relative_to(self.root).as_posix()
+        expected_response_digest = metadata.get("response_artifact_sha256")
+        response_bytes = self.read_response(response_ref, str(expected_response_digest or ""))
+        if (
+            request.get("task_id") != task_id
+            or metadata.get("task_id") != task_id
+            or metadata.get("request_artifact_ref") != request_ref
+            or metadata.get("request_artifact_sha256") != request_digest
+            or metadata.get("response_artifact_ref") != response_ref
+            or metadata.get("artifact_sha256") != expected_response_digest
+            or metadata.get("metadata_artifact_ref") != metadata_path.relative_to(self.root).as_posix()
+        ):
+            raise ValueError("Vínculo de tarefa e hashes do pacote SIWC não conferem.")
+        return {
+            "request": request,
+            "request_ref": {"ref": request_ref, "sha256": request_digest},
+            "response": response_bytes,
+            "response_ref": {"ref": response_ref, "sha256": str(expected_response_digest)},
+            "metadata": metadata,
+        }
 
 
 def _first_nested_text(value: Any, keys: set[str]) -> str | None:
@@ -298,6 +399,13 @@ def _validate_output_references(role_id: str, input_data: Any, output: Mapping[s
         if not isinstance(input_hash, str) or output.get("draft_hash") != input_hash:
             raise TaskFailure("siwc_stale_draft_revision", "Checagem ou revisão não corresponde ao hash da revisão atribuída.", blocked=True)
 
+    if role_id == "editorial_reviewer":
+        data = input_data["task_input_data"]["data"]
+        if output.get("human_review_required") is not True:
+            raise TaskFailure("siwc_human_gate_removed", "Revisão não preservou o gate humano obrigatório.", blocked=True)
+        if data["fact_check_verdict"].get("status") != "pass" and output.get("verdict") == "pass":
+            raise TaskFailure("siwc_review_overrides_fact_check", "Revisão não pode aprovar checagem factual pendente.", blocked=True)
+
     if role_id == "evidence_investigator":
         claims = output.get("claims", [])
         for claim in claims if isinstance(claims, (list, tuple)) else []:
@@ -330,6 +438,7 @@ class SIWCAgentRoleExecutor:
     ):
         self.client = client
         self.artifact_store = SIWCResponseArtifactStore(artifact_root)
+        self.usage_store = AgentUsageArtifactStore(artifact_root)
         self.model = model.strip()
         self.reasoning_effort = reasoning_effort.strip()
         self.catalog_models = frozenset(catalog_models)
@@ -337,6 +446,116 @@ class SIWCAgentRoleExecutor:
             raise ValueError("O modelo SIWC precisa ser explícito.")
         if self.reasoning_effort not in SIWC_REASONING_EFFORTS:
             raise ValueError("O esforço SIWC precisa ser explícito e permitido.")
+
+    def recover_persisted(self, task: AgentTask, invocation: Any) -> Mapping[str, Any]:
+        """Rebuild a validated result from immutable response and usage artifacts only."""
+        envelope = getattr(invocation, "task_envelope", None)
+        role = getattr(invocation, "role_profile", None)
+        if envelope is None or role is None or envelope.task_id != task.task_id:
+            raise ValueError("Versioned context is missing for local artifact recovery.")
+        if task.task_type != f"agent.role.{role.role_id}":
+            raise ValueError("Archived task does not match its validated role.")
+        if self.model not in self.catalog_models:
+            raise ValueError("Archived SIWC model is absent from the local account catalog.")
+        trusted_sections = [
+            {"source": section.source, "version": section.version, "text": section.text}
+            for section in invocation.trusted_instruction_sections
+        ]
+        persona_section = next(
+            (section for section in trusted_sections if str(section["source"]).startswith("persona:")),
+            None,
+        )
+        if envelope.persona_id is not None and (
+            persona_section is None or stable_hash(str(persona_section["text"])) != envelope.persona_hash
+        ):
+            raise ValueError("Approved DNA hash does not match the archived instruction.")
+        revision_id = _first_nested_text(
+            task.payload.get("input"), {"story_revision_id", "revision_id", "draft_revision_id"},
+        )
+        revision_hash = _first_nested_text(
+            task.payload.get("input"), {"draft_hash", "revision_hash", "story_revision_sha256"},
+        )
+        expected_request = {
+            "record_version": "1.0",
+            "task_id": envelope.task_id,
+            "run_id": envelope.run_id,
+            "story_id": envelope.story_id,
+            "edition_id": envelope.edition_id,
+            "revision_id": revision_id,
+            "story_revision_id": revision_id,
+            "revision_hash": revision_hash,
+            "case_id": _first_nested_text(task.payload.get("input"), {"case_id", "test_case_id"}),
+            "role_id": role.role_id,
+            "role_version": role.role_version,
+            "role_hash": envelope.role_hash,
+            "persona_id": envelope.persona_id,
+            "persona_version": envelope.persona_version,
+            "persona_hash": envelope.persona_hash,
+            "persona_instruction_sha256": stable_hash(str(persona_section["text"])) if persona_section else None,
+            "input_hash": envelope.input_hash,
+            "input_payload_hash": envelope.input_payload_hash,
+            "input_artifact_refs": [item.to_dict() for item in envelope.input_artifact_refs],
+            "source_snapshot_ids": list(envelope.source_snapshot_ids),
+            "trusted_instruction_refs": [
+                {"source": item["source"], "version": item["version"], "sha256": stable_hash(item["text"])}
+                for item in trusted_sections
+            ],
+            "model_requested": self.model,
+            "reasoning_effort_requested": self.reasoning_effort,
+            "prompt_input": {
+                "task_input_data": _plain_json(invocation.task_input_data),
+                "untrusted_evidence": _plain_json(invocation.untrusted_evidence),
+            },
+        }
+        bundle = self.artifact_store.read_task_artifacts(task.task_id)
+        if bundle["request"] != expected_request:
+            raise ValueError("Persisted SIWC request diverges from input, DNA, sources or trusted instructions.")
+        metadata = bundle["metadata"]
+        response_ref = bundle["response_ref"]
+        raw_response = bundle["response"]
+        response_hash = hashlib.sha256(raw_response).hexdigest()
+        returned_model = metadata.get("model")
+        if (
+            metadata.get("response_completed") is not True
+            or metadata.get("store") is not False
+            or metadata.get("stream") is not True
+            or metadata.get("response_sha256") != response_hash
+            or (returned_model != self.model and not str(returned_model or "").startswith(self.model + "-"))
+            or metadata.get("reasoning_effort") != self.reasoning_effort
+        ):
+            raise ValueError("Archived response does not prove the expected completed SIWC policy.")
+
+        usage_ref = metadata.get("usage_receipt_ref")
+        if isinstance(usage_ref, Mapping):
+            usage_record = self.usage_store.read(str(usage_ref.get("ref", "")), str(usage_ref.get("sha256", "")))
+            if (
+                usage_record.get("task_id") != task.task_id
+                or usage_record.get("attempt_number") != task.attempts
+                or usage_record.get("raw_response_sha256") != response_hash
+            ):
+                raise ValueError("Archived usage receipt diverges from the response or attempt.")
+            normalized_usage_ref = {"ref": str(usage_ref["ref"]), "sha256": str(usage_ref["sha256"])}
+        else:
+            existing_receipt = self.usage_store.read_for_attempt(task.task_id, task.attempts)
+            if existing_receipt is not None:
+                usage_record, normalized_usage_ref = existing_receipt
+            else:
+                usage_record = build_usage_record(
+                    task=task, envelope=envelope, metadata=metadata, raw_response=raw_response,
+                    research_request_count=None, schema_status="provider_response_completed",
+                )
+                normalized_usage_ref = self.usage_store.write(usage_record)
+            if usage_record.get("raw_response_sha256") != response_hash:
+                raise ValueError("Existing usage receipt does not match the persisted response.")
+            self.artifact_store.update_metadata(task.task_id, {"usage_receipt_ref": normalized_usage_ref})
+
+        structured_output = json.loads(raw_response.decode("utf-8"))
+        provider_result = {**metadata, "raw_artifact": response_ref, "structured_output": structured_output}
+        return self._finalize_output(
+            task=task, envelope=envelope, role=role, invocation=invocation,
+            provider_result=provider_result, response_ref=response_ref,
+            usage_receipt_ref=normalized_usage_ref,
+        )
 
     def execute(
         self,
@@ -426,20 +645,40 @@ class SIWCAgentRoleExecutor:
             "untrusted_evidence": _plain_json(invocation.untrusted_evidence),
         }, ensure_ascii=False, separators=(",", ":"))
         response_ref: dict[str, str] | None = None
+        usage_receipt_ref: dict[str, str] | None = None
 
         def persist_response(raw_text: str, response_metadata: Mapping[str, Any]) -> Mapping[str, Any]:
-            nonlocal response_ref
+            nonlocal response_ref, usage_receipt_ref
             if response_ref is not None:
                 raise ValueError("Resposta SIWC duplicada para a mesma tarefa; não sobrescrever artefato.")
+            raw_bytes = raw_text.encode("utf-8")
+            output_state = response_metadata.get("output_state")
+            call_outcome = (
+                "success" if response_metadata.get("response_completed") is True
+                else "uncertain" if output_state in {"uncertain", "incomplete"}
+                else "failed"
+            )
             metadata = {
                 **input_record,
                 "request_artifact_ref": input_ref["ref"],
                 "request_artifact_sha256": input_ref["sha256"],
                 "publication_state": "not_published",
                 "human_review_required": True,
+                "context_bytes": len((trusted_instructions + input_text).encode("utf-8")),
+                "provider_call_outcome": call_outcome,
                 **_plain_json(response_metadata),
             }
             response_ref = self.artifact_store.write_response(envelope.task_id, raw_text, metadata)
+            usage_record = build_usage_record(
+                task=task,
+                envelope=envelope,
+                metadata=metadata,
+                raw_response=raw_bytes,
+                research_request_count=None,
+                schema_status="provider_response_completed" if metadata.get("response_completed") is True else str(output_state or "unreported"),
+            )
+            usage_receipt_ref = self.usage_store.write(usage_record)
+            self.artifact_store.update_metadata(envelope.task_id, {"usage_receipt_ref": usage_receipt_ref})
             return response_ref
 
         try:
@@ -463,14 +702,19 @@ class SIWCAgentRoleExecutor:
                 uncertain=context.external_request_started,
             ) from None
 
+        return self._finalize_output(task=task, envelope=envelope, role=role, invocation=invocation, provider_result=provider_result, response_ref=response_ref, usage_receipt_ref=usage_receipt_ref)
+
+    def _finalize_output(self, *, task: AgentTask, envelope: AgentTaskEnvelope, role: Any, invocation: Any, provider_result: Mapping[str, Any], response_ref: Mapping[str, str], usage_receipt_ref: Mapping[str, str]) -> Mapping[str, Any]:
         structured_output = provider_result.get("structured_output")
         metadata = {key: value for key, value in provider_result.items() if key != "structured_output"}
         if response_ref is None or metadata.get("raw_artifact", {}).get("sha256") != response_ref.get("sha256"):
             raise TaskFailure("siwc_raw_response_missing", "Resposta SIWC concluída sem artefato bruto confirmado.", blocked=True)
+        if usage_receipt_ref is None:
+            raise TaskFailure("siwc_usage_receipt_missing", "Resposta SIWC sem recibo de consumo persistido.", blocked=True)
         if metadata.get("store") is not False or metadata.get("stream") is not True or metadata.get("response_completed") is not True:
             self.artifact_store.update_metadata(envelope.task_id, {"output_validation": "provider_metadata_rejected"})
             raise TaskFailure("siwc_response_policy_mismatch", "Resposta não confirmou store=false, stream=true e response.completed.", blocked=True)
-        if metadata.get("model") != self.model and not str(metadata.get("model") or "").startswith(self.model + "-"):
+        if not model_matches_requested(self.model, metadata.get("model")):
             self.artifact_store.update_metadata(envelope.task_id, {"output_validation": "model_mismatch"})
             raise TaskFailure("siwc_model_mismatch", "Modelo efetivo diverge do modelo explícito escolhido.", blocked=True)
         if metadata.get("reasoning_effort") != self.reasoning_effort:
@@ -559,7 +803,7 @@ class SIWCAgentRoleExecutor:
                 open_questions.extend(item.strip() for item in values if isinstance(item, str) and item.strip())
         try:
             result_envelope = AgentResultEnvelope.from_mapping({
-                "schema_version": "1.0",
+                "schema_version": "1.1",
                 "task_id": envelope.task_id,
                 "status": "completed",
                 "output_schema_version": str(role.output_schema.get("version", role.output_schema.get("schema_version", "1.0"))),
@@ -577,6 +821,7 @@ class SIWCAgentRoleExecutor:
                 "model_used": metadata.get("model"),
                 "model_effort": metadata.get("reasoning_effort"),
                 "usage_reported": metadata.get("usage"),
+                "usage_receipt_ref": usage_receipt_ref,
                 "next_action_suggestion": "human_review_required",
             }).to_dict()
         except (ContractValidationError, TypeError, ValueError):
@@ -584,6 +829,7 @@ class SIWCAgentRoleExecutor:
                 "output_validation": "result_envelope_rejected",
             })
             raise TaskFailure("siwc_result_envelope_invalid", "Saída integral preservada, mas AgentResultEnvelope inválido.", blocked=True) from None
+        self.artifact_store.update_metadata(envelope.task_id, {"validated_result_envelope": result_envelope})
         return result_envelope
 
 

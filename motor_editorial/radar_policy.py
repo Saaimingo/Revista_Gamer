@@ -25,6 +25,10 @@ class DomainQuotaStore(Protocol):
         quota_limit: int,
         request_key: str,
         reserved_at: str,
+        mission_id: str | None = None,
+        mission_limit: int | None = None,
+        source_id: str | None = None,
+        source_mission_limit: int | None = None,
     ) -> bool: ...
 
 
@@ -35,6 +39,11 @@ class DomainQuotaGuard(Protocol):
         *,
         now: datetime | str,
         request_key: str | None = None,
+        mission_id: str | None = None,
+        mission_limit: int | None = None,
+        source_id: str | None = None,
+        source_mission_limit: int | None = None,
+        daily_quota_limit: int | None = None,
     ) -> "QuotaDecision": ...
 
 
@@ -154,6 +163,11 @@ class PersistentDomainQuotaGuard:
         *,
         now: datetime | str,
         request_key: str | None = None,
+        mission_id: str | None = None,
+        mission_limit: int | None = None,
+        source_id: str | None = None,
+        source_mission_limit: int | None = None,
+        daily_quota_limit: int | None = None,
     ) -> QuotaDecision:
         current = _aware_utc(now)
         normalized_domain = normalize_domain(domain)
@@ -165,6 +179,12 @@ class PersistentDomainQuotaGuard:
         limit = self.quotas.get(normalized_domain)
         if limit is None:
             return QuotaDecision(False, retry_at, "domain_quota_not_configured")
+        if daily_quota_limit is not None and daily_quota_limit != limit:
+            return QuotaDecision(False, retry_at, "quota_policy_mismatch")
+        if mission_id is not None and (mission_limit is None or not source_id or source_mission_limit is None):
+            return QuotaDecision(False, retry_at, "mission_quota_not_configured")
+        if mission_id is None and any(item is not None for item in (mission_limit, source_id, source_mission_limit)):
+            return QuotaDecision(False, retry_at, "mission_quota_not_configured")
         allowed = self.store.reserve_domain_request(
             domain=normalized_domain,
             quota_date=local_day.isoformat(),
@@ -172,7 +192,11 @@ class PersistentDomainQuotaGuard:
             quota_limit=limit,
             request_key=request_key or str(uuid.uuid4()),
             reserved_at=current.isoformat(timespec="seconds"),
+            mission_id=mission_id,
+            mission_limit=mission_limit,
+            source_id=source_id,
+            source_mission_limit=source_mission_limit,
         )
         if not allowed:
-            return QuotaDecision(False, retry_at, "domain_daily_quota")
+            return QuotaDecision(False, retry_at, "quota_limit_reached" if mission_id is not None else "domain_daily_quota")
         return QuotaDecision(True)
