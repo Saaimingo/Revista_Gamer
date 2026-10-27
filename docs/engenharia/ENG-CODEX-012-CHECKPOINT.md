@@ -4,14 +4,14 @@
 **Issue:** [#42](https://github.com/Saaimingo/Revista_Gamer/issues/42)
 **Documentação normativa:** [PR #43](https://github.com/Saaimingo/Revista_Gamer/pull/43), os três documentos foram lidos integralmente antes de qualquer mudança.
 **Branch:** `codex/eng-codex-012-architecture-contracts`, derivada de `codex/eng-codex-011-live-factory@27c6703`.
-**Status:** em andamento. U00–U05 concluídas; contratos de U06 validados offline. O ciclo editorial real de U06 segue pendente por falta de evidência útil na resposta arquivada e orçamento público esgotado. Nenhuma chamada SIWC/Plus ou pesquisa pública nesta missão.
+**Status:** em andamento. U00–U05 concluídas; contratos de U06 validados offline; U07 em progresso. O ciclo editorial real de U06 segue pendente por falta de evidência útil na resposta arquivada. Nenhuma chamada SIWC/Plus ou pesquisa pública nesta missão.
 
 ## Limites ativos
 
-- ENG-011 usou as quatro requisições públicas autorizadas. Nenhuma pesquisa pública adicional está autorizada por esta missão; não repetir pesquisa nem resposta SIWC arquivada.
+- ENG-011 usou as quatro requisições públicas autorizadas. Após a pausa, a Direção informou 86% de franquia e respondeu “sim” à retomada e a novas consultas públicas para o ensaio final. Esta autorização é posterior ao limite ENG-011; U10 ainda exige orçamento próprio versionado e conclusão das etapas preparatórias. Não repetir pesquisa nem resposta SIWC arquivada.
 - Preservar todos os DNAs aprovados e os artefatos privados integrais; não copiar matéria integral ou resposta privada ao repositório.
 - Sem API paga, publicação, merge ou deploy. Aprovação humana final continua pendente.
-- ENG-012 U10 (piloto público real novo) permanece bloqueada até autorização específica posterior; continuar unidades offline e usar registros existentes.
+- ENG-012 U10 (piloto público real novo) aguarda U07–U09, orçamento de pesquisa versionado e preflight do modelo solicitado. Até então continuar offline e usar registros existentes.
 
 ## Feito nesta retomada
 
@@ -75,14 +75,14 @@
 - **U04:** SourceProfile v1.1 e compatibilidade v1.0, paths estritos, parser JSON por schema reconhecido, quotas persistentes, hash/bytes/request/profile version e recibos separados de transporte/parse/ingest; migração v7→v8 e integração local comprovadas com 46 testes focados e regressão cruzada de 134 testes. Não prova coleta pública.
 - **U05:** envelopes de papel compartilhados, resolução exata de triagem, dossiê integrado triagem→investigador→editor, seleção limitada a candidato/persona aprovados e projeção editorial sem metadados internos; 47 testes focados, 137 regressivos e replay offline das respostas arquivadas (10/10 IDs, hashes preservados, zero chamadas). Não comprova novo ensaio ao vivo.
 
-## Próximo passo
+## Próximo passo registrado antes da pausa
 
 1. U07: reconciliar as respostas de fact-check e revisão arquivadas com as versões/hashes exatos do rascunho; implementar e validar offline handoffs de correção/versionamento, sem inferência nova.
 2. U08: localizar draft e imagem existentes com direitos demonstráveis; servir preview HTTP local e comprovar visualmente texto e imagem no navegador.
 3. U09: provar isolamento multipauta e agregação de orçamento sem duplicidade; uma pauta bloqueada não interrompe as demais.
 4. Manter U06 real pendente até U10, autorizada especificamente para nova pesquisa pública; atualizar matriz/checkpoint e PR #44, com commits/push regulares, sempre draft e sem merge.
 
-## Critérios ainda abertos
+## Critérios ainda abertos na pausa
 
 O ciclo real de U06 continua pendente; também faltam handoffs fact-check/revisão U07, preview real em navegador U08, isolamento multipauta U09 e nova homologação U10 (bloqueada por autorização de pesquisa esgotada). A missão não está concluída enquanto algum critério obrigatório permanecer aberto.
 
@@ -94,10 +94,19 @@ O ciclo real de U06 continua pendente; também faltam handoffs fact-check/revis�
 - U07 foi auditada parcialmente nos artefatos privados ENG-011, em leitura somente. Story `story-8f51003939613c3329a967af`: o hash do texto integral original `37af1b1b1a4aa9e85906ae55cd6d3431fbd4e48a8ebcb40a77aef2c7e8180d23` coincide com `draft_hash` e `revision_hash` do fact-check arquivado. Existem manifests separados para original, revisão 02 e revisão 03; os hashes dos conteúdos bruto e integral foram conferidos. Há refs de recibo de uso, mas a conferência final de seus hashes não foi concluída. Não foi localizada resposta arquivada do papel `editorial_reviewer`; confirmar o estado exato da tarefa no ledger ao retomar. Nenhum texto integral privado foi copiado para o repositório.
 - Nenhuma alteração de código U07 foi feita antes da pausa. A checagem semântica do revisor em `agent_siwc.py` é somente uma lacuna candidata: conferir primeiro o contrato normativo da PR #43 antes de alterar seu comportamento.
 
-### Retomada segura
+### Retomada segura registrada na pausa
 
 1. Manter a execução offline e sem chamadas externas. Ler os trechos normativos U07/C05/C07 da PR #43 que governam fact-check, revisão, correções e versão.
 2. Fazer uma consulta mínima, somente leitura, ao ledger privado e aos manifests para concluir a validação dos hashes de recibo e confirmar se houve tarefa do revisor; não repetir inferência nem alterar arquivos privados.
 3. Só então implementar no owner compartilhado os gates de versão/checagem/revisão exigidos pelo contrato, acrescentando regressões focadas com executor fake; registrar quais partes continuam sem prova de agente real.
 4. Prosseguir para U08 usando apenas draft e imagem existentes com direitos comprováveis; abrir a prévia em HTTP local e registrar inspeção visual real. Depois validar isolamento multipauta U09 sem fetch externo.
 5. Manter U06 real e U10 bloqueadas até autorização específica para nova pesquisa pública. Preservar DNAs, PR #44 draft e aprovação humana pendente; não fazer merge, deploy ou publicação.
+
+## Retomada — autorização e U07 parcial
+
+- A Direção informou 86% de franquia e solicitou agentes e jornalistas em “6.1 Luna Max”; em seguida respondeu “sim” à retomada e à autorização de novas consultas públicas para o ensaio final. O orçamento anterior 4/4 não é reaberto: o piloto terá orçamento próprio versionado, limitado e registrado antes de qualquer coleta. A autorização não antecipa U10 antes das regressões e critérios preparatórios.
+- O catálogo local do Codex lista `gpt-6-luna` com esforço `max`; o runner ENG-011 usa `gpt-6-luna`/`high`. Isso não confirma que “6.1 Luna Max” seja o identificador disponível no catálogo SIWC da fábrica. Confirmar catálogo e esforço efetivo antes da primeira inferência; não substituir o modelo solicitado silenciosamente.
+- Auditoria somente leitura do ledger privado e dos manifests ENG-011: original e revisões 02/03 possuem conteúdo bruto e texto integral com SHA-256 válidos; os três recibos de uso referenciados também existem e seus hashes conferem. Há uma tarefa `agent.role.fact_checker` concluída, e zero tarefas `agent.role.editorial_reviewer`; não existe resposta de revisor para reaproveitar. O texto original continua ligado ao fact-check pelo hash registrado acima.
+- Commit `aaf8bac`: `AgentRoleCatalog.validate_task` confere o SHA-256 do texto integral antes de fact-check/revisão e exige que o parecer factual entregue ao revisor tenha o mesmo hash e status reconhecido. O dispatcher aplica o contrato também a tarefas legadas já enfileiradas, antes do executor. `SIWCAgentRoleExecutor` bloqueia saída de revisor que retire o gate humano ou dê `pass` com fact-check `revise`/`hold`; guarda a resposta para auditoria. O fixture sintético passou a usar hashes reais do texto.
+- **Testes offline:** `& '.\.venv\Scripts\python.exe' -m unittest motor_editorial.tests.test_agent_contracts motor_editorial.tests.test_agent_role_catalog motor_editorial.tests.test_agent_siwc_executor -q` — 44 testes em 14,688 s, OK. Inclui tarefa legada com fact-check stale bloqueada antes de qualquer chamada do executor fake e respostas válidas/inválidas do revisor. `py_compile` nos dois módulos alterados e no teste, e `git diff --check`, passaram. A primeira execução focada falhou porque os hashes do fixture foram calculados através de entrada PowerShell com acentos corrompidos; foram recalculados diretamente do JSON UTF-8 e a regressão passou. Nenhum SIWC/Plus ou coleta pública foi executado.
+- **U07 ainda não concluída:** falta integrar o pedido real de correção do revisor ao mesmo jornalista, limitar ciclos repetidos, rechecagem da versão alterada e revisão subsequente. Os testes acima provam contratos locais, não uma revisão real. Continuar pelo fluxo compartilhado existente; depois U08 e U09. U06 real e U10 continuam sem comprovação, com aprovação humana final pendente.
