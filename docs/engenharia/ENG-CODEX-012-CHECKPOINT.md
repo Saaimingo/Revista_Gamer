@@ -164,3 +164,23 @@ O ciclo real de U06 continua pendente; também faltam handoffs fact-check/revis�
 - Nenhum investigador, editor, jornalista, fact-checker ou revisor foi chamado nesta execução; não há reportagem completa nem prévia. A Direção mandou parar antes de qualquer nova ação. Não rodar `run`, não chamar SIWC, não fazer novas buscas e não executar testes nesta pausa.
 - O checklist completo da manhã, incluindo a lista de problemas da linha e o plano de recuperação/continuação com operações reais, está em `docs/engenharia/ENG-CODEX-012-CHECKLIST-RETOMADA-MANHA.md`.
 - **Próximo passo:** após a manhã, primeiro revalidar live GitHub e a raiz privada, preservar o receipt e a triagem já concluídos, terminar e validar a recuperação idempotente; então executar `resume` no mesmo Run ID, nunca uma nova `run`, e continuar com agentes reais. A autorização de pesquisa não excede quatro requests totais: três tentativas já registradas e, no máximo, uma request de detalhe adicional no domínio `api.github.com`, sem retry.
+
+## Retomada após a ordem de auditoria — 27/10/2026
+
+Esta seção supersede o estado “alterações não testadas” da pausa. A nova ordem da Direção foi lida integralmente; o checklist, esta matriz e a auditoria registrada na Issue #42 foram consultados. O inventário vivo confirmou 27 PRs (23 abertas, 4 merged), a #44 aberta/draft e as relações de ancestralidade descritas na matriz. A #43 permanece paralela na SHA `1a187a68dfdc42efc13fb8371ec3c3c75351485c`; a #38 diverge da linha atual e não foi integrada.
+
+- Patch local de recuperação preservado fora do repositório: `C:\Users\saimi\.codex\Revista_Gamer\eng-codex-012-live-factory\recovery-edits-validated-presync-20261027.patch`, SHA-256 `52176563AC509F344075AAFC6C0A8727023BF000F9445F6201971AA98F418C9E`.
+- Correções no commit `0081cd4`: reuso do receipt imutável; validação sem efeitos no checkpoint/active-run até confirmar o ledger; reconstrução segura do structured output ausente; regra de modelo versionado igual entre executor e recuperação; recarga de claims após o provider em `ResearchService`.
+- Regressões offline: runner 16/16, ResearchService 11/11 e SIWC executor 23/23. `py_compile` e `git diff --check` passaram. Isso não prova ainda o `resume` real.
+- A árvore recebeu as duas revisões documentais da branch remota por merge normal depois do commit local; não houve reset, rebase ou merge de PRs paralelas. O commit do patch e o merge documental estão locais; a sincronização da PR #44 draft deve preceder o `resume`.
+- A raiz privada e o ledger do run permanecem preservados. Nenhum `/models`, Radar scan, triagem ou chamada SIWC adicional ocorreu nesta retomada. O checkpoint que será retomado ainda termina em `triage_agent/call_started`; o ledger continua sendo a autoridade para adotar a tarefa `succeeded`, tentativa 1.
+- Consumo confirmado antes da continuação: `triage_analyst`, 6.586 input + 4.189 output = 10.775 tokens, 77.719 ms, 1 tentativa; Radar, 3/4 requests públicos (Proton e SDL HTTP 200, Godot bloqueado sem corpo). No máximo um request adicional para o mesmo run, sem retry ou domínio novo. O modelo pré-validado continua `gpt-6-luna`/`max` e não precisa ser consultado outra vez.
+- O defeito de claim foi reproduzido em teste com claim oficial registrado durante `provider.search`; a fixture observou que o registro oficial exige entidade e vínculo `statement_by`. Depois da correção, o packet reconhece a claim e retorna `found`. Nenhuma pesquisa de rede foi usada para essa reprodução.
+
+### Próximas ações
+
+1. Comitar o relatório/checkpoint desta atualização, fazer push somente da branch vinculada à PR #44 e confirmar que ela continua draft.
+2. Conferir novamente run ID, branch, estado bloqueado, ledger `succeeded`/tentativa 1, hashes de resposta/receipt e 3/4 requests no mesmo diretório privado.
+3. Executar `resume` para `eng-codex-012-20261027T025920Z-e207b61f01c5`, com a mesma raiz/SQLite, `gpt-6-luna`/`max` e orçamento existente. Confirmar zero nova triagem, scan ou consulta ao catálogo.
+4. Prosseguir com investigador, editor, jornalista e, se solicitado e útil, uma única pesquisa complementar sob o teto. Continuar com fact-check, revisor e preview apenas quando houver evidência suficiente.
+5. Registrar consumo de cada papel, versão/hash da reportagem e qualquer bloqueio factual ou técnico. Se a reportagem ficar pronta, abrir a prévia via HTTP local e inspecioná-la no navegador. Não publicar, fazer merge, deploy ou alterar aprovações humanas.

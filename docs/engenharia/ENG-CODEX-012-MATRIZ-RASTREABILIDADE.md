@@ -79,3 +79,58 @@
 3. Tornar a transição documento→entidade→tópico→claim recuperável/idempotente. O registro já contém documento e vínculo de entidade; uma retomada deve reconciliar essa parte sem exigir novo HTTP.
 4. Não inferir conteúdo que não está no registro, não repetir a pesquisa ou respostas válidas SIWC, não alterar os DNAs aprovados.
 5. Manter a aprovação editorial humana e `published=false`; sem merge, deploy ou publicação.
+
+## Auditoria das 27 PRs e arquitetura — 27/10/2026
+
+Auditoria feita contra o inventário vivo do GitHub e os refs locais `origin/pr/*`. O HEAD remoto da PR #44 observado foi `7e42491c7c9a48fa6937d2f908e2b2053eeb8330`; ela permaneceu aberta e draft. A branch incorpora por ancestralidade #6, #8, #10, #18, #24, #25, #26, #30, #34, #40 e #44. As PRs #3 e #4 foram integradas à `main`, mas os SHAs de suas cabeças não são ancestrais diretos; sua base chega pela história integrada. A #45 também foi integrada, em escopo comercial/social.
+
+| PRs | Estado atual e relação com ENG-012 | Mudança / decisão de auditoria |
+|---|---|---|
+| #3, #4, #6 | #3/#4/#6 merged; #6 é ancestral | Base do Motor Editorial local/offline, depois multipauta. Não confundir os demos dessa linha com a fábrica ao vivo. |
+| #8, #10 | Abertas, não draft; ancestrais | Orquestração durável e prova SIWC/pipeline controlado. O código está herdado pela cadeia ENG-006/007/008/010/012; não reaplicar os mesmos commits. |
+| #18 | Aberta, não draft; ancestral | Fase offline do diagramador, isolada como experimento. Seu HTML determinístico não comprova inspeção visual em navegador. |
+| #24, #25, #26 | Abertas, draft; ancestrais em sequência | Reconciliação da fila e pipeline sintético/handoffs. Compartilham o ledger do Motor; evidência fixture não prova texto jornalístico. |
+| #30, #34, #40 | Abertas, draft; ancestrais | Radar/roles, homologação SIWC por papel e prévia com imagem sintética. O ativo e2e fictício não prova direitos nem preview de uma matéria real. |
+| #44 | Aberta, draft; branch atual | Dona do trabalho ENG-012 e dos dois problemas P0 descritos aqui. Continua draft após esta auditoria. |
+| #13, #14, #19, #27 | Abertas, fora da ancestralidade | Pacotes aprovados de identidade, audições/continuidade e imagens. O runner fixa refs/hashes de DNA de #13 e #19 e verifica os bytes no carregamento; isso não torna essas PRs integradas. #14 é arte aprovada separada e não é usada como evidência jornalística. Nenhum DNA foi alterado. |
+| #21 | Aberta, draft, fora da ancestralidade | Proposta de memória/skills sem aprovação de implementação; excluída da arquitetura atual. |
+| #29, #32, #36 | Abertas, draft, branches documentais paralelas | Ordens/dossiês ENG-007/008/009; são referência histórica e não ancestrais de #44. |
+| #38 | Aberta, draft, divergente e baseada na #36 | Piloto ENG-009 com runner `eng_codex_009.py`, pacote `evidence_packages.py` e alterações próprias em contratos, SIWC, factory, orquestração e mediação. Os módulos sobrepostos diferem em ambos os sentidos; não há justificativa para merge em bloco. Esses dois arquivos de piloto não estão no ENG-011/012 atual. |
+| #16, #31, #46 | Abertas, fora da ancestralidade | Referências de mock visual, pesquisa inicial de press rooms e avaliação de flipbook. São tarefas de outros setores e não dependências da execução editorial ENG-012. |
+| #43 | Aberta, draft, paralela e fora da ancestralidade | SHA `1a187a68dfdc42efc13fb8371ec3c3c75351485c`, três contratos normativos ENG-012. Foram consultados e fixados por SHA; seus documentos não estão incorporados à árvore da #44. A separação documental deve permanecer explícita até decisão de integração, sem merge indiscriminado. |
+| #45 | Merged, fora do escopo técnico | Configuração operacional Meta/Metricool do Bloco 06; não muda a arquitetura da fábrica. |
+
+Contagem confirmada: 27 PRs, 23 abertas e 4 merged. “Aberta” não significa aprovada, implementada nem validada. A relação de dependência da linha de engenharia é #24→#25→#26→#30→#34→#40→#44; #38 e #43 são paralelas. As aprovações das identidades estão nos materiais/comentários próprios e nos refs de origem; README antigo não é fonte para revogá-las.
+
+### Mapa de responsabilidade e permanência
+
+| Componente | Responsabilidade e classificação | Limite observado |
+|---|---|---|
+| `orchestration.py` + SQLite `AgentQueue`/`TaskDispatcher` | Runtime compartilhado, fila, dependências, lease e ledger único; permanente | Não deve coexistir com segunda fila por runner. Recuperação de resposta em `eng_codex_011.py` ainda tem partes específicas do piloto. |
+| `agent_contracts.py` | Contratos versionados de papéis, respostas, pesquisa e evidências; permanente | PR #38 tem uma variante divergente; ela não foi incorporada automaticamente. |
+| `agent_siwc.py` + `siwc.py` + `usage_meter.py` | Transporte SIWC, resposta imutável, validação por papel e recibos; permanente | SIWC executa inferência estruturada, não navegação web no código atual. Uso/token não informa custo faturado nem saldo Plus. |
+| `radar_connectors.py`, `radar_store.py`, `radar_triage.py`, `research_service.py` | Fonte autorizada, cache/observação, descoberta, ledger de claims e pesquisa sob demanda; permanente | O provider real desta execução só cobre releases GitHub; metadado não substitui changelog ou checagem. |
+| `eng_codex_011.py` | Harness do piloto ao vivo ENG-011 reutilizado e configurado para ENG-012; código operacional de missão, não novo runtime geral | Guarda configuração, checkpoint e etapas em um arquivo extenso; os ramos `resume_after_*` são um ponto de manutenção e não devem crescer sem uma evidência real. |
+| `factory.py` | Contém executores/demos sintéticos e também `role_story_draft_to_editorial_output`, usado pelo runner | Classificar por função, não declarar o arquivo inteiro mock nem importar demos como produção. |
+| `workflow.py` | Pipeline legado e fixtures offline | Não é o fluxo canônico ENG-012 e não deve ganhar uma fila paralela. |
+| `layout/*`, `render.py`, `web.py` | Layout determinístico, pacote, render e servidor local; permanentes como ferramentas | `factory-demo` e HTML gerado não provam direitos ou inspeção no navegador. |
+| Testes e diretórios `fixtures/` | Proteção contra regressões/contratos, predominantemente sintética | Contagem de testes não equivale a execução real nem a aprovação editorial. |
+
+Duplicações confirmadas: há três entradas que se parecem com “fábrica” — `workflow.py` histórico, `factory.py` sintético e `eng_codex_011.py` piloto real —, mas o runtime durável é o mesmo ledger compartilhado. A PR #38 contém outra linha de piloto e implementações sobrepostas, não um subsistema adicional da #44. No caminho real, a recuperação do runner tinha três fontes de divergência: executor/runner ambos tratando o receipt, estado de checkpoint separado do ledger e loader dependente do JSON derivado. O commit `0081cd4` alinha esses caminhos sem chamar novamente o modelo. A validação de `ResearchService` também foi corrigida e testada para claims persistidas durante a busca.
+
+### Documentação antiga que não expressa o estado atual
+
+- `docs/governanca/STATUS-GERAL.md` e `docs/personagens/README.md` antecedem decisões de identidade aprovadas e ainda descrevem fases/DNAs pendentes.
+- `docs/engenharia/README.md`, `README.md`, `docs/governanca/BIBLIA-DO-PROJETO.md` e `docs/governanca/DECISOES.md` são históricos anteriores à missão ENG-012; preservam valor histórico, não são o estado operacional atual.
+- `docs/visual/README.md` não incorpora a avaliação de flipbook da #46; esse item permanece no Bloco 03.
+- A hierarquia para este trabalho é a ordem atual da Direção, os contratos normativos da #43 identificados pelo SHA acima, o código/testes/ledger real da #44 e as decisões setoriais aprovadas por seus refs/hash. Nenhuma proposta pendente ou documentação antiga substitui esses dados.
+
+### A, B e C: custo total, capacidade e recomendação
+
+| Alternativa | Benefícios observáveis | Custo e gargalos observáveis | Avaliação |
+|---|---|---|---|
+| A — Radar e cadeia atual sem simplificação | Cache/ledger comum, deduplicação, snapshot/hash, orçamento por domínio, eventos de fetch e roteamento verificável. | As três tentativas consumiram 3/4 requests: duas respostas HTTP 200 e uma bloqueada; chegaram 10 candidatos, mas sem o corpo de changelog. A triagem consumiu 10.775 tokens em 77,7 s e deixou Proton 11.0-2e e SDL 3.4.18 em monitoramento. A sobreposição de papéis, contratos e recuperação em muitas PRs mostra manutenção acumulada, mas as horas de engenharia não foram medidas. Ainda não entregou uma matéria; a cobertura jornalística desta execução é baixa. | Manter tudo como está não está justificado pelo resultado atual. |
+| B — pesquisa direta pelos agentes | Pode reduzir latência entre pergunta e fonte e ampliar cobertura, se houver ferramenta autorizada com resultados consultáveis. O `web__run` está disponível ao Codex desta conversa. | Não está ligado ao SIWC nem ao dispatcher. `SIWCClient` envia `model`, `reasoning`, `instructions`, `input`, `store=false` e `stream=true` ao Responses API, sem campo `tools` ou ferramenta `web_search`; os papéis não recebem grant de navegador. Autenticação, preço e termos de uma integração direta não estão documentados no repo e não foram verificados por novas consultas, pois a verba do piloto está limitada a um request restante para a matéria. Sem adapter que grave URLs, hashes, documentos/claims e fonte independente, pesquisa direta também perderia trilha e checagem. | É uma capacidade disponível nesta conversa, não uma capacidade habilitada para agentes do projeto. Não presumir SIWC browsing nem ligar integração agora. |
+| C — híbrida e simplificada | Preserva fila/ledger, contratos, receipts, cache e proveniência já úteis; Radar fica focado em descoberta/monitoramento. O investigador/jornalista solicita, via ResearchRequest, apenas coleta autorizada que falta; `ResearchService` grava as refs no mesmo ledger e fact-check continua independente. | Requer adapter de fontes autorizado e medição real; não elimina a manutenção do ledger. O custo de pesquisa direta continua desconhecido até haver uma integração aprovada. Pode evitar triagem/inferência de rotina sobre conteúdo sem mudança e evitar novas consultas quando a cache já satisfaz o pedido. | **Recomendação: C, com simplificação operacional.** Manter o núcleo compartilhado e os gates jornalísticos, reduzir o Radar a descoberta/cache e permitir busca sob demanda apenas depois de aprovar e implementar um adapter com evidência persistida. Remover bots/etapas que não acrescentem uma decisão editorial única só após medir a sequência real. Nenhuma permissão ou bot foi alterado nesta ordem. |
+
+Limite desta análise: ferramentas e código locais foram inspecionados; não foram feitas novas consultas externas de arquitetura nem chamadas pagas. O ambiente Codex permite pesquisa web na conversa, mas essa ferramenta não está injetada no agente SIWC. Preços/condições do uso direto continuam desconhecidos e não são estimados. Próxima prova é a sequência real deste run, dentro do teto de quatro requests, com no máximo um request público restante e sem repetir a triagem.

@@ -27,26 +27,28 @@
 - Uso público: três tentativas de fonte registradas dentro do teto total 4; duas respostas HTTP 200 e uma fonte bloqueada antes da resposta. O orçamento deixa no máximo uma request pública de detalhe, sem retry, sem expansão de domínio e sem nova varredura. Franquia “100%” foi informada pela Direção; não é métrica lida pelo SIWC.
 - Não ocorreram chamadas de investigador, editor, jornalistas, fact-checker ou revisor nesta tentativa; não há matéria completa nem prévia. Imagem preexistente é somente para prévia interna. A aprovação editorial humana segue pendente.
 
-## Alterações locais ainda não validadas
+## Correções de recuperação — estado atualizado em 27/10/2026
 
-Após `792e78b`, `motor_editorial/eng_codex_011.py` tem alterações não commitadas para:
+O registro inicial de alterações locais sem validação foi supersedido. A correção está no commit local `0081cd4` (`fix: recover persisted triage artifacts idempotently`), preservado antes da sincronização em patch privado SHA-256 `52176563AC509F344075AAFC6C0A8727023BF000F9445F6201971AA98F418C9E`.
 
-- reutilizar o receipt que o executor já persistiu, conferindo task/tentativa/papel/modelo/esforço/tokens/hash bruto/response ID sem tentar reescrevê-lo com campos de etapa diferentes;
-- aceitar retomada quando o checkpoint diz `call_started`, desde que resposta e receipt duráveis e hash-checked estejam presentes;
-- reconstruir `structured-outputs/<task>.json` somente a partir da resposta concluída já persistida e novamente validada.
+- `_task_output` reutiliza o receipt apontado pelo resultado/manifesto, confere o mesmo hash e os campos vinculantes e falha fechado se uma tarefa bem-sucedida não tiver receipt. Não tenta criar uma segunda versão com metadados de etapa diferentes.
+- `resume_after_triage` valida primeiro resposta e receipt. A confirmação em checkpoint e `active-run.json` só é gravada depois de o ledger confirmar `succeeded`, tentativa 1, e o loader validar resposta, input, schema, DNA/ref e receipt.
+- `_load_succeeded_role_output` reconstrói somente `structured-outputs/<task>.json`, do JSON bruto íntegro, quando o derivado está ausente; não reexecuta SIWC.
+- SIWC e recuperação compartilham a mesma regra para aceitar o modelo solicitado ou sua variante versionada, desde que o receipt corresponda ao modelo efetivamente retornado.
+- `ResearchService` recarrega claims depois do provider para reconhecer alegações criadas durante a busca; um teste focado reproduziu o defeito e passou após a correção.
 
-Essas alterações **não foram testadas**, revisadas integralmente, commitadas nem enviadas. Não presumir que a retomada já funciona. O erro que motivou a alteração está comprovado pelos artefatos privados; código novo ainda requer verificação.
+Validação local: `test_eng_codex_011_runner` 16/16, `test_research_service` 11/11 e `test_agent_siwc_executor` 23/23; `py_compile` e `git diff --check` passaram. Isso valida os contratos de recuperação em testes offline, não a retomada operacional real. O commit está na branch local com os dois commits documentais remotos integrados por merge normal; enviar à PR #44 continua pendente antes do `resume`.
 
 ## Checklist obrigatório para a manhã
 
 ### Retomar sem perder nem repetir trabalho real
 
-- [ ] Ler este checklist, o checkpoint principal, a Issue #42 e confirmar ao vivo branch, upstream, status, HEAD e estado draft da PR #44.
-- [ ] Confirmar saldo/franquia comunicado pela Direção. Manter o teto já registrado; saldo percebido não autoriza ampliar requests.
-- [ ] Abrir a raiz privada em modo somente leitura e conferir hashes de request/resposta/receipt da triagem e os três registros de fonte. Não repetir `/models`, os três requests Radar ou a triagem concluída.
-- [ ] Corrigir a reutilização do receipt no owner comum de artefatos/runner. Preservar o receipt válido imutável criado pelo executor; não gerar um segundo recibo divergente.
-- [ ] Validar que `resume` adota a resposta concluída (`attempts=1`) e reconstitui somente artefatos derivados ausentes. Não iniciar `run` nem criar nova raiz/task para contornar o estado.
-- [ ] Rodar o menor teste de regressão que proteja esta recuperação e registrar que é teste de contrato, não prova operacional. Não gastar chamadas SIWC para depurar fixtures.
+- [x] Ler este checklist, o checkpoint principal, a Issue #42 e confirmar ao vivo branch, upstream, status, HEAD e estado draft da PR #44.
+- [x] Confirmar o limite comunicado pela Direção: 3/4 requests já usados e no máximo um request público restante. Isso não representa uma leitura de saldo Plus; não ampliar a autorização.
+- [x] Abrir a raiz privada em modo somente leitura e conferir hashes de request/resposta/receipt da triagem e os três registros de fonte. Não repetir `/models`, os três requests Radar ou a triagem concluída.
+- [x] Corrigir a reutilização do receipt no owner comum de artefatos/runner. Preservar o receipt válido imutável criado pelo executor; não gerar um segundo recibo divergente.
+- [x] Validar em teste focado que `resume` pode adotar a resposta concluída (`attempts=1`) e reconstituir somente artefatos derivados ausentes. A adoção do ledger real continua pendente abaixo.
+- [x] Rodar regressões focadas e registrar que são contratos offline, não prova operacional. Nenhuma chamada SIWC foi usada para depurar fixtures.
 - [ ] Commitar e enviar a correção e o checkpoint à branch/PR #44 antes de retomar o fluxo real.
 
 ### Continuar a redação real
