@@ -196,7 +196,10 @@ def _route_score(question: str, purpose: str, route: Mapping[str, Any]) -> tuple
     anchors = set().union(*(_tokens(str(item)) for item in route.get("intent_terms", ()))) if route.get("intent_terms") else set()
     anchors.update(_tokens(f"{route['question']} {route['purpose']}"))
     overlap = len(query_tokens & anchors)
-    denominator = max(1, min(5, len(query_tokens)))
+    # Keep confidence within [0, 1]. A five-token cap let long queries and
+    # synonym expansion produce scores above one, which could outrank an
+    # exact match on a different route during the one-request budget choice.
+    denominator = max(1, len(query_tokens))
     return overlap, overlap / denominator
 
 
@@ -307,6 +310,7 @@ def mediate_requested_research(
                 "route_id": item_route["route_id"],
                 "reason": "incompatible_trusted_route_within_request_budget",
             })
+    consolidated.sort(key=lambda item: item[0])
     profile = _profile_index()[(route["research_profile_id"], route["research_profile_version"])]
     allowed_scope = tuple(route["allowed_scope"])
     if RADAR_INDEX_SCOPE not in profile.allowed_scopes or set(allowed_scope) - set(profile.allowed_scopes):

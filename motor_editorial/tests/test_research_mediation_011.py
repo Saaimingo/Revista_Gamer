@@ -62,6 +62,7 @@ class ResearchMediation011Tests(unittest.TestCase):
         self.assertEqual(request["preferred_domains"], ["api.github.com"])
         self.assertEqual(request["allowed_scope"], ["read:radar_index", "read:registered_public_sources"])
         self.assertEqual(request["story_revision_id"], "story-rev-001")
+        self.assertLessEqual(result["matched_intent_score"], 1.0)
 
     def test_editorial_punctuation_emoji_and_long_title_do_not_break_route(self) -> None:
         long_context = " (build 1.2 / changelog: ‘versão oficial’ — teste com parênteses 🕹️)" * 20
@@ -144,6 +145,8 @@ class ResearchMediation011Tests(unittest.TestCase):
             [first["question"], first["purpose"], second["question"], second["purpose"]],
         )
         self.assertEqual(result["accepted_route_ids"], ["selected-release-details"])
+        replay = mediate([first, second])
+        self.assertEqual(replay["request"]["request_id"], result["request"]["request_id"])
 
     def test_incompatible_questions_are_ranked_and_preserved_as_pending(self) -> None:
         release_route = policy()["routes"][0]
@@ -174,12 +177,12 @@ class ResearchMediation011Tests(unittest.TestCase):
             policy(routes=[release_route, hardware_route]),
         )
 
-        self.assertEqual(result["status"], "enqueued_public_and_index")
-        self.assertEqual(result["request"]["research_profile_id"], "radar.general.v1")
-        self.assertEqual(len(result["consolidated_suggestion_indices"]), 1)
+        self.assertEqual(result["status"], "enqueued_index_only")
+        self.assertEqual(result["request"]["research_profile_id"], "research.hardware.v1")
+        self.assertEqual(result["consolidated_suggestion_indices"], [2])
         self.assertEqual(len(result["pending_research"]), 1)
-        self.assertEqual(result["pending_research"][0]["question"], hardware_question["question"])
-        self.assertEqual(result["pending_research"][0]["purpose"], hardware_question["purpose"])
+        self.assertEqual(result["pending_research"][0]["question"], release_question["question"])
+        self.assertEqual(result["pending_research"][0]["purpose"], release_question["purpose"])
         self.assertEqual(result["pending_research"][0]["reason"], "incompatible_trusted_route_within_request_budget")
 
     def test_research_profile_follows_topic_even_when_persona_is_nina(self) -> None:
