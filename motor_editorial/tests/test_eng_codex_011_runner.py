@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from motor_editorial.eng_codex_011 import (
     SOURCE_CANDIDATES,
@@ -15,13 +16,101 @@ from motor_editorial.eng_codex_011 import (
     _map_persisted_live_items,
     _normalize_writer_claim_refs_against_section_evidence,
     _read_completed_role_artifact,
+    _advance_reviewer_correction,
     _register_source,
 )
 from motor_editorial.radar_store import RadarStore
 from motor_editorial.radar_triage import EDITORIAL_TRIAGE_LANES, resolve_triage_output
+from motor_editorial.db import stable_hash
+from motor_editorial.usage_meter import StoryVersionArchive
 
 
 class PersistedTriageResumeTests(unittest.TestCase):
+    def test_reviewer_correction_branch_rechecks_and_stops_on_holds(self) -> None:
+        original = {"title": "Title", "dek": "Dek", "sections": [{"heading": "H", "body": "Original"}]}
+        original_text = StoryVersionArchive._render(original)
+        original_hash = stable_hash(original_text)
+        revision = {"title": "Title", "dek": "Dek", "sections": [{"heading": "H", "body": "Revised"}], "requested_research": []}
+
+        def exercise(revised, fact_status="pass", final_verdict="pass"):
+            calls, tasks, events, archived = [], [], [], []
+            revised_hash = stable_hash(StoryVersionArchive._render(revised))
+
+            def new_task(**kwargs):
+                tasks.append(kwargs)
+                return kwargs["stage"], SimpleNamespace(role_id=kwargs["role_id"])
+
+            def dispatch(**kwargs):
+                stage = kwargs["stage"]
+                calls.append(stage)
+                if stage == "journalist_review_correction_agent":
+                    return revised, {"provider": "fake"}, {"ref": "usage", "sha256": "b" * 64}
+                if stage == "fact_checker_review_correction_agent":
+                    return {"draft_hash": revised_hash, "status": fact_status, "findings": []}, {}, None
+                if stage == "editorial_reviewer_final_agent":
+                    return {"draft_hash": revised_hash, "verdict": final_verdict,
+                            "findings": ["Ainda ajustar."] if final_verdict == "revise" else [],
+                            "human_review_required": True}, {}, None
+                raise AssertionError(stage)
+
+            queue = SimpleNamespace(get=lambda task_id: SimpleNamespace(
+                task_id=task_id, state="succeeded", result={"artifact_ref": {"ref": "raw", "sha256": "a" * 64}}))
+            checkpoint = SimpleNamespace(event=lambda *args, **kwargs: events.append((args, kwargs)))
+            archive = SimpleNamespace(write=lambda **kwargs: archived.append(kwargs) or {
+                "manifest_ref": "manifest", "full_text_sha256": revised_hash})
+            review = {"draft_hash": original_hash, "verdict": "revise", "findings": ["Ajustar abertura."],
+                      "human_review_required": True}
+            fact = {"draft_hash": original_hash, "status": "pass", "findings": []}
+            args = dict(
+                reviewer_output=review, reviewer_task="review-1", reviewer_envelope=object(),
+                draft_hash=original_hash, editorial_brief={}, final_dossier={}, writing_constraints={},
+                story_text=original_text, research_completed=False, queue=queue, role_catalog=object(),
+                profiles={}, run_id="run", run_token="token", story_id="story", snapshot_ids=[], root=Path("."),
+                detail_source_id="source", selected={"source": {}, "tag_name": "tag", "evidence_ids": []},
+                persona_id="persona", package={"version": "v1"}, persona_text="DNA", research_packet=None,
+                initial_packet=None, dispatcher=object(), response_store=SimpleNamespace(read_response=lambda *_: b"raw"),
+                usage_store=object(), checkpoint=checkpoint, version_archive=archive,
+                fact_checker_input={"draft": original_text, "draft_hash": original_hash},
+                reviewer_input={"draft": original_text, "draft_hash": original_hash, "fact_check_verdict": fact},
+                current_writer_output=original, current_writer_task=object(), current_writer_envelope=object(),
+                current_writer_meta={}, current_writer_usage=None, current_fact_output=fact,
+                current_fact_task_id="fact-1", leaked_markers=[],
+            )
+            with patch("motor_editorial.eng_codex_011._new_role_task", side_effect=new_task), \
+                 patch("motor_editorial.eng_codex_011._dispatch_role", side_effect=dispatch), \
+                 patch("motor_editorial.eng_codex_011._make_med_policy", return_value={}):
+                try:
+                    result = _advance_reviewer_correction(**args)
+                except RunBlocked as error:
+                    result = str(error)
+            return result, calls, tasks, events, archived
+
+        result, calls, tasks, events, archived = exercise(revision)
+        self.assertEqual(calls, ["journalist_review_correction_agent", "fact_checker_review_correction_agent", "editorial_reviewer_final_agent"])
+        self.assertEqual(tasks[0]["persona_id"], "persona")
+        self.assertEqual(tasks[0]["dependencies"], ("review-1",))
+        self.assertEqual(tasks[1]["dependencies"], ("editorial-review-revision-01",))
+        self.assertEqual(tasks[2]["dependencies"], ("fact-check-review-revision-01",))
+        self.assertEqual(tasks[0]["input_payload"]["writing_constraints"]["prior_draft"], original_text)
+        self.assertEqual(result[11], stable_hash(StoryVersionArchive._render(revision)))
+        self.assertEqual(len(archived), 1)
+        self.assertEqual(events[-1][1]["action"], "await_human_approval")
+
+        unchanged = {**original, "requested_research": []}
+        result, calls, _, _, archived = exercise(unchanged)
+        self.assertEqual(result, "review_correction_did_not_change_draft")
+        self.assertEqual(calls, ["journalist_review_correction_agent"])
+        self.assertEqual(len(archived), 1)
+        result, calls, _, _, _ = exercise({**revision, "requested_research": ["fonte adicional"]})
+        self.assertEqual(result, "review_correction_research_return_not_yet_integrated")
+        self.assertEqual(calls, ["journalist_review_correction_agent"])
+        result, calls, _, _, _ = exercise(revision, fact_status="revise")
+        self.assertEqual(result, "review_correction_fact_check_not_pass")
+        self.assertEqual(len(calls), 2)
+        _, calls, _, events, _ = exercise(revision, final_verdict="revise")
+        self.assertEqual(len(calls), 3)
+        self.assertEqual(events[-1][1]["action"], "hold_correction_limit")
+
     def test_completed_role_artifact_reads_fresh_task_after_dispatch(self) -> None:
         stale_snapshot = SimpleNamespace(state="queued", result=None)
         persisted = SimpleNamespace(state="succeeded", result={"artifact_ref": {"ref": "response.json", "sha256": "a" * 64}})

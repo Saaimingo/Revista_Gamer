@@ -1855,6 +1855,108 @@ def _serve(preview_root: Path, port_file: Path) -> int:
     return 0
 
 
+def _advance_reviewer_correction(
+    *, reviewer_output, reviewer_task, reviewer_envelope, draft_hash, editorial_brief,
+    final_dossier, writing_constraints, story_text, research_completed, queue, role_catalog,
+    profiles, run_id, run_token, story_id, snapshot_ids, root, detail_source_id, selected,
+    persona_id, package, persona_text, research_packet, initial_packet, dispatcher,
+    response_store, usage_store, checkpoint, version_archive, fact_checker_input,
+    reviewer_input, current_writer_output, current_writer_task, current_writer_envelope,
+    current_writer_meta, current_writer_usage, current_fact_output, current_fact_task_id,
+    leaked_markers,
+):
+    """Advance one reviewer-requested correction through the existing role queue."""
+    review_action = review_next_action(reviewer_output, draft_hash, corrections_attempted=0)
+    if review_action == "correct":
+        review_revision_id = "story-revision-review-01"
+        review_revision_input = {
+            "editorial_brief": editorial_brief,
+            "evidence_dossier": final_dossier,
+            "writing_constraints": {
+                **writing_constraints,
+                "revision_request": "Corrija os pontos da revisão editorial usando as fontes disponíveis e preservando a voz da persona. Não invente fatos.",
+                "review_findings": reviewer_output["findings"],
+                "fact_check_findings": current_fact_output.get("findings", []),
+                "prior_draft": story_text,
+                "research_cycle_already_used": research_completed,
+            },
+        }
+        review_revision_task, review_revision_envelope = _new_role_task(
+            queue=queue, catalog=role_catalog, profiles=profiles, run_id=run_id,
+            run_token=run_token, story_id=story_id, role_id="persona_writer", stage="editorial-review-revision-01",
+            input_payload=review_revision_input, source_snapshot_ids=snapshot_ids, root=root,
+            research_policy=_make_med_policy(detail_source_id, selected["source"], str(selected["tag_name"]),
+                                             review_revision_id, selected["evidence_ids"]),
+            persona_id=persona_id, persona_version=package["version"], persona_text=persona_text,
+            research_packet=research_packet or initial_packet,
+            research_cycle_already_used=research_completed, dependencies=(reviewer_task,),
+        )
+        review_revision, review_revision_meta, review_revision_usage = _dispatch_role(
+            dispatcher=dispatcher, queue=queue, task_id=review_revision_task, envelope=review_revision_envelope,
+            root=root, response_store=response_store, usage_store=usage_store,
+            checkpoint=checkpoint, stage="journalist_review_correction_agent",
+        )
+        review_revision_row, review_revision_ref, review_revision_raw = _read_completed_role_artifact(
+            queue, review_revision_task, response_store,
+        )
+        review_revision_archive = version_archive.write(
+            task=review_revision_row, envelope=review_revision_envelope, raw_response=review_revision_raw,
+            structured_story=review_revision, response_ref=review_revision_ref, usage_ref=review_revision_usage,
+        )
+        checkpoint.event("story_review_correction_archive", "succeeded", task_id=review_revision_task,
+                         manifest_ref=review_revision_archive["manifest_ref"],
+                         full_text_sha256=review_revision_archive["full_text_sha256"])
+        if review_revision.get("requested_research"):
+            raise RunBlocked("review_correction_research_return_not_yet_integrated")
+        revised_text = StoryVersionArchive._render(review_revision)
+        revised_hash = stable_hash(revised_text)
+        if revised_hash == draft_hash:
+            raise RunBlocked("review_correction_did_not_change_draft")
+        revised_fact_input = {**fact_checker_input, "draft": revised_text, "draft_hash": revised_hash,
+                              "evidence_dossier": final_dossier}
+        revised_fact_task, revised_fact_envelope = _new_role_task(
+            queue=queue, catalog=role_catalog, profiles=profiles, run_id=run_id,
+            run_token=run_token, story_id=story_id, role_id="fact_checker", stage="fact-check-review-revision-01",
+            input_payload=revised_fact_input, source_snapshot_ids=snapshot_ids, root=root,
+            dependencies=(review_revision_task,),
+        )
+        revised_fact, _, _ = _dispatch_role(
+            dispatcher=dispatcher, queue=queue, task_id=revised_fact_task, envelope=revised_fact_envelope,
+            root=root, response_store=response_store, usage_store=usage_store,
+            checkpoint=checkpoint, stage="fact_checker_review_correction_agent",
+        )
+        if revised_fact.get("status") != "pass":
+            raise RunBlocked("review_correction_fact_check_not_pass")
+        reviewer_input = {**reviewer_input, "draft": revised_text, "draft_hash": revised_hash,
+                          "fact_check_verdict": revised_fact}
+        reviewer_task, reviewer_envelope = _new_role_task(
+            queue=queue, catalog=role_catalog, profiles=profiles, run_id=run_id,
+            run_token=run_token, story_id=story_id, role_id="editorial_reviewer", stage="editorial-review-final-01",
+            input_payload=reviewer_input, source_snapshot_ids=snapshot_ids, root=root,
+            dependencies=(revised_fact_task,),
+        )
+        reviewer_output, _, _ = _dispatch_role(
+            dispatcher=dispatcher, queue=queue, task_id=reviewer_task, envelope=reviewer_envelope,
+            root=root, response_store=response_store, usage_store=usage_store,
+            checkpoint=checkpoint, stage="editorial_reviewer_final_agent",
+        )
+        review_action = review_next_action(reviewer_output, revised_hash, corrections_attempted=1)
+        current_writer_output, current_writer_task, current_writer_envelope = review_revision, review_revision_row, review_revision_envelope
+        current_writer_meta, current_writer_usage = review_revision_meta, review_revision_usage
+        current_fact_output, current_fact_task_id = revised_fact, revised_fact_task
+        story_text, draft_hash = revised_text, revised_hash
+        body_for_checks = "\n".join([str(current_writer_output.get("title", "")), str(current_writer_output.get("dek", ""))]
+                                     + [str(s.get("body", "")) for s in current_writer_output.get("sections", []) if isinstance(s, Mapping)])
+        leaked_markers = [marker for marker in INTERNAL_LEAK_MARKERS if marker.casefold() in body_for_checks.casefold()]
+    checkpoint.event("editorial_review_routing", "succeeded" if review_action == "await_human_approval" else "blocked",
+                     action=review_action, task_id=reviewer_task, draft_sha256=draft_hash)
+    return (
+        reviewer_task, reviewer_envelope, reviewer_output, current_writer_output,
+        current_writer_task, current_writer_envelope, current_writer_meta, current_writer_usage,
+        current_fact_output, current_fact_task_id, story_text, draft_hash, leaked_markers,
+    )
+
+
 def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = False) -> dict[str, Any]:
     root = root.expanduser().resolve()
     root.mkdir(parents=True, exist_ok=True)
@@ -2795,90 +2897,25 @@ def run_live_factory(root: Path = PRIVATE_ROOT, *, resume_existing_run: bool = F
         root=root, response_store=response_store, usage_store=usage_store,
         checkpoint=checkpoint, stage="editorial_reviewer_agent",
     )
-    review_action = review_next_action(reviewer_output, draft_hash, corrections_attempted=0)
-    if review_action == "correct":
-        review_revision_id = "story-revision-review-01"
-        review_revision_input = {
-            "editorial_brief": editorial_brief,
-            "evidence_dossier": final_dossier,
-            "writing_constraints": {
-                **writing_constraints,
-                "revision_request": "Corrija os pontos da revisão editorial usando as fontes disponíveis e preservando a voz da persona. Não invente fatos.",
-                "review_findings": reviewer_output["findings"],
-                "fact_check_findings": current_fact_output.get("findings", []),
-                "prior_draft": story_text,
-                "research_cycle_already_used": research_completed,
-            },
-        }
-        review_revision_task, review_revision_envelope = _new_role_task(
-            queue=queue, catalog=role_catalog, profiles=profiles, run_id=run_id,
-            run_token=run_token, story_id=story_id, role_id="persona_writer", stage="editorial-review-revision-01",
-            input_payload=review_revision_input, source_snapshot_ids=snapshot_ids, root=root,
-            research_policy=_make_med_policy(detail_source_id, selected["source"], str(selected["tag_name"]),
-                                             review_revision_id, selected["evidence_ids"]),
-            persona_id=persona_id, persona_version=package["version"], persona_text=persona_text,
-            research_packet=research_packet or initial_packet,
-            research_cycle_already_used=research_completed, dependencies=(reviewer_task,),
-        )
-        review_revision, review_revision_meta, review_revision_usage = _dispatch_role(
-            dispatcher=dispatcher, queue=queue, task_id=review_revision_task, envelope=review_revision_envelope,
-            root=root, response_store=response_store, usage_store=usage_store,
-            checkpoint=checkpoint, stage="journalist_review_correction_agent",
-        )
-        review_revision_row, review_revision_ref, review_revision_raw = _read_completed_role_artifact(
-            queue, review_revision_task, response_store,
-        )
-        review_revision_archive = version_archive.write(
-            task=review_revision_row, envelope=review_revision_envelope, raw_response=review_revision_raw,
-            structured_story=review_revision, response_ref=review_revision_ref, usage_ref=review_revision_usage,
-        )
-        checkpoint.event("story_review_correction_archive", "succeeded", task_id=review_revision_task,
-                         manifest_ref=review_revision_archive["manifest_ref"],
-                         full_text_sha256=review_revision_archive["full_text_sha256"])
-        if review_revision.get("requested_research"):
-            raise RunBlocked("review_correction_research_return_not_yet_integrated")
-        revised_text = StoryVersionArchive._render(review_revision)
-        revised_hash = stable_hash(revised_text)
-        if revised_hash == draft_hash:
-            raise RunBlocked("review_correction_did_not_change_draft")
-        revised_fact_input = {**fact_checker_input, "draft": revised_text, "draft_hash": revised_hash,
-                              "evidence_dossier": final_dossier}
-        revised_fact_task, revised_fact_envelope = _new_role_task(
-            queue=queue, catalog=role_catalog, profiles=profiles, run_id=run_id,
-            run_token=run_token, story_id=story_id, role_id="fact_checker", stage="fact-check-review-revision-01",
-            input_payload=revised_fact_input, source_snapshot_ids=snapshot_ids, root=root,
-            dependencies=(review_revision_task,),
-        )
-        revised_fact, _, _ = _dispatch_role(
-            dispatcher=dispatcher, queue=queue, task_id=revised_fact_task, envelope=revised_fact_envelope,
-            root=root, response_store=response_store, usage_store=usage_store,
-            checkpoint=checkpoint, stage="fact_checker_review_correction_agent",
-        )
-        if revised_fact.get("status") != "pass":
-            raise RunBlocked("review_correction_fact_check_not_pass")
-        reviewer_input = {**reviewer_input, "draft": revised_text, "draft_hash": revised_hash,
-                          "fact_check_verdict": revised_fact}
-        reviewer_task, reviewer_envelope = _new_role_task(
-            queue=queue, catalog=role_catalog, profiles=profiles, run_id=run_id,
-            run_token=run_token, story_id=story_id, role_id="editorial_reviewer", stage="editorial-review-final-01",
-            input_payload=reviewer_input, source_snapshot_ids=snapshot_ids, root=root,
-            dependencies=(revised_fact_task,),
-        )
-        reviewer_output, _, _ = _dispatch_role(
-            dispatcher=dispatcher, queue=queue, task_id=reviewer_task, envelope=reviewer_envelope,
-            root=root, response_store=response_store, usage_store=usage_store,
-            checkpoint=checkpoint, stage="editorial_reviewer_final_agent",
-        )
-        review_action = review_next_action(reviewer_output, revised_hash, corrections_attempted=1)
-        current_writer_output, current_writer_task, current_writer_envelope = review_revision, review_revision_row, review_revision_envelope
-        current_writer_meta, current_writer_usage = review_revision_meta, review_revision_usage
-        current_fact_output, current_fact_task_id = revised_fact, revised_fact_task
-        story_text, draft_hash = revised_text, revised_hash
-        body_for_checks = "\n".join([str(current_writer_output.get("title", "")), str(current_writer_output.get("dek", ""))]
-                                     + [str(s.get("body", "")) for s in current_writer_output.get("sections", []) if isinstance(s, Mapping)])
-        leaked_markers = [marker for marker in INTERNAL_LEAK_MARKERS if marker.casefold() in body_for_checks.casefold()]
-    checkpoint.event("editorial_review_routing", "succeeded" if review_action == "await_human_approval" else "blocked",
-                     action=review_action, task_id=reviewer_task, draft_sha256=draft_hash)
+    (
+        reviewer_task, reviewer_envelope, reviewer_output, current_writer_output,
+        current_writer_task, current_writer_envelope, current_writer_meta, current_writer_usage,
+        current_fact_output, current_fact_task_id, story_text, draft_hash, leaked_markers,
+    ) = _advance_reviewer_correction(
+        reviewer_output=reviewer_output, reviewer_task=reviewer_task, reviewer_envelope=reviewer_envelope,
+        draft_hash=draft_hash, editorial_brief=editorial_brief, final_dossier=final_dossier,
+        writing_constraints=writing_constraints, story_text=story_text, research_completed=research_completed,
+        queue=queue, role_catalog=role_catalog, profiles=profiles, run_id=run_id, run_token=run_token,
+        story_id=story_id, snapshot_ids=snapshot_ids, root=root, detail_source_id=detail_source_id,
+        selected=selected, persona_id=persona_id, package=package, persona_text=persona_text,
+        research_packet=research_packet, initial_packet=initial_packet, dispatcher=dispatcher,
+        response_store=response_store, usage_store=usage_store, checkpoint=checkpoint, version_archive=version_archive,
+        fact_checker_input=fact_checker_input, reviewer_input=reviewer_input,
+        current_writer_output=current_writer_output, current_writer_task=current_writer_task,
+        current_writer_envelope=current_writer_envelope, current_writer_meta=current_writer_meta,
+        current_writer_usage=current_writer_usage, current_fact_output=current_fact_output,
+        current_fact_task_id=current_fact_task_id, leaked_markers=leaked_markers,
+    )
     reviewer_task_row, reviewer_ref, reviewer_raw = _read_completed_role_artifact(queue, reviewer_task, response_store)
     human_editorial_approval = "pending"
     final_integrity_ok = (
