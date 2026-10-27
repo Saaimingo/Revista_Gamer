@@ -1272,6 +1272,11 @@ def _map_persisted_live_items(
         source_id = str(document.get("source_id"))
         source = source_by_id.get(source_id)
         origin_url = document.get("origin_url")
+        if not isinstance(origin_url, str) or not origin_url.strip():
+            # GitHub release snapshots persist their canonical page URL while
+            # origin_url can be absent; the strict route checks below still
+            # reject API endpoints, other hosts, and non-release paths.
+            origin_url = document.get("canonical_url")
         if source is None or not isinstance(origin_url, str):
             continue
         parsed = urlsplit(origin_url)

@@ -634,13 +634,13 @@ class PersistedTriageResumeTests(unittest.TestCase):
         with self.assertRaisesRegex(RunBlocked, "beyond_known_section_evidence"):
             _normalize_writer_claim_refs_against_section_evidence(output, prompt_input)
 
-    def test_persisted_document_rebuilds_release_tag_and_source_fields(self) -> None:
+    def test_persisted_document_uses_canonical_release_url_when_origin_missing(self) -> None:
         document_id = "a" * 32
         document = {
             "document_id": document_id,
             "source_id": "github-api-proton-releases",
-            "origin_url": "https://github.com/ValveSoftware/Proton/releases/tag/proton-11.0-2e",
-            "canonical_url": "https://api.github.com/repos/ValveSoftware/Proton/releases/408184123",
+            "origin_url": None,
+            "canonical_url": "https://github.com/ValveSoftware/Proton/releases/tag/proton-11.0-2e",
             "publisher": "Valve Proton public releases",
             "byline": "ivyl",
             "published_at": "2026-10-09T17:49:01+00:00",
@@ -676,6 +676,33 @@ class PersistedTriageResumeTests(unittest.TestCase):
         self.assertEqual(candidate["title"], "Proton 11.0-2e")
         self.assertEqual(candidate["body_excerpt"], "A short official release excerpt.")
         self.assertEqual(candidate["author"], "ivyl")
+
+    def test_persisted_document_does_not_treat_api_endpoint_as_release_origin(self) -> None:
+        document_id = "b" * 32
+        document = {
+            "document_id": document_id,
+            "source_id": "github-api-proton-releases",
+            "origin_url": None,
+            "canonical_url": "https://api.github.com/repos/ValveSoftware/Proton/releases/408184123",
+            "publisher": "Valve Proton public releases",
+        }
+
+        class FakeRadarStore:
+            def get_row(self, table: str, key_column: str, key_value: str):
+                if table == "radar_documents" and key_column == "document_id" and key_value == document_id:
+                    return document
+                return None
+
+        source = SOURCE_CANDIDATES[1]
+        item = {
+            "item_id": "discovery-release-api-only",
+            "evidence_refs": [f"radar://document/{document_id}"],
+        }
+
+        self.assertEqual(
+            _map_persisted_live_items([item], {source["source_id"]: source}, FakeRadarStore()),
+            {},
+        )
 
     def test_radar_source_registration_is_idempotent_but_rejects_route_conflicts(self) -> None:
         source = SOURCE_CANDIDATES[1]
