@@ -6,6 +6,10 @@
 **Branch:** `codex/eng-codex-012-architecture-contracts`  
 **Commit remoto confirmado antes da execução:** `792e78b` (`feat: prepare bounded ENG-CODEX-012 live pilot`)
 
+## ATENÇÃO — Nova ordem prioritária da Direção (27/10/2026)
+
+**ANTES DE RETOMAR, ler integralmente** [ENG-CODEX-012-ORDEM-DIRECAO-AUDITORIA-PRS-ESTRATEGIA-RADAR-2026-10-27.md](ENG-CODEX-012-ORDEM-DIRECAO-AUDITORIA-PRS-ESTRATEGIA-RADAR-2026-10-27.md) e a [auditoria da Issue #42](https://github.com/Saaimingo/Revista_Gamer/issues/42#issuecomment-6432841694). A Direção quer auditoria de PRs/contratos históricos e decisão baseada em evidências sobre **Radar/bots vs pesquisa web direta pelos agentes vs híbrido**, além da recuperação do run real sem repetir chamadas. A ordem acrescenta análise estratégica **sem alterar o teto público já autorizado**. A branch remota recebeu commits documentais durante a pausa: proteger o patch local de `eng_codex_011.py` e não fazer reset/rebase sobre árvore suja.
+
 ## Ordem explícita da Direção
 
 > Retomar e resolver os problemas da linha editorial com agentes reais e pesquisas reais. Não encerrar com validação apenas offline: os bloqueios aparecem quando a fábrica encontra respostas e estados do mundo real. Preservar o trabalho real que já foi concluído; não repetir chamadas ou buscas válidas. Continuar autonomamente dentro das autorizações, registrar consumo por agente e manter revisão humana, sem publicação, merge ou deploy.
