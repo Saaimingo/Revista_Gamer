@@ -6,7 +6,7 @@
 
 > ## LEIA ISTO PRIMEIRO, FUNDADOR 3#
 >
-> Este documento NÃO dá continuidade à antiga estratégia de consertar indefinidamente a ENG-CODEX-012. A Direção percebeu que a fábrica atual é complexa demais e trava por contratos e handoffs técnicos, embora os agentes façam trabalho real. Está redesenhando **a fábrica editorial de forma simples, bloco por bloco, antes de mandar o Codex implementá-la**. Preservar DNAs e peças úteis de código, mas não obrigar a nova arquitetura a herdar toda a cadeia antiga. O último assunto debatido foi **como montar matérias reais nos cinco modelos visuais do leitor já experimentado e aprovado para mobile**, mantendo liberdade de mesclar composições; **o Bloco funcional 05 não está fechado**. Continue exatamente daí. Não recomece perguntando ao diretor o que já foi aprovado.
+> Este documento NÃO dá continuidade à antiga estratégia de consertar indefinidamente a ENG-CODEX-012. A Direção percebeu que a fábrica atual é complexa demais e trava por contratos e handoffs técnicos, embora os agentes façam trabalho real. Está redesenhando **a fábrica editorial de forma simples, bloco por bloco, antes de mandar o Codex implementá-la**. Preservar DNAs e peças úteis de código, mas não obrigar a nova arquitetura a herdar toda a cadeia antiga. O último assunto debatido foi **como aproveitar a mecânica mobile de leitura aprovada e os cinco modelos visuais de composição ainda em discussão para montar matérias reais**, mantendo liberdade de mesclar composições; **o Bloco funcional 05 não está fechado**. Continue exatamente daí. Não recomece perguntando ao diretor o que já foi aprovado.
 >
 > O diretor exige que **cada bloco seja homologado com operação real**, após testes auxiliares locais. Suíte verde de mocks/fixtures **não é prova de operação real**. Não acionar Codex, SIWC, pesquisas pagas, merge, publicação, redes sociais ou contratação com base somente neste handoff.
 
@@ -14,12 +14,12 @@
 
 - Repositório: https://github.com/Saaimingo/Revista_Gamer
 - Backup histórico **Fundador 1 → Fundador 2** (necessário para visão integral): [BACKUP-CONTINUIDADE-FUNDADOR-2026-10-23.md](BACKUP-CONTINUIDADE-FUNDADOR-2026-10-23.md).
-- Conceito inicial e história: [BÍBLIA](BIBLIA-DO-PROJETO.md), [DECISÕES](DECISOES.md), [STATUS-GERAL](STATUS-GERAL.md), [REGISTRO-BLOCOS](REGISTRO-BLOCOS.md), [MAPA-SETORES](MAPA-SETORES.md) e \`AGENTS.md\`. **Estes documentos contêm descrições antigas de 15–19/10**; consultar como histórico, não como fotografia operacional do dia 27.
-- Engenharia, pré-retomada: [Issue #42, auditoria independente do Fundador 2](https://github.com/Saaimingo/Revista_Gamer/issues/42#issuecomment-6432841694), [ordem escrita à ENG-012](../engenharia/ENG-CODEX-012-ORDEM-DIRECAO-AUDITORIA-PRS-ESTRATEGIA-RADAR-2026-10-27.md) **na branch da PR #44**, [PR #44](https://github.com/Saaimingo/Revista_Gamer/pull/44), [PR #43](https://github.com/Saaimingo/Revista_Gamer/pull/43), e checkpoint da ENG-012 **na branch #44**, não necessariamente na main.
+- Conceito inicial e história: [BÍBLIA](BIBLIA-DO-PROJETO.md), [DECISÕES](DECISOES.md), [STATUS-GERAL](STATUS-GERAL.md), [REGISTRO-BLOCOS](REGISTRO-BLOCOS.md), [MAPA-SETORES](MAPA-SETORES.md) e `AGENTS.md`. **Estes documentos contêm descrições antigas de 15–19/10**; consultar como histórico, não como fotografia operacional do dia 27.
+- Engenharia, pré-retomada: [Issue #42, auditoria independente do Fundador 2](https://github.com/Saaimingo/Revista_Gamer/issues/42#issuecomment-6432841694), [ordem escrita à ENG-012](https://github.com/Saaimingo/Revista_Gamer/blob/codex/eng-codex-012-architecture-contracts/docs/engenharia/ENG-CODEX-012-ORDEM-DIRECAO-AUDITORIA-PRS-ESTRATEGIA-RADAR-2026-10-27.md) **na branch da PR #44**, [PR #44](https://github.com/Saaimingo/Revista_Gamer/pull/44), [PR #43](https://github.com/Saaimingo/Revista_Gamer/pull/43), e checkpoint da ENG-012 **na branch #44**, não necessariamente na main.
 - Visual: [docs/visual/README.md](../visual/README.md) no GitHub; [PR #46](https://github.com/Saaimingo/Revista_Gamer/pull/46), documentação de avaliar bibliotecas de flipbook (não é a última aprovação visual); [PR #16](https://github.com/Saaimingo/Revista_Gamer/pull/16), mocks de referência.
 - Hierarquia de decisão: a deliberação explícita **mais recente da Direção** > decisão específica aprovada e rastreada > evidência técnica real/versionada > hipóteses e documentos históricos. Não confundir parecer do assistente com decisão do diretor.
 
-**Aviso central de nomenclatura:** o repositório ainda se chama \`Revista_Gamer\`, mas a marca adotada nas conversas atuais é **Revista Back**. Há também dois usos distintos de “bloco”:
+**Aviso central de nomenclatura:** o repositório ainda se chama `Revista_Gamer`, mas a marca adotada nas conversas atuais é **Revista Back**. Há também dois usos distintos de “bloco”:
 1. **Blocos do Project/Chats (departamentos de concepção):** Fundador, 02 Personagens, 03 Identidade Visual, 04 Redação, 05 Acervo/Direitos, 06 Comercial.
 2. **Blocos da NOVA ESTEIRA FUNCIONAL (etapas da fábrica):** 01 Captador, 02 Classificador/Roteador, 03 Jornalistas, 04 Revisor, 05 Montagem (ainda em discussão). Não confundir **Bloco 03 da concepção visual** com **Bloco 03 funcional de jornalistas**. Estes não exigem um novo chat/LLM por etapa.
 
@@ -41,7 +41,7 @@ A revista acompanha **rumores e vazamentos tanto quanto fatos oficiais**, sem de
 
 ## 3. Por que a Direção mandou REDESENHAR a fábrica
 
-O Fundador 2 fez auditoria das PRs e do código, constatando integração excessiva, contratos/recibos redundantes e documentos antigos, enquanto o Codex gastava trabalho em retomar a ENG-012. Problemas concretos: recibo SIWC escrito duas vezes; checkpoint em \`call_started\` apesar de resposta concluída; artefato estruturado derivado ausente; conflito entre \`api.github.com\` e \`github.com\`; validação de contratos na transição após fact-check. Vários foram corrigidos, mas **outros bloqueios apareceram em sequência**. A redação não pode ser subordinada a uma cadeia de validações técnicas que interrompe o trabalho por diferenças recuperáveis.
+O Fundador 2 fez auditoria das PRs e do código, constatando integração excessiva, contratos/recibos redundantes e documentos antigos, enquanto o Codex gastava trabalho em retomar a ENG-012. Problemas concretos: recibo SIWC escrito duas vezes; checkpoint em `call_started` apesar de resposta concluída; artefato estruturado derivado ausente; conflito entre `api.github.com` e `github.com`; validação de contratos na transição após fact-check. Vários foram corrigidos, mas **outros bloqueios apareceram em sequência**. A redação não pode ser subordinada a uma cadeia de validações técnicas que interrompe o trabalho por diferenças recuperáveis.
 
 Frases-chave da Direção:
 - **“Primeiro o fluxo tem que funcionar. Depois a gente vai compondo mais regras.”**
@@ -56,7 +56,7 @@ Princípio acordado: o fluxo editorial é mínimo e inteligível. Controles téc
 
 ## 4. Diagrama funcional aprovado como BASE PROVISÓRIA, não software pronto
 
-\`\`\`mermaid
+```mermaid
 flowchart TD
     F["Fontes: sites, fóruns, fabricantes, comunidades, canais"]
     B1["01 · CAPTADOR DE NOTÍCIAS\nBusca e entrega links + origem"]
@@ -75,7 +75,7 @@ flowchart TD
     B4 -->|"Questão essencial"| B3
     B4 -->|"Liberada"| B5
     B5 --> DIR
-\`\`\`
+```
 
 Os números aqui se referem à **esteira de produção**, não aos departamentos de chat. Esquema deve ser refinado e apresentado à Direção, com especificação explícita de entrada, transformação, saída e retorno por bloco. **Não deixar o Codex inferir novos setores.**
 
@@ -144,15 +144,15 @@ A conversa parou **exatamente** no relato da Direção sobre o que o Bloco 03 (V
 **Os CINCO MODELOS EDITORIAIS:** o diretor pediu que o setor visual estudasse revistas reais e criasse **cinco opções de composição para matérias**. Cada reportagem pode usar modelo 1, 2, 3, 4, 5, ou **MESCLAR OS MODELOS** de acordo com suas necessidades. Não são cinco revistas, cinco motores separados, nem cinco personagens. Não fixar um formato por categoria antes de examinar os protótipos. O conteúdo real e seu ritmo devem orientar a composição dentro de uma identidade visual consistente. **A direção ainda não fechou a política técnica de seleção/mistura, critérios de overflow, páginas e imagens.**
 
 **Materiais concretos:**
-- **GitHub** \`docs/visual/prototipos/estrutura-vazia-v03-consolidada/\`: HTML v0.3 (modos Folhear/Contínua), relatórios de testes automatizados responsivos, LABORATÓRIO, não leitor definitivo.
-- **PR #46**: comparação de leitor v0.3 versus StPageFlip (candidata) e alternativas; HEAD de 27/10 \`ae1005a70fcf993a5585325f22393501cee32d9c\`. Esta PR traz **diretriz de avaliação**, não prova que a versão mobile final aprovada foi incorporada ao GitHub.
+- **GitHub** `docs/visual/prototipos/estrutura-vazia-v03-consolidada/`: HTML v0.3 (modos Folhear/Contínua), relatórios de testes automatizados responsivos, LABORATÓRIO, não leitor definitivo.
+- **PR #46**: comparação de leitor v0.3 versus StPageFlip (candidata) e alternativas; HEAD de 27/10 `ae1005a70fcf993a5585325f22393501cee32d9c`. Esta PR traz **diretriz de avaliação**, não prova que a versão mobile final aprovada foi incorporada ao GitHub.
 - **Biblioteca do ChatGPT / pasta "Revista Gamer"**, arquivos verificados em listagem na conversa do Fundador 2:
-  - \`Revista_BACK_Bloco03_Comparativo_Leitor_2026-10-26.zip\`
-  - \`BACK-LEITOR-UNICO.html\`
-  - \`Revista_BACK_B03_Mobile_Imersivo_2026-10-27.zip\`
-  - \`BACK-MOBILE-IMERSIVO.html\` e \`BACK-MOBILE-IMERSIVO(1).html\`
-  - \`Revista_BACK_Bloco03_Cinco_Modelos_Editorais.zip\`
-  - \`BACK-CINCO-MODELOS-ABRIR-NO-CELULAR.html\`
+  - `Revista_BACK_Bloco03_Comparativo_Leitor_2026-10-26.zip`
+  - `BACK-LEITOR-UNICO.html`
+  - `Revista_BACK_B03_Mobile_Imersivo_2026-10-27.zip`
+  - `BACK-MOBILE-IMERSIVO.html` e `BACK-MOBILE-IMERSIVO(1).html`
+  - `Revista_BACK_Bloco03_Cinco_Modelos_Editorais.zip`
+  - `BACK-CINCO-MODELOS-ABRIR-NO-CELULAR.html`
 - Os HTML examinados na conversa mostram código que oferece **v0.3 adaptado e StPageFlip 2.0.7** (a biblioteca pode depender de carregar recurso de rede) e menu mobile. Os ZIPs foram **localizados por metadados, mas NÃO tiveram seus bytes extraídos pela ferramenta de Files**; não afirmar inspeção completa de ZIP, nem que os arquivos estão versionados na PR #46.
 
 **PR #16** guarda mocks 03/04 como referência contextual, não peças publicáveis. **Aprovação mobile do diretor ocorreu em conversa/protótipo, e pode ainda não estar registrada no GitHub**. O Fundador 3# deve documentar formalmente esta decisão no setor visual **após conferir com a Direção o material exato a que ela se aplica**, sem presumir que qualquer arquivo semelhante seja o aprovado.
@@ -173,16 +173,16 @@ O diretor NÃO aceita outro caso de “198/198 testes verdes, mas primeira execu
 
 ## 6. Situação do CODEX e engenharia antiga: CONGELADA, NÃO DESCARTADA
 
-Às 27/10/2026, consulta ao GitHub confirmou [PR #44](https://github.com/Saaimingo/Revista_Gamer/pull/44) **OPEN/draft**, branch \`codex/eng-codex-012-architecture-contracts\`, HEAD \`4130ac45d959a76ee8d595602f6841b8c5c94bd8\`. [PR #43](https://github.com/Saaimingo/Revista_Gamer/pull/43) é branch **documental paralela e draft**; não presumir contratos no checkout #44. A auditoria independente encontrou **27 PRs**, das quais **23 abertas e 4 integradas** (na hora da auditoria de 27/10): integradas #3, #4, #6, #45; série histórica engenharia #8/#10/#18/#24/#25/#26/#30/#34/#38/#40/#44, #38 **divergente**, #43 também **paralela**; outros setores #13/#14/#16/#19/#21/#27/#31/#46. Não mesclar PRs no atacado e não tomar documentação desatualizada como regra vigente.
+Às 27/10/2026, consulta ao GitHub confirmou [PR #44](https://github.com/Saaimingo/Revista_Gamer/pull/44) **OPEN/draft**, branch `codex/eng-codex-012-architecture-contracts`, HEAD `4130ac45d959a76ee8d595602f6841b8c5c94bd8`. [PR #43](https://github.com/Saaimingo/Revista_Gamer/pull/43) é branch **documental paralela e draft**; não presumir contratos no checkout #44. A auditoria independente encontrou **27 PRs**, das quais **23 abertas e 4 integradas** (na hora da auditoria de 27/10): integradas #3, #4, #6, #45; série histórica engenharia #8/#10/#18/#24/#25/#26/#30/#34/#38/#40/#44, #38 **divergente**, #43 também **paralela**; outros setores #13/#14/#16/#19/#21/#27/#31/#46. Não mesclar PRs no atacado e não tomar documentação desatualizada como regra vigente.
 
 **Estado real ao pausar por ordem da Direção** (conforme checkpoint da própria branch #44):
-- Run preservado: \`eng-codex-012-20261027T025920Z-e207b61f01c5\`.
+- Run preservado: `eng-codex-012-20261027T025920Z-e207b61f01c5`.
 - Cinco papéis já completaram inferência real: triagem, investigador, editor de pauta, jornalista original e fact-checker original; consumiram **85.263 tokens SIWC** (10.775 + 28.461 + 13.119 + 26.600 + 6.308). Ainda não houve reportagem pronta nem prévia de navegador desse piloto.
-- Fact-check original pediu correção; run bloqueou por \`ContractValidationError\` **após o fact-check e antes de criar tarefa de correção**.
+- Fact-check original pediu correção; run bloqueou por `ContractValidationError` **após o fact-check e antes de criar tarefa de correção**.
 - **Orçamento público do piloto esgotado: 4/4**, NÃO uma consulta restante (algum texto antigo da matriz ainda dizia 1); proibido repetir fetch ou consultas no mesmo piloto sem nova autorização.
-- Correções registradas no commit \`33250113a43994129e787d66b58e01a331698ccf\`; checkpoint de pausa commit \`4130ac4\`. **70 testes offline** reportados, não prova de run real reparado. PR #44 permanece draft, sem merge/deploy/publicação.
-- O Codex declarou árvore local limpa e sincronizada no instante do checkpoint. Checkpoint oficial: \`docs/engenharia/ENG-CODEX-012-CHECKPOINT.md\` **na branch #44**.
-- Como há novas decisões da Direção de **redesenho completo do fluxo**, não mandar o Codex executar \`resume\` do piloto nem iniciar nova implementação por inferência. O trabalho e os recibos antigos permanecem salvos e podem ser analisados/reutilizados após decisão explícita da Direção. Não apagar a branch nem as raízes privadas.
+- Correções registradas no commit `33250113a43994129e787d66b58e01a331698ccf`; checkpoint de pausa commit `4130ac4`. **70 testes offline** reportados, não prova de run real reparado. PR #44 permanece draft, sem merge/deploy/publicação.
+- O Codex declarou árvore local limpa e sincronizada no instante do checkpoint. Checkpoint oficial: `docs/engenharia/ENG-CODEX-012-CHECKPOINT.md` **na branch #44**.
+- Como há novas decisões da Direção de **redesenho completo do fluxo**, não mandar o Codex executar `resume` do piloto nem iniciar nova implementação por inferência. O trabalho e os recibos antigos permanecem salvos e podem ser analisados/reutilizados após decisão explícita da Direção. Não apagar a branch nem as raízes privadas.
 
 **Aprendizado:** não gastar 85 mil tokens e o mês inteiro adicionando contratos à esteira sem produzir uma reportagem. Custos são medidos por resultado útil, chamadas, horas de manutenção, não somente por tokens. Corrigir bugs de forma segura, mas se a arquitetura travar sistematicamente, redesenhar simplificando as responsabilidades antes de insistir nos remendos.
 
@@ -218,11 +218,11 @@ O diretor NÃO aceita outro caso de “198/198 testes verdes, mas primeira execu
 4. **Desenhar um esquema visual integral e uma especificação escrita simples** para o Codex APÓS validação do diretor; o desenho manda no código. Sem codar antecipadamente ou exigir adaptação forçada ao runner antigo.
 5. **Preservar o acervo e o que já funciona:** DNAs, persona assets aprovados, leitor visual móvel aprovado, conteúdos/HTML da Biblioteca, serviços úteis de persistência e fonte; reaproveitamento seletivo com testes de compatibilidade, não merge indiscriminado.
 6. **Antes de qualquer ordem Codex**, confrontar PRs abertas, estados no GitHub e cópias locais de protótipos; separar artefatos genuínos de mocks. Buscar opção técnica simples por bloco. Homologar Bloco 01 REAL, depois Bloco 02 REAL etc. conforme ordem aprovada.
-7. **Fazer checkpoint de continuidade periodicamente** no mesmo \`docs/governanca/\` enquanto a conversa cresce. O diretor está preocupado com perder os blocos de chat; deve existir documento sucinto atualizável e backup formal em cada troca de Fundador. Nunca esperar a conversa acabar para registrar decisões importantes.
+7. **Fazer checkpoint de continuidade periodicamente** no mesmo `docs/governanca/` enquanto a conversa cresce. O diretor está preocupado com perder os blocos de chat; deve existir documento sucinto atualizável e backup formal em cada troca de Fundador. Nunca esperar a conversa acabar para registrar decisões importantes.
 
 ## 9. Mensagem de abertura pronta para o chat Fundador 3#
 
-> **FUNDADOR 3# — REVISTA BACK.** Você sucede o Fundador 2. Consulte integralmente \`docs/governanca/BACKUP-CONTINUIDADE-FUNDADOR-2-PARA-FUNDADOR-3-2026-10-27.md\` e o backup histórico de 23/10. A Direção está REDESENHANDO a fábrica editorial em cinco blocos funcionais simples, não autorizando remendos automáticos na ENG-012. Captador só busca notícias; classificador organiza e roteia sem fact-check profundo; jornalistas Carranca/Beto/Nina apuram rumores e fatos, pesquisam DIRETAMENTE na web quando necessário, criam texto original; um revisor corrige detalhes sozinho e devolve só problemas essenciais; montagem ainda em discussão. DNAs aprovados intocáveis, testes REAIS obrigatórios por etapa. Leitor mobile de tela cheia/menu hambúrguer com modo Folhear/Contínua foi aprovado pela Direção em protótipo local; há cinco modelos editoriais combináveis por matéria na Biblioteca do ChatGPT, ainda sob definição operacional. PR #44 está pausada, 4/4 consultas públicas esgotadas e 85.263 tokens arquivados. **Não execute Codex, não altere GitHub, não lance APIs nem publique sem solicitação. Retome a conversa pelo BLOCO 05 — MONTAGEM, uma questão por vez.**
+> **FUNDADOR 3# — REVISTA BACK.** Você sucede o Fundador 2. Consulte integralmente `docs/governanca/BACKUP-CONTINUIDADE-FUNDADOR-2-PARA-FUNDADOR-3-2026-10-27.md` e o backup histórico de 23/10. A Direção está REDESENHANDO a fábrica editorial em cinco blocos funcionais simples, não autorizando remendos automáticos na ENG-012. Captador só busca notícias; classificador organiza e roteia sem fact-check profundo; jornalistas Carranca/Beto/Nina apuram rumores e fatos, pesquisam DIRETAMENTE na web quando necessário, criam texto original; um revisor corrige detalhes sozinho e devolve só problemas essenciais; montagem ainda em discussão. DNAs aprovados intocáveis, testes REAIS obrigatórios por etapa. Leitor mobile de tela cheia/menu hambúrguer com modo Folhear/Contínua foi aprovado pela Direção em protótipo local; há cinco modelos editoriais combináveis por matéria na Biblioteca do ChatGPT, ainda sob definição operacional. PR #44 está pausada, 4/4 consultas públicas esgotadas e 85.263 tokens arquivados. **Não execute Codex, não altere GitHub, não lance APIs nem publique sem solicitação. Retome a conversa pelo BLOCO 05 — MONTAGEM, uma questão por vez.**
 
 ---
 **Ponto de parada literal:** a Direção explicou que os cinco HTML/modelos mais recentes vieram de estudo de revistas existentes feito pelo setor visual e que **cada reportagem pode escolher ou mesclar 1–5 formatos**, enquanto **a mecânica móvel com hambúrguer e tela maximizada foi aprovada**. O Fundador 2 foi encarregado de conferir GitHub e Biblioteca. Handoff preparado para que o Fundador 3 retome **nesse exato ponto**, sem rediscutir os blocos 01–04 já acertados.
