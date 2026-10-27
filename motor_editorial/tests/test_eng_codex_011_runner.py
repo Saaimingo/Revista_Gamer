@@ -16,6 +16,7 @@ from motor_editorial.eng_codex_011 import (
     RunBlocked,
     _canonicalize_investigator_claim_ids,
     _make_radar_profile,
+    _build_initial_packet,
     _map_persisted_live_items,
     _normalize_writer_claim_refs_against_section_evidence,
     _read_completed_role_artifact,
@@ -703,6 +704,41 @@ class PersistedTriageResumeTests(unittest.TestCase):
             _map_persisted_live_items([item], {source["source_id"]: source}, FakeRadarStore()),
             {},
         )
+
+    def test_initial_packet_accepts_empty_republication_relation_list(self) -> None:
+        document_id = "c" * 32
+        source_id = "github-api-proton-releases"
+        document = {
+            "document_id": document_id, "source_id": source_id,
+            "canonical_url": "https://github.com/ValveSoftware/Proton/releases/tag/proton-11.0-2e",
+            "content_sha256": "d" * 64, "title": "Proton 11.0-2e",
+            "publisher": "Valve Proton public releases", "byline": "ivyl",
+            "published_at": "2026-10-09T17:49:01+00:00", "fetched_at": "2026-10-27T02:59:21+00:00",
+        }
+
+        class FakeRadarStore:
+            def get_row(self, table: str, key_column: str, key_value: str):
+                if table == "radar_documents" and key_column == "document_id" and key_value == document_id:
+                    return document
+                if table == "radar_sources" and key_column == "source_id" and key_value == source_id:
+                    return {"source_type": "public_api", "rights_status": "unknown"}
+                return None
+
+        candidate = {
+            "source_id": source_id, "document_ids": [document_id], "body_excerpt": None,
+            "diff": json.dumps({"source_lineage": [{
+                "document_id": document_id, "republication_relations": [],
+            }], "claim_lineage": []}),
+        }
+
+        packet, evidence_rows = _build_initial_packet(
+            request_id="initial-radar-fixture", radar_store=FakeRadarStore(),
+            eligible_candidates=[candidate],
+        )
+
+        self.assertEqual(packet.status, "partial")
+        self.assertEqual(len(evidence_rows), 1)
+        self.assertIsNone(evidence_rows[0]["republication_relation"])
 
     def test_radar_source_registration_is_idempotent_but_rejects_route_conflicts(self) -> None:
         source = SOURCE_CANDIDATES[1]

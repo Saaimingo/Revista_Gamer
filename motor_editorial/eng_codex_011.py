@@ -759,6 +759,7 @@ def _build_initial_packet(
             claim_lineage = discovery_detail.get("claim_lineage", []) if isinstance(discovery_detail, Mapping) else []
             source_link = next((item for item in source_lineage if isinstance(item, Mapping)
                                 and item.get("document_id") == raw_id), {}) if isinstance(source_lineage, list) else {}
+            republication_relations = source_link.get("republication_relations", [])
             first_origin = next((item.get("source_id") for item in claim_lineage if isinstance(item, Mapping)
                                  and item.get("relation_type") == "origin" and item.get("source_id")), None) if isinstance(claim_lineage, list) else None
             refs.append({"ref": evidence_id, "sha256": digest})
@@ -793,8 +794,8 @@ def _build_initial_packet(
                 "rights_status": rights_status,
                 "first_origin_source_id": first_origin,
                 "republication_relation": (
-                    source_link.get("republication_relations", [None])[0]
-                    if isinstance(source_link, Mapping) and isinstance(source_link.get("republication_relations", []), list)
+                    republication_relations[0]
+                    if isinstance(republication_relations, list) and republication_relations
                     else None
                 ),
                 "excerpt_authorized": excerpt_authorized,
