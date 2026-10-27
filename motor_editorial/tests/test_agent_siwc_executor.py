@@ -597,6 +597,34 @@ class SIWCAgentRoleExecutorTests(unittest.TestCase):
             "persona_writer", "fact_checker", "editorial_reviewer",
             "persona_writer", "fact_checker", "editorial_reviewer",
         ])
+        raw_path = artifact_root / original_archive["raw_response_ref"]
+        raw_path.unlink()
+        recovered = archive(original_task, original_envelope, original)
+        self.assertEqual(recovered["full_text_sha256"], original_archive["full_text_sha256"])
+        self.assertTrue(raw_path.is_file())
+        original_ref = original_task.result["artifact_ref"]
+        with self.assertRaisesRegex(ValueError, "Recibo de uso não corresponde"):
+            versions.write(task=original_task, envelope=original_envelope,
+                           raw_response=response_store.read_response(original_ref["ref"], original_ref["sha256"]),
+                           structured_story=original, response_ref=original_ref,
+                           usage_ref=revised_task.result["usage_receipt_ref"])
+        manifest_path = artifact_root / original_archive["manifest_ref"]
+        manifest_bytes = manifest_path.read_bytes()
+        altered_manifest = json.loads(manifest_bytes.decode("utf-8"))
+        altered_manifest["raw_response_ref"] = "../outside.json"
+        manifest_path.write_text(json.dumps(altered_manifest), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "Referência de versão arquivada fora"):
+            archive(original_task, original_envelope, original)
+        manifest_path.write_bytes(manifest_bytes)
+        full_path = artifact_root / original_archive["full_text_ref"]
+        full_path.write_text("corrompido", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "Versão de matéria existente diverge"):
+            archive(original_task, original_envelope, original)
+        full_path.write_text(original_text, encoding="utf-8")
+        usage_path = artifact_root / original_task.result["usage_receipt_ref"]["ref"]
+        usage_path.write_text("{}", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "Hash do recibo de uso"):
+            archive(original_task, original_envelope, original)
 
     def test_siwc_authorization_and_quota_http_failures_are_preserved_and_not_replayed(self) -> None:
         role = self._role("assignment_editor")

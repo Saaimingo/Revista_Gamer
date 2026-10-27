@@ -259,6 +259,13 @@ class StoryVersionArchive:
         ):
             raise ValueError("story_id invÃ¡lido para armazenamento privado.")
         task_id = _safe_id(task.task_id, "task_id")
+        if usage_ref is not None:
+            if not isinstance(usage_ref, Mapping) or not isinstance(usage_ref.get("ref"), str) or not isinstance(usage_ref.get("sha256"), str):
+                raise ValueError("Referência de recibo de uso inválida.")
+            receipt = AgentUsageArtifactStore(self.root).read(usage_ref["ref"], usage_ref["sha256"])
+            if (receipt.get("task_id") != task_id or receipt.get("attempt_number") != task.attempts
+                    or receipt.get("raw_response_sha256") != _sha256(raw_response)):
+                raise ValueError("Recibo de uso não corresponde à tarefa, tentativa e resposta arquivadas.")
         story_key = _sha256(story_id.encode("utf-8"))[:32]
         story_dir = (self.directory / story_key).resolve()
         if not story_dir.is_relative_to(self.directory):
@@ -267,8 +274,25 @@ class StoryVersionArchive:
         existing_manifest = next(story_dir.glob(f"**/{task_id}/manifest.json"), None)
         if existing_manifest is not None:
             current = json.loads(existing_manifest.read_text(encoding="utf-8"))
-            if current.get("raw_response_sha256") != _sha256(raw_response) or current.get("full_text_sha256") != _sha256(markdown):
+            if (current.get("task_id") != task_id or current.get("story_id") != story_id
+                    or current.get("persona_id") != envelope.persona_id
+                    or current.get("persona_version") != envelope.persona_version
+                    or current.get("persona_hash") != envelope.persona_hash
+                    or current.get("attempt_number") != task.attempts
+                    or current.get("response_ref") != dict(response_ref)
+                    or current.get("usage_record_ref") != (dict(usage_ref) if usage_ref else None)
+                    or current.get("raw_response_sha256") != _sha256(raw_response)
+                    or current.get("full_text_sha256") != _sha256(markdown)):
                 raise ValueError("Tarefa já arquivada com outro conteúdo; sobrescrita bloqueada.")
+            for field, name, payload in (
+                ("raw_response_ref", "response.raw.json", raw_response),
+                ("full_text_ref", "story.full.md", markdown),
+            ):
+                expected_path = (existing_manifest.parent / name).resolve()
+                ref = current.get(field)
+                if not isinstance(ref, str) or (self.root / ref).resolve() != expected_path or not expected_path.is_relative_to(story_dir):
+                    raise ValueError("Referência de versão arquivada fora do diretório esperado.")
+                self._write_idempotent(expected_path, payload)
             return {
                 "version_kind": current["version_kind"],
                 "revision_id": current["story_revision_id"],
