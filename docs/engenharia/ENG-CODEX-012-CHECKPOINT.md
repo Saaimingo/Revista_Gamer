@@ -1,6 +1,53 @@
 # ENG-CODEX-012 — Checkpoint de arquitetura e contratos
 
-**Atualizado:** 2026-10-26
+**Atualizado:** 2026-10-27
+
+## Ponto seguro de pausa — 2026-10-27
+
+A Direção pediu pausa antes de novas chamadas. O checkpoint foi salvo depois de validar os artefatos existentes e depois do commit `3325011` estar enviado. **Nenhum `resume`, chamada SIWC, consulta de catálogo, scan Radar ou nova consulta pública ocorreu após esse commit.** O run continua preservado no estado `blocked`; a próxima ação operacional só deve ocorrer quando a Direção retomar.
+
+### Estado do repositório e PR
+
+- Branch: `codex/eng-codex-012-architecture-contracts`; árvore limpa e sincronizada com `origin` em `33250113a43994129e787d66b58e01a331698ccf`.
+- PR [#44](https://github.com/Saaimingo/Revista_Gamer/pull/44): `OPEN`, `draft=true`, base `codex/eng-codex-011-live-factory`; preservada como draft. Não houve merge, deploy ou publicação.
+- Commits desta linha: `2de2b11` (auditoria/matriz), `0081cd4`, `6ab9c46`, `35fa51e`, `8e2bf0b`, `0ece3b3` e `3325011` (recuperação e evidência parcial). Todos estão no branch da PR #44.
+- Os patches locais que existiam antes da alteração do código foram preservados fora do repositório: `%USERPROFILE%\.codex\Revista_Gamer\eng-codex-012-live-factory\recovery-edit-pre-sync-20261027.patch` (SHA-256 `9A0A5AFD841065199589E37E5ED26A7FAE2C469C79AF850D7E1CF4026ABDB197`) e `recovery-edits-validated-presync-20261027.patch` (SHA-256 `52176563AC509F344075AAFC6C0A8727023BF000F9445F6201971AA98F418C9E`).
+- A auditoria das 27 PRs e a comparação Radar/direto/híbrido permanecem registradas em [MATRIZ-RASTREABILIDADE](ENG-CODEX-012-MATRIZ-RASTREABILIDADE.md) e na ordem da Direção. Recomendação documentada: arquitetura híbrida simplificada C, sem desativar bots ou conceder novas permissões antes de aprovação.
+
+### Correções concluídas e validadas
+
+- O runner reutiliza o recibo SIWC imutável do executor; não tenta sobrescrevê-lo com campos de estágio diferentes. O `resume` valida o resultado concluído no ledger e só então reconstrói derivados ausentes a partir da resposta bruta persistida. Isso resolve os três defeitos da recuperação original: recibo duplicado, checkpoint parado antes de registrar sucesso e saída estruturada ausente.
+- `ResearchService` atualiza o mapa de claims depois do provider. O teste `test_claim_registered_during_provider_search_is_recognized_in_returned_packet` cobre a alegação criada durante a consulta.
+- A pesquisa valida host pelo endpoint da fonte registrada, mantendo a URL canônica do documento para citação. Isso evita descartar uma resposta obtida em `api.github.com` só porque o release aponta para a página `github.com`.
+- O provider de release metadata-only retorna `partial`; não declara que obteve o changelog completo quando só reteve metadados/um trecho curto. A continuação usa o dossiê inicial quando o complemento está vazio, registra o ciclo de pesquisa como consumido mesmo se o resultado foi bloqueado e impede um pedido complementar adicional.
+- Foi adicionada recuperação restrita para a fronteira atual após fact-check concluído e antes de enfileirar a correção. Ela valida resposta estruturada e recibo, reutiliza jornalista/fact-checker já concluídos e dá à correção um novo task ID; o `task-input` antigo, criado antes da falha de contrato, permanece intacto.
+- A entrada do fact-checker explicita como o runner verifica `draft_hash` (SHA-256 sobre os bytes UTF-8 exatos, sem normalização). A checagem da máquina continua no runner; o hash não é conteúdo da reportagem.
+- Validação executada: 70 testes em `test_eng_codex_011_runner`, `test_research_service`, `test_research_mediation_011` e `test_agent_siwc_executor`; `py_compile` dos dois módulos alterados; `git diff --check`. Essa prova é offline, não homologação de execução real.
+
+### Run real preservado
+
+- Run: `eng-codex-012-20261027T025920Z-e207b61f01c5`, raiz privada `%USERPROFILE%\.codex\Revista_Gamer\eng-codex-012-live-factory`, modelo `gpt-6-luna` / `max`.
+- Estado no ponto de pausa: `active-run.json.status=blocked`, `blocker_code=ContractValidationError`; checkpoint em `fact_checker_agent/succeeded`. O ledger confirma uma tentativa concluída para triagem, investigador, editor de pauta, jornalista original e fact-checker. Nenhum task de correção foi criado no ledger; existe apenas o input de pré-validação da tentativa que falhou. O próximo task de correção usará o estágio `editorial-revision-02-recovery`.
+- Consumo SIWC já realizado, sem retries: triagem 10.775 tokens; investigador 28.461; editor de pauta 13.119; jornalista original 26.600; fact-checker 6.308. **Total: 85.263 tokens.** Os recibos individuais, respostas brutas e manifestos estão na raiz privada; não copiar texto integral para Git.
+- Orçamento público: **4/4 consultas usadas**. As três consultas Radar e a única consulta complementar estão registradas em `public-research-log.json`. Não refazer triagem, investigador, editor, jornalista original ou fact-check original; não consultar `/models`; não fazer outro request público.
+- A consulta complementar teve HTTP 200, 2.120 bytes, SHA-256 `8400dc8314939d00f3e0346df6ee15a3dbcc33b34773df48b0fd7cf719efc988`. O fetch persistiu o documento `7119a8d59e7da61f9ed2a3aa1abe4226` e claim `claim-0c76d182a08219ffea8a7354`, mas o pacote foi bloqueado porque a validação anterior comparava `github.com` à allowlist `api.github.com`. No ledger, o corpo está ausente (`body_char_count=0`, `body_sha256=null`, excerpt de zero palavras). O conteúdo integral do changelog não pode ser recuperado desses artefatos; a correção de código não autoriza repetir a consulta.
+- O fact-check original foi `hold`: confirmou metadados e a distinção do handle `ivyl`, pediu reformulação de frases que sugeriam atividade editorial não demonstrada e levantou uma dúvida sobre hash que o runner pode validar. A correção do texto, novo fact-check e revisão ainda não aconteceram.
+- Existe um rascunho privado original, “Proton 11.0-2e: listagem confirmada, mudanças ainda em apuração”. Não há reportagem concluída, aprovação humana ou prévia aberta no navegador. Se o fluxo prosseguir sem nova evidência, a falta do corpo/changelog é um bloqueio jornalístico legítimo para qualquer afirmação sobre mudanças ou impacto; não transformar a falha técnica em alegação de que o update não teve impacto.
+
+### Próximas ações quando a Direção retomar
+
+1. Confirmar antes da chamada que a branch continua limpa, que a PR #44 continua draft e que o run/ledger permanecem neste estado. Conferir os quatro requests, sem alterá-los.
+2. Executar uma única vez `resume` no mesmo run e raiz, com os parâmetros abaixo. A recuperação reutiliza investigador, editor, jornalista original, pesquisa e fact-check já arquivados; nenhuma dessas etapas deve receber uma nova chamada.
+3. Deixar o jornalista corrigir o texto usando apenas evidência salva; marcar o ciclo de pesquisa como consumido. Prosseguir com novo fact-check e revisor. Parar diante de bloqueio factual legítimo ou falha técnica; não fazer pesquisa adicional.
+4. Se o runner produzir uma prévia, servi-la somente em HTTP local, abrir e inspecionar no navegador e registrar o resultado. Manter aprovação humana pendente, `published=false`, sem publicação, merge, deploy, gasto ou mudança de direitos.
+5. Registrar consumo e checkpoint por papel. A reportagem só estará pronta para aprovação humana se a checagem, revisão e integridade da versão exata permitirem; o changelog continua sem prova no material salvo.
+
+Comando de retomada preparado (não executado nesta pausa):
+
+```powershell
+.\.venv\Scripts\python.exe -c "from pathlib import Path; from motor_editorial.eng_codex_011 import run_live_factory; run_live_factory(root=Path(r'C:\Users\saimi\.codex\Revista_Gamer\eng-codex-012-live-factory'), resume_existing_run=True, model_id='gpt-6-luna', reasoning_effort='max', mission='ENG-CODEX-012', run_id_prefix='eng-codex-012', task_id_prefix='e012', expected_branch='codex/eng-codex-012-architecture-contracts', authorization_ref='conversation-ENG-CODEX-012-U10', total_request_budget=4, daily_quota=8, franchise_observation_percent=76)"
+```
+
 **Issue:** [#42](https://github.com/Saaimingo/Revista_Gamer/issues/42)
 **Documentação normativa:** [PR #43](https://github.com/Saaimingo/Revista_Gamer/pull/43), os três documentos foram lidos integralmente antes de qualquer mudança.
 **Branch:** `codex/eng-codex-012-architecture-contracts`, derivada de `codex/eng-codex-011-live-factory@27c6703`.
