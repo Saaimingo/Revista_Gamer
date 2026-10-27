@@ -92,6 +92,7 @@ from .radar_policy import PersistentDomainQuotaGuard
 from .radar_store import RadarStore
 from .radar_triage import (
     EDITORIAL_TRIAGE_LANES,
+    DiscoveryBatch,
     RadarGeneralService,
     RadarTriagePolicy,
     build_investigator_input,
@@ -273,18 +274,18 @@ class Checkpoint:
         checkpoint.state = _load_json(checkpoint.path)
         events = checkpoint.state.get("events", [])
         last = events[-1] if isinstance(events, list) and events else {}
-        if checkpoint.state.get("run_id") != run_id or checkpoint.state.get("stage") != "triage_agent":
+        if checkpoint.state.get("run_id") != run_id:
             raise RunBlocked("resume_checkpoint_is_not_at_triage_boundary")
-        if last.get("stage") != "triage_agent":
+        if checkpoint.state.get("stage") != last.get("stage"):
             raise RunBlocked("resume_requires_a_durable_triage_result")
-        if last.get("status") == "succeeded":
+        if last.get("stage") == "triage_agent" and last.get("status") == "succeeded":
             if last.get("task_state") != "succeeded" or last.get("error_code") is not None:
                 raise RunBlocked("resume_triage_result_is_not_successful")
             usage_ref = last.get("usage_record_ref")
             if not isinstance(usage_ref, str) or not (root / usage_ref).is_file():
                 raise RunBlocked("resume_triage_usage_receipt_missing")
             recovery = "reuse_checkpointed_triage_result"
-        elif last.get("status") == "call_started":
+        elif last.get("stage") == "triage_agent" and last.get("status") == "call_started":
             task_id = last.get("task_id")
             if not isinstance(task_id, str) or not task_id:
                 raise RunBlocked("resume_triage_task_id_missing_after_call_started")
@@ -322,6 +323,26 @@ class Checkpoint:
                     or metadata_usage_ref.get("sha256") != receipt_ref.get("sha256")):
                 raise RunBlocked("resume_triage_usage_receipt_reference_mismatch")
             recovery = "adopt_durable_triage_result_after_runner_interruption"
+        elif last.get("stage") == "resume_after_triage" and last.get("status") == "started":
+            task_id = last.get("reused_task_id")
+            usage_ref = last.get("usage_record_ref")
+            if (not isinstance(task_id, str) or not task_id
+                    or last.get("repeated_siwc_calls") != 0
+                    or last.get("repeated_public_requests") != 0
+                    or not isinstance(usage_ref, str) or not (root / usage_ref).is_file()):
+                raise RunBlocked("resume_interrupted_triage_recovery_is_invalid")
+            recovery = "continue_interrupted_triage_recovery"
+        elif last.get("stage") == "triage_reused" and last.get("status") == "succeeded":
+            task_id = last.get("task_id")
+            if (not isinstance(task_id, str) or not task_id
+                    or last.get("prior_triage_calls") != 1
+                    or last.get("repeated_siwc_calls") != 0
+                    or last.get("repeated_public_requests") != 0):
+                raise RunBlocked("resume_checkpointed_triage_reuse_is_invalid")
+            receipt = AgentUsageArtifactStore(root).read_for_attempt(task_id, 1)
+            if receipt is None:
+                raise RunBlocked("resume_triage_usage_receipt_missing")
+            recovery = "continue_after_durable_triage_reuse"
         else:
             raise RunBlocked("resume_requires_a_successful_or_durably_completed_triage_call")
         checkpoint.resume_recovery = recovery
@@ -1292,6 +1313,30 @@ def _map_persisted_live_items(
     return mapped
 
 
+def _restore_persisted_discovery_batch(
+    batch_data: Mapping[str, Any], source_snapshot_ids: Any,
+) -> DiscoveryBatch:
+    """Rebuild the typed Radar batch from the exact input already sent to triage."""
+    batch_id = batch_data.get("batch_id")
+    items = batch_data.get("items")
+    portfolio = batch_data.get("portfolio", [])
+    if (not isinstance(batch_id, str) or not batch_id.strip()
+            or not isinstance(items, list) or any(not isinstance(item, Mapping) for item in items)
+            or not isinstance(portfolio, list) or any(not isinstance(item, str) for item in portfolio)
+            or not isinstance(source_snapshot_ids, list)
+            or any(not isinstance(item, str) for item in source_snapshot_ids)):
+        raise RunBlocked("resume_triage_input_artifact_mismatch")
+    return DiscoveryBatch(
+        batch_id=batch_id,
+        items=tuple(dict(item) for item in items),
+        portfolio=tuple(portfolio),
+        source_snapshot_ids=tuple(source_snapshot_ids),
+        # The pinned triage input intentionally omits Radar policy metadata.
+        created_at="",
+        policy_snapshot={},
+    )
+
+
 def _claim_records_for_candidate(investigator_output: Mapping[str, Any], candidate: Mapping[str, Any]) -> list[dict[str, Any]]:
     evidence = set(candidate["evidence_ids"])
     rows: list[dict[str, Any]] = []
@@ -2251,6 +2296,8 @@ def run_live_factory(
     resume_after_pre_external_writer = False
     resume_after_writer_revision_failure = False
     resume_after_triage_pending = False
+    resume_triage_event_started = False
+    resume_triage_already_reused = False
     if resume_existing_run:
         if not active_path.exists():
             raise RunBlocked("resume_requires_an_existing_blocked_run")
@@ -2306,6 +2353,12 @@ def run_live_factory(
         else:
             checkpoint = Checkpoint.resume_after_triage(root, run_id)
             resume_after_triage_pending = True
+            resume_triage_event_started = (
+                getattr(checkpoint, "resume_recovery", None) == "continue_interrupted_triage_recovery"
+            )
+            resume_triage_already_reused = (
+                getattr(checkpoint, "resume_recovery", None) == "continue_after_durable_triage_reuse"
+            )
         if not resume_after_triage_pending:
             _atomic_json(active_path, {**active, "status": "running", "updated_at": _now(), "branch": branch})
     else:
@@ -2414,10 +2467,8 @@ def run_live_factory(
         if batch_data.get("batch_id") != batch_id or not isinstance(batch_data.get("items"), list):
             raise RunBlocked("resume_triage_input_artifact_mismatch")
         scan = SimpleNamespace(
-            batch=SimpleNamespace(
-                batch_id=batch_id,
-                source_snapshot_ids=public_log.get("batch_source_snapshot_ids", []),
-                items=batch_data["items"],
+            batch=_restore_persisted_discovery_batch(
+                batch_data, public_log.get("batch_source_snapshot_ids", []),
             ),
             triage_task_id=triage_task_id,
             fetches=[],
@@ -2441,14 +2492,19 @@ def run_live_factory(
             raise RunBlocked("resume_triage_output_not_structured")
         if resume_after_triage_pending:
             checkpoint.state["status"] = "running"
-            checkpoint.event("resume_after_triage", "started", reused_task_id=triage_task_id,
-                             usage_record_ref=triage_usage_ref,
-                             repeated_siwc_calls=0, repeated_public_requests=0,
-                             recovery=getattr(checkpoint, "resume_recovery", "recovered_succeeded_ledger_task"))
+            if not resume_triage_event_started and not resume_triage_already_reused:
+                checkpoint.event("resume_after_triage", "started", reused_task_id=triage_task_id,
+                                 usage_record_ref=triage_usage_ref,
+                                 repeated_siwc_calls=0, repeated_public_requests=0,
+                                 recovery=getattr(checkpoint, "resume_recovery", "recovered_succeeded_ledger_task"))
+            if not resume_triage_already_reused:
+                checkpoint.event("triage_reused", "succeeded", task_id=triage_task_id,
+                                 usage_record_ref=triage_usage_ref,
+                                 network_requests_reused=len(request_rows), prior_triage_calls=1,
+                                 repeated_public_requests=0, repeated_siwc_calls=0)
+            else:
+                checkpoint.save()
             _atomic_json(active_path, {**active, "status": "running", "updated_at": _now(), "branch": branch})
-        checkpoint.event("triage_reused", "succeeded", task_id=triage_task_id,
-                         network_requests_reused=len(request_rows), prior_triage_calls=1,
-                         repeated_public_requests=0, repeated_siwc_calls=0)
         live_items = _map_persisted_live_items(scan.batch.items, source_by_id, radar_store)
     else:
         checkpoint.event("preflight", "succeeded", model=MODEL_ID, reasoning_effort=REASONING_EFFORT,

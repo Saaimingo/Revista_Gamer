@@ -20,6 +20,7 @@ from motor_editorial.eng_codex_011 import (
     _normalize_writer_claim_refs_against_section_evidence,
     _read_completed_role_artifact,
     _load_succeeded_role_output,
+    _restore_persisted_discovery_batch,
     _task_output,
     _advance_reviewer_correction,
     _dispatch_reviewer_research_return,
@@ -133,6 +134,79 @@ class PersistedTriageResumeTests(unittest.TestCase):
 
             self.assertEqual(checkpoint.resume_recovery, "adopt_durable_triage_result_after_runner_interruption")
             self.assertEqual(checkpoint_path.read_text(encoding="utf-8"), original)
+
+    def test_triage_reused_checkpoint_can_resume_without_adding_duplicate_events(self) -> None:
+        run_id = "eng-codex-012-fixture-run"
+        task_id = "radar-triage-fixture"
+        with tempfile.TemporaryDirectory(prefix="eng012-triage-reused-resume-") as temporary:
+            root = Path(temporary)
+            AgentUsageArtifactStore(root).write({
+                "task_id": task_id, "attempt_number": 1,
+                "raw_response_sha256": "a" * 64, "role_id": "triage_analyst",
+                "model": "gpt-6-luna-2026-10-26", "reasoning_effort": "max",
+            })
+            state = {
+                "run_id": run_id, "stage": "triage_reused", "status": "running",
+                "events": [{
+                    "stage": "triage_reused", "status": "succeeded", "task_id": task_id,
+                    "prior_triage_calls": 1, "repeated_siwc_calls": 0,
+                    "repeated_public_requests": 0,
+                }],
+            }
+            checkpoint_path = root / "checkpoint.json"
+            original = json.dumps(state, ensure_ascii=False)
+            checkpoint_path.write_text(original, encoding="utf-8")
+
+            checkpoint = Checkpoint.resume_after_triage(root, run_id)
+
+            self.assertEqual(checkpoint.resume_recovery, "continue_after_durable_triage_reuse")
+            self.assertEqual(checkpoint_path.read_text(encoding="utf-8"), original)
+
+    def test_interrupted_triage_resume_event_is_recoverable_without_duplicate_start(self) -> None:
+        run_id = "eng-codex-012-fixture-run"
+        task_id = "radar-triage-fixture"
+        with tempfile.TemporaryDirectory(prefix="eng012-triage-resume-event-") as temporary:
+            root = Path(temporary)
+            receipt = AgentUsageArtifactStore(root).write({
+                "task_id": task_id, "attempt_number": 1,
+                "raw_response_sha256": "a" * 64, "role_id": "triage_analyst",
+                "model": "gpt-6-luna-2026-10-26", "reasoning_effort": "max",
+            })
+            state = {
+                "run_id": run_id, "stage": "resume_after_triage", "status": "running",
+                "events": [{
+                    "stage": "resume_after_triage", "status": "started",
+                    "reused_task_id": task_id, "usage_record_ref": receipt["ref"],
+                    "repeated_siwc_calls": 0, "repeated_public_requests": 0,
+                }],
+            }
+            checkpoint_path = root / "checkpoint.json"
+            original = json.dumps(state, ensure_ascii=False)
+            checkpoint_path.write_text(original, encoding="utf-8")
+
+            checkpoint = Checkpoint.resume_after_triage(root, run_id)
+
+            self.assertEqual(checkpoint.resume_recovery, "continue_interrupted_triage_recovery")
+            self.assertEqual(checkpoint_path.read_text(encoding="utf-8"), original)
+
+    def test_recovered_persisted_batch_is_a_typed_batch_accepted_by_triage_resolver(self) -> None:
+        batch = _restore_persisted_discovery_batch({
+            "batch_id": "batch-1",
+            "portfolio": ["game-proton"],
+            "items": [{"item_id": "item-1", "evidence_refs": ["snapshot-1"]}],
+        }, ["snapshot-1"])
+
+        resolution = resolve_triage_output(batch, {
+            "no_change": False,
+            "decisions": [{
+                "candidate_item_ids": ["item-1"], "candidate_angle": "Release oficial",
+                "suggested_lane": "principal", "evidence_refs": ["snapshot-1"],
+            }],
+        })
+
+        self.assertEqual(batch.batch_id, "batch-1")
+        self.assertEqual(batch.source_snapshot_ids, ("snapshot-1",))
+        self.assertEqual(resolution.eligible_decisions[0].candidate_item_ids, ("item-1",))
 
     def test_missing_derived_output_reconstructs_from_raw_and_preserves_usage_receipt(self) -> None:
         task_id = "triage-reconstruct-fixture"
