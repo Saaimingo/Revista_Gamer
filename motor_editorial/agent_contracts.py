@@ -955,6 +955,15 @@ class AgentRoleCatalog:
         if stable_hash(json_dumps(dict(input_payload))) != envelope.input_payload_hash:
             raise ContractValidationError("Hash do input_payload diverge do envelope versionado.")
         validate_json_schema(input_payload, profile.input_schema)
+        if profile.role_id in {"fact_checker", "editorial_reviewer"}:
+            if stable_hash(input_payload["draft"]) != input_payload["draft_hash"]:
+                raise ContractValidationError("Hash da revisão diverge do texto integral atribuído.")
+        if profile.role_id == "editorial_reviewer":
+            fact_check = input_payload["fact_check_verdict"]
+            if fact_check.get("draft_hash") != input_payload["draft_hash"]:
+                raise ContractValidationError("Checagem factual não corresponde à revisão atribuída ao revisor.")
+            if fact_check.get("status") not in {"pass", "revise", "hold"}:
+                raise ContractValidationError("Checagem factual tem status ausente ou inválido.")
         return profile
 
     def authorize_tool(self, envelope: AgentTaskEnvelope, tool_id: str, scopes: Iterable[str]) -> None:

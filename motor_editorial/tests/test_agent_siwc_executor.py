@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import hashlib
 import io
+import copy
 import tempfile
 import unittest
 import uuid
@@ -17,6 +18,7 @@ from unittest.mock import patch
 from motor_editorial.agent_contracts import (
     AgentRoleProfile,
     AgentTaskEnvelope,
+    ContractValidationError,
     enqueue_contract_task,
     load_builtin_role_catalog,
 )
@@ -458,6 +460,64 @@ class SIWCAgentRoleExecutorTests(unittest.TestCase):
         outcome = self._dispatcher(client).dispatch_one(task_id)
         self.assertEqual(outcome.state, "blocked")
         self.assertEqual(outcome.error_code, "siwc_stale_draft_revision")
+
+    def test_review_inputs_require_the_current_text_and_fact_check_before_dispatch(self) -> None:
+        for role_id in ("fact_checker", "editorial_reviewer"):
+            role = self._role(role_id)
+            payload = copy.deepcopy(self.fixtures["roles"][role_id]["input"])
+            payload["draft"] += " Conteúdo alterado."
+            with self.subTest(role=role_id), self.assertRaisesRegex(ContractValidationError, "Hash da revisão"):
+                self._enqueue(role, payload)
+
+        role = self._role("editorial_reviewer")
+        payload = copy.deepcopy(self.fixtures["roles"][role.role_id]["input"])
+        payload["fact_check_verdict"]["draft_hash"] = "c" * 64
+        with self.assertRaisesRegex(ContractValidationError, "Checagem factual não corresponde"):
+            self._enqueue(role, payload)
+        payload["fact_check_verdict"]["draft_hash"] = payload["draft_hash"]
+        payload["fact_check_verdict"]["status"] = "unknown"
+        with self.assertRaisesRegex(ContractValidationError, "status ausente ou inválido"):
+            self._enqueue(role, payload)
+
+        payload["fact_check_verdict"]["status"] = "pass"
+        payload["fact_check_verdict"]["draft_hash"] = "c" * 64
+        envelope = _envelope(role, payload)
+        task_id = self.queue.enqueue(
+            task_type="agent.role.editorial_reviewer",
+            payload={"agent_task_envelope": envelope.to_dict(), "input": payload},
+            profile=SIWC_ROLE_EXECUTOR_PROFILE, executor_id=SIWC_ROLE_EXECUTOR_ID,
+            idempotency_key=envelope.idempotency_key, task_id=envelope.task_id,
+        )
+        client = FakeRoleClient({role.role_id: self.fixtures["roles"][role.role_id]["output"]})
+        outcome = self._dispatcher(client).dispatch_one(task_id)
+        self.assertEqual((outcome.state, outcome.error_code), ("blocked", "agent_contract_invalid"))
+        self.assertEqual(client.calls, [])
+
+    def test_review_cannot_remove_human_gate_or_override_fact_check(self) -> None:
+        role = self._role("editorial_reviewer")
+        fixture = self.fixtures["roles"][role.role_id]
+        cases = (
+            ("pass", False, "pass", "siwc_human_gate_removed"),
+            ("hold", True, "pass", "siwc_review_overrides_fact_check"),
+            ("revise", True, "pass", "siwc_review_overrides_fact_check"),
+            ("revise", True, "revise", None),
+        )
+        for fact_status, human_gate, review_status, expected_error in cases:
+            with self.subTest(fact_status=fact_status, human_gate=human_gate, review_status=review_status):
+                payload = copy.deepcopy(fixture["input"])
+                payload["fact_check_verdict"]["status"] = fact_status
+                output = copy.deepcopy(fixture["output"])
+                output["human_review_required"] = human_gate
+                output["verdict"] = review_status
+                task_id = self._enqueue(role, payload)
+                client = FakeRoleClient({role.role_id: output})
+                outcome = self._dispatcher(client).dispatch_one(task_id)
+                self.assertEqual(outcome.state, "blocked" if expected_error else "succeeded")
+                self.assertEqual(outcome.error_code, expected_error)
+                self.assertEqual(len(client.calls), 1)
+                if expected_error:
+                    metadata = SIWCResponseArtifactStore(self.root / "private-artifacts").read_task_artifacts(task_id)["metadata"]
+                    self.assertEqual(metadata["output_validation"], "evidence_or_revision_rejected")
 
     def test_siwc_authorization_and_quota_http_failures_are_preserved_and_not_replayed(self) -> None:
         role = self._role("assignment_editor")

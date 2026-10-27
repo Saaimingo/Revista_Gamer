@@ -389,6 +389,13 @@ def _validate_output_references(role_id: str, input_data: Any, output: Mapping[s
         if not isinstance(input_hash, str) or output.get("draft_hash") != input_hash:
             raise TaskFailure("siwc_stale_draft_revision", "Checagem ou revisão não corresponde ao hash da revisão atribuída.", blocked=True)
 
+    if role_id == "editorial_reviewer":
+        data = input_data["task_input_data"]["data"]
+        if output.get("human_review_required") is not True:
+            raise TaskFailure("siwc_human_gate_removed", "Revisão não preservou o gate humano obrigatório.", blocked=True)
+        if data["fact_check_verdict"].get("status") != "pass" and output.get("verdict") == "pass":
+            raise TaskFailure("siwc_review_overrides_fact_check", "Revisão não pode aprovar checagem factual pendente.", blocked=True)
+
     if role_id == "evidence_investigator":
         claims = output.get("claims", [])
         for claim in claims if isinstance(claims, (list, tuple)) else []:

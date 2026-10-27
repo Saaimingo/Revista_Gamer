@@ -25,12 +25,12 @@
       "output": {"title": "Rascunho de fixture", "dek": "Sem alegações sobre fatos reais.", "sections": [{"heading": "Contexto", "body": "Texto sintético para validar o contrato.", "evidence_ids": ["fixture-evidence-01"]}], "claim_refs": ["claim-fixture-01"], "requested_research": []}
     },
     "fact_checker": {
-      "input": {"draft": "Texto sintético para checagem.", "draft_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "evidence_dossier": {}, "editorial_policy": {}},
-      "output": {"draft_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "status": "revise", "findings": [{"claim": "claim sem fonte", "evidence_ids": [], "severity": "major"}]}
+      "input": {"draft": "Texto sintético para checagem.", "draft_hash": "260362c7bc1bfe59d3ac67df08df3ced6be29d5d77db6d8bdd6c1bb990fc65da", "evidence_dossier": {}, "editorial_policy": {}},
+      "output": {"draft_hash": "260362c7bc1bfe59d3ac67df08df3ced6be29d5d77db6d8bdd6c1bb990fc65da", "status": "revise", "findings": [{"claim": "claim sem fonte", "evidence_ids": [], "severity": "major"}]}
     },
     "editorial_reviewer": {
-      "input": {"draft": "Texto sintético para revisão.", "draft_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "fact_check_verdict": {"status": "pass"}, "editorial_brief": {}, "persona_ref": {"id": "persona-fixture", "version": "fixture-1", "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}},
-      "output": {"draft_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "verdict": "revise", "findings": ["Atribuir a alegação ao material de origem."], "human_review_required": true}
+      "input": {"draft": "Texto sintético para revisão.", "draft_hash": "fe3d8ec9148202454fdb2db6105c7a132a0d0a470caa477434fb634cfd4738f4", "fact_check_verdict": {"draft_hash": "fe3d8ec9148202454fdb2db6105c7a132a0d0a470caa477434fb634cfd4738f4", "status": "pass"}, "editorial_brief": {}, "persona_ref": {"id": "persona-fixture", "version": "fixture-1", "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}},
+      "output": {"draft_hash": "fe3d8ec9148202454fdb2db6105c7a132a0d0a470caa477434fb634cfd4738f4", "verdict": "revise", "findings": ["Atribuir a alegação ao material de origem."], "human_review_required": true}
     },
     "media_researcher": {
       "input": {"sections": [{"section_id": "section-01"}], "media_inventory": [], "rights_matrix": {}},
