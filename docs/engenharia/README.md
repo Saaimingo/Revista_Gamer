@@ -1,6 +1,6 @@
 # Setor: engenharia e Codex
 
-Status: **Motor Editorial v0.2 integrado à main; PR #8 e PR #10 aguardam integração; contratos da nova Fase 0 de agentes e composição em preparação para execução offline pelo Codex.**
+Status: **Motor Editorial v0.2 integrado à `main`; PRs #8 e #10 continuam abertas e não mescladas; ENG-CODEX-006 reconcilia #8/#10 nesta branch isolada; as correções da Fase 0 offline estão na PR #18, ainda em revisão.**
 
 ## Arquitetura operacional dos futuros agentes — 20/10/2026
 
@@ -26,15 +26,25 @@ Este marco não ativa os blocos conceituais e não autoriza integrações reais 
 - [Ordem do construtor CODEX-002](ORDEM-CODEX-002-MOTOR-MULTIPAUTA.md) e [Issue #5](https://github.com/Saaimingo/Revista_Gamer/issues/5).
 - **Status: implementação e testes concluídos; [PR #6](https://github.com/Saaimingo/Revista_Gamer/pull/6) integrado à `main`.** O protótipo continua offline e sem publicação.
 
+## Terceira missão — CODEX-003: orquestração e SIWC
+
+- [Especificação aprovada ENG-CODEX-003](ESPECIFICACAO-CODEX-003-ORQUESTRACAO-PLUS.md): fila SQLite, dispatcher, executores, perfis versionados, retomada, agenda desativada por padrão e prova local SIWC de uma tarefa sintética.
+- [Relatório técnico ENG-CODEX-003](RELATORIO-ORQUESTRACAO-AGENTES-PLUS.md): implementação, evidências de teste, status de autenticação real, elegibilidade remota e migração futura para Debian 12.
+- **PR #8 aberta e sem merge**, head `962dcd4`; a comparação com a `main` atual encontra conflito documental em `docs/engenharia/README.md`. Esta branch (`codex/eng-codex-006-orchestration-reconcile`) integra o head preservado da #8 à `origin/main@ce8f6a7` para revisão; a branch original não é reescrita. [CODEX-003: orquestração durável e integração SIWC](https://github.com/Saaimingo/Revista_Gamer/pull/8).
+- **PR #10 aberta e empilhada sobre #8**, head `3702789`; mantém a dependência de #8 e não está integrada à `main`. A reconciliação desta pipeline será feita em branch derivada depois de validar B1.
+- [Unidade systemd de exemplo](../../deploy/systemd/revista-gamer-orchestrator.service.example): preparar operação contínua futura; não instalada nem habilitada.
+- [Anteprojeto de 2026-10-19](ANTEPROJETO-ORQUESTRACAO-AGENTES-E-PLUS-2026-10-19.md) permanece como registro da proposta e dos pontos debatidos; foi sucedido, para este escopo, pela especificação aprovada acima.
+
+O código da PR #8 inclui o adaptador SIWC, mas **esta missão ENG-CODEX-006 executa somente testes offline com executores simulados**; nenhuma chamada SIWC/Plus, agendamento, hospedagem ou publicação é feita ou habilitada. A reconciliação fica isolada em branch/PR e não integra automaticamente a `main`.
+
 ## Estudo arquitetural em debate
 
-- [Análise provisória do fundador — orquestração orientada a eventos e referência n8n](ANALISE-PROVISORIA-FUNDADOR-ORQUESTRACAO-N8N-2026-10-17.md). **Não autoriza implementação, ativação de agentes reais, agendamento ou mudança na v0.2.**
-
-- [Anteprojeto da próxima etapa — orquestração de agentes e integração oficial com Plus](ANTEPROJETO-ORQUESTRACAO-AGENTES-E-PLUS-2026-10-19.md). **EM DISCUSSÃO, não autoriza Codex, ativação de IA, autenticação, custos ou v0.3.**
+- [Análise provisória do fundador — orquestração orientada a eventos e referência n8n](ANALISE-PROVISORIA-FUNDADOR-ORQUESTRACAO-N8N-2026-10-17.md). **Não autoriza ativação de agentes reais, agendamento, custos ou mudança na v0.2.**
+- [Anteprojeto da próxima etapa — orquestração de agentes e integração oficial com Plus](ANTEPROJETO-ORQUESTRACAO-AGENTES-E-PLUS-2026-10-19.md). O escopo CODEX-003 sucedeu este anteprojeto; sua inclusão preserva a trilha histórica, sem ativar operação real.
 
 ## Evolução futura
 
-O protótipo já possui estados, validações, tentativas limitadas, trilha de auditoria e aprovação humana interna. Ainda faltam agenda real, filas operacionais de produção, integrações, controle de acesso e backup; só implementar após nova especificação e autorização. Os agentes de IA são chamados sob demanda. Não construir um harness alternativo sem evidência de necessidade.
+O protótipo possui estados, validações, tentativas limitadas, fila técnica, trilha de eventos e aprovação humana interna. Permanecem pendentes perfis públicos aprovados, fluxo editorial real, coleta/fonte autorizada, controle de acesso e backup. Agendas vêm desativadas; não ativar produção sem nova decisão e autorização.
 
 Três funções operacionais candidatas: editor-pesquisador, redator que recebe perfil público de persona, revisor independente. O número definitivo depende de testes. Persona ≠ processo. Não multiplique modelos por personagem.
 
@@ -44,7 +54,7 @@ Consumir somente especificações `aprovado`; anexar referências de versão/com
 
 ## Custo e autonomia
 
-Antes de automatizar: verificar oficialmente limites da assinatura Codex, possibilidade de chamadas programáticas elegíveis e necessidade de API separada. Medir por tarefa, tempo, iterações e esgotamento da franquia; manter margem de segurança. GitHub Actions e nuvem só quando custos, autenticação e permissões forem validados. Não supor acesso à conta do ChatGPT por runner em nuvem.
+Antes de automatizar, verificar oficialmente a elegibilidade de chamadas programáticas, os limites compartilhados do plano e a necessidade de API separada; SIWC só pode ser usado dentro da autorização aplicável e com consentimento. Medir por tarefa, tempo, iterações e consumo, mantendo margem de segurança. O acesso a apps privados hospedados permanece não confirmado e deve ser verificado antes de qualquer proposta de VPS. GitHub Actions e nuvem só após validar custos, autenticação e permissões. Não supor acesso à conta ChatGPT por runner em nuvem.
 
 ## Tecnologia e testes
 
