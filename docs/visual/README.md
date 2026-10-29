@@ -1,5 +1,13 @@
 # Setor: visual e experiência de leitura
 
+## Nova diretriz da Direção — avaliar motor de revista existente e leitura adaptativa (26/10/2026)
+
+**Leitura PRIORITÁRIA para a próxima avaliação do Bloco 03:** [“Avaliar motores de revista digital existentes e experiência de leitura por celular, tablet e notebook”](analises-fundador/DIRETRIZ-DA-DIRECAO-AVALIAR-MOTORES-DE-LEITURA-RESPONSIVA-2026-10-26.md).
+
+A Direção questiona se é necessário construir do zero a mecânica de folhear. **Antes de escolher o leitor definitivo, avaliar o código e as licenças de bibliotecas existentes (especialmente StPageFlip), a possibilidade de integrar apenas parte de seus mecanismos e as diferenças reais de UX entre smartphone, tablet e notebook.** Verificar explicitamente se a biblioteca alterna automaticamente de páginas duplas para uma página e/ou para **rolagem contínua** (não confundir as duas funções); testar possibilidade de integração híbrida com o modo Contínua já existente na v0.3.
+
+A v0.3 consolidada e a estética dos mocks cinematográficos continuam como referências obrigatórias, **não serão descartadas por hipótese**. Realizar comparação e testes, apresentar proposta à Direção antes de alterar a implementação ou dar nova ordem ao Codex. Esta diretriz não autoriza gasto pago, publicação, deploy nem mudança da fábrica editorial.
+
 Status: conceito aprovado em linhas gerais; designs e requisitos mensuráveis pendentes.
 
 ## Diretriz expressa da direção — integração visual/funcional (20/10/2026)
