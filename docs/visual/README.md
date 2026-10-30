@@ -1,5 +1,9 @@
 # Setor: visual e experiência de leitura
 
+## PRIORIDADE — Parecer corretivo do Bloco 03 à Direção/Fundador (29/10/2026)
+
+**[ESPECIFICAÇÃO CORRETIVA — Identidade visual e leitor da Revista BACK](ESPECIFICACAO-CORRETIVA-IDENTIDADE-LEITOR-BACK-2026-10-29.md)**. Documento registrado após o diretor apresentar capturas de todas as faces (1–10) do primeiro ensaio real do Codex. O diagnóstico se concentra em **geometria full-viewport, hambúrguer dentro da revista, duas páginas preenchendo a tela, capa cinematográfica e Modelo B03-03**. A direção **já aprovou** a experiência mobile imersiva e a arquitetura de capa; não reabrir. O `design-qa: passed` da prévia corresponde a verificações técnicas de overflow/responsividade, **não** a aceite da identidade visual. Encaminhamento ao fundador para próximo prompt do Codex; não é autorização deste Bloco para executar Codex ou publicar.
+
 Status: conceito aprovado em linhas gerais; designs e requisitos mensuráveis pendentes.
 
 ## Diretriz expressa da direção — integração visual/funcional (20/10/2026)
