@@ -89,3 +89,50 @@ No clone do Censurado foi preparada uma lane local para detecção read-only do 
 - Transições ainda manuais: confirmar roster/credencial e endpoint local; iniciar o worker ou configurar agendamento supervisionado; decidir pautas bloqueadas/incertas; revisão visual humana; escolher e montar edição; aprovar direitos de imagem; autorizar qualquer publicação/deploy. Nenhum agendamento está ativo.
 
 O checkpoint local D:\Censurado-ollama-test\local-tests\REVISTA-BACK-CHECKPOINT.md também foi atualizado com esta release e preserva cópia prévia local. Este documento público registra apenas hashes/metadados; reportagem e parecer continuam privados.
+
+## Continuidade de autonomia da factory — 2026-10-30 (v0.1.2)
+
+**Estado:** ensaio integrado passou em simulação; a factory não está homologada. Nenhuma inferência real, publicação, montagem, deploy ou alteração no leitor HTML ocorreu nesta etapa.
+
+### Estado preservado
+
+- Clone local Censurado: main, HEAD a087e918515f5d01aa21f1b0d70c73b9ece725cc, alterações locais sem commit. Snapshot code-only RB-FACTORY-P1-v0.1.2-20261030: 46 arquivos, SHA-256 ca996dbd9756abc9e0c494cc919b6791366dca3a52f448e21aa5d202b4d88800; SNAPSHOT.json SHA-256 0811ea4e15a9fa488967faa162a48b1372ee09d5007270e158fde84df5b7e590. v0.1.1 e o checkpoint anterior foram preservados localmente.
+- Worktree do leitor: branch codex/revista-back-primeira-edicao-20261029 em 8a7992a64a9256465af0432c7d9b70c2c0cfb7ef, igual ao upstream. O HTML local atualizado permanece como única modificação, SHA-256 F6B6A31AB008BBEDC745E7DEEF198D20B272B9395E183753D9F54785CE71D19F.
+- Checkpoint local atualizado: SHA-256 9C30F35E1C773D21E9FD46883C291E83951FD118354CDBB6652A3810DA0AEF67. Cópia anterior local: REVISTA-BACK-CHECKPOINT.md.pre-autonomy-20261030, SHA-256 5FC535BC0E9EDA69D92CF475C5366C34BDE5E27F5A89BFC43C01AF9C70FDE289.
+
+### Autenticação e cadastro
+
+A variável NEWSROOM_OPERATOR_TOKEN foi verificada contra o mecanismo oficial, não presumida por uso em teste legado: bootstrap.sh do Censurado a provisiona como Bearer oficial e a stack atual a encaminha ao executor existente. GET /authors exige Bearer válido e não exige escopo de escrita naquela rota. O backend real estava indisponível; a factory não criou token nem serviço novo. A configuração de produção mantém o nome oficial, enquanto o ensaio usou REVISTA_BACK_SIMULATED_BEARER somente contra GET /authors em servidor loopback. Credenciais OAuth locais foram verificadas apenas por existência/metadados; nenhum conteúdo foi lido ou usado.
+
+O roster de teste foi claramente marcado como simulado e utilizou os handles oficiais ranzinza, beto-cartucho e nina-prisma, encontrados no manifesto local. gamer-x não está no manifesto e não foi usado. Registro online e disponibilidade de agentes reais continuam não verificados.
+
+### Ensaio integrado
+
+Comando único: python local-tests/revista-back-factory/demo_autonomy.py.
+
+- Fonte real somente leitura: Saaimingo/Revista_Gamer@main:coletor/2026-10-30-0800.md, Git blob SHA 29d1765245c6f1b4f26f61d9f55aeba879e119a1, 9 candidatas.
+- Um processo poll-only gravou 9 tarefas pendentes. Um processo novo executou o worker existente em modo drain-once e consumiu a fila autonomamente: 1 item foi ao acervo de simulação, 2 foram bloqueados e 6 descartados na triagem simulada.
+- A pauta de mods foi encaminhada a nina-prisma, pediu pesquisa complementar, voltou à mesma jornalista, recebeu correção e aceite simulado. A pauta de hardware recebeu três revisões sem aceite e bloqueou em R3. A pauta de jogo com beto-cartucho recebeu rejeição explícita e bloqueou em R1.
+- Responses API local simulada: 27 chamadas, exclusivamente gpt-6-luna/max; 27 checkpoints completados uma única vez, attempt=1. OAuth real não foi lido, e não houve fallback. Pesquisa usou CLI fake sem acesso externo; respostas e evidências sintéticas foram rotuladas e usaram simulated.invalid.
+- Cadastro simulado: 9 leituras GET /authors, zero escritas; NEWSROOM_OPERATOR_TOKEN não foi encaminhado ao teste.
+- Acervo exclusivamente de simulação: article SHA-256 8279e2d30434df797694bad51181f9951f2d54ba0919081cec121295c128132b; packet SHA-256 a164c9f24d3fff032c06be7696badfb781790a9f2ef36e81b46da5ced1bd336f; publication_ready=false e aprovação humana pendente. image_needs foi preservado com direitos pendentes.
+- Novo processo repetiu a detecção; adicionou zero tarefas e preservou os estados finais/ETag. Nenhuma montagem ou publicação foi chamada.
+- Manifesto local da simulação, sem conteúdo editorial remoto: SHA-256 d02a1c46365157aeda2e1c65807c0ff4254210d767d82390be1b43d966e0790d.
+
+### Alterações e testes
+
+A lane passou a aceitar uma captura Markdown explicitamente indicada, após verificar caminho e Git blob SHA. O worker existente recebeu --drain-once para executar poll e drenar uma fila finita; --watch continua sendo a opção contínua. A configuração permite o adaptador SIWC existente somente com gpt-6-luna, checkpoints duráveis e sem retry automático de chamada incerta. O prompt da reportagem registra image_needs com direitos pendentes. A factory não chama o publicador.
+
+- automation/pipeline/tests/test_factory.py: 13 passed.
+- local-tests/oauth-siwc/test_responses_adapter.py: 21 passed.
+- local-tests/oauth-siwc/test_pipeline_siwc_integration.py: 1 passed.
+- git diff --check: passou.
+- Pydantic 2.14.2, pydantic-settings 2.16.2 e pytest 9.2.0 foram instalados somente no .venv; o teste focado de tópicos passou.
+- O teste antigo test_batch_contains_a_hung_article_and_continues continua falhando no limite de 4 s. A causa isolada é inicialização fria do subprocesso Python/DBOS (~7,3 s) mesmo quando as chamadas simuladas somam ~0,44 s. O limite e a fábrica antiga não foram modificados.
+- As primeiras iterações do mock falharam por um pressuposto do parser de teste sobre a ordem das chaves JSON e por encerramento CTRL_BREAK instável no Windows; o parser foi generalizado e o ensaio final usa --drain-once. Resultado final acima passou.
+
+### VPS e próximos gates
+
+O Compose atual reinicia o executor de horários, mas não executa a nova factory. Antes da VPS, adicionar o worker na mesma stack Censurado com política de reinício, dependência do publish saudável e armazenamento persistente para fila, acervo e DBOS runs. Não foi alterado Compose nem feito deploy. A fila usa IDs estáveis e retoma primeiro tarefas running; o re-poll sem duplicidade foi demonstrado localmente.
+
+A homologação ainda depende de backend e cadastro reais disponíveis, uma autorização futura para inferência real gpt-6-luna, validação editorial com serviços/agentes reais e configuração futura do worker na mesma stack VPS. Aprovação humana, direitos de imagem, montagem e publicação continuam gates separados.
