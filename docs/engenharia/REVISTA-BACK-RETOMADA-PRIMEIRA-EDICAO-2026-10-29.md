@@ -136,3 +136,8 @@ A lane passou a aceitar uma captura Markdown explicitamente indicada, após veri
 O Compose atual reinicia o executor de horários, mas não executa a nova factory. Antes da VPS, adicionar o worker na mesma stack Censurado com política de reinício, dependência do publish saudável e armazenamento persistente para fila, acervo e DBOS runs. Não foi alterado Compose nem feito deploy. A fila usa IDs estáveis e retoma primeiro tarefas running; o re-poll sem duplicidade foi demonstrado localmente.
 
 A homologação ainda depende de backend e cadastro reais disponíveis, uma autorização futura para inferência real gpt-6-luna, validação editorial com serviços/agentes reais e configuração futura do worker na mesma stack VPS. Aprovação humana, direitos de imagem, montagem e publicação continuam gates separados.
+
+
+## Hash final do checkpoint local — 2026-10-30
+
+Após corrigir a codificação do trecho acrescentado, o checkpoint local REVISTA-BACK-CHECKPOINT.md ficou em UTF-8, SHA-256 FC3A2358D021452A794797B4BFAD431471A7926EB998DD7B13280A783EF787B3. A cópia anterior foi preservada como REVISTA-BACK-CHECKPOINT.md.pre-autonomy-20261030, SHA-256 5FC535BC0E9EDA69D92CF475C5366C34BDE5E27F5A89BFC43C01AF9C70FDE289. Nenhum texto privado de reportagem ou parecer foi acrescentado a este registro remoto.
