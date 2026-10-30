@@ -1,0 +1,103 @@
+{
+  "source_repository": "https://github.com/hec-ovi/censurado-web-brain",
+  "source_base_commit": "a087e918515f5d01aa21f1b0d70c73b9ece725cc",
+  "license": "MIT; original LICENSE preserved beside patch",
+  "source_file_count": 23,
+  "files": [
+    {
+      "path": "automation/pipeline/CONTRACT.md",
+      "sha256": "f451c6e6a60aaa3c3358116e8e9b3daf0b5cdab184bf7a27820fcf91e1ef1e82"
+    },
+    {
+      "path": "automation/pipeline/run.py",
+      "sha256": "e94d385e48da01f331936029b9059639975f6e9c0e91370925f54316902268c8"
+    },
+    {
+      "path": "automation/pipeline/schema/pipeline-config.schema.json",
+      "sha256": "1cc2e9b62609e0c6353861d79cf48cb48699c39fabcf24ba7350e52a057fa0e2"
+    },
+    {
+      "path": "automation/pipeline/source_images/__init__.py",
+      "sha256": "b0fdfe4b977e5452ae9b0ce7bbec715c35eaa885d15827febbb81a1af674ba5d"
+    },
+    {
+      "path": "automation/pipeline/src/adapter_api.py",
+      "sha256": "9f47681949dc43d547e3a8b378ca16f43ea41ef97cb9973928322cce01f218e1"
+    },
+    {
+      "path": "automation/pipeline/src/adapter_cli.py",
+      "sha256": "92dbea0bd9b28f1cfefbe944ff82d0487a717b613bac14bb7e7e94c015c391e0"
+    },
+    {
+      "path": "automation/pipeline/src/adapter_siwc.py",
+      "sha256": "be60faf3cafdb04c4ce3516560a50726e7086dd32e12271f66b7100c6db68be9"
+    },
+    {
+      "path": "automation/pipeline/src/batch.py",
+      "sha256": "7fa7b317ceb146c86e2c20403a6defab9deeab0888b4359aa915c0e4c6ad4e4c"
+    },
+    {
+      "path": "automation/pipeline/src/call_journal.py",
+      "sha256": "e64c87c90d7df7bfa4f4d98ba9b1f0b52b62cba3cfc938976a97cf063d20b4ec"
+    },
+    {
+      "path": "automation/pipeline/src/config.py",
+      "sha256": "20696ff95311a9743261e5688900135f1b95fffb93c79cf8f145985cebe9b0c8"
+    },
+    {
+      "path": "automation/pipeline/src/context.py",
+      "sha256": "fe3eec994351f2f34c0067705908df5ad03bb137dc46dc47354cdb8b12c53d26"
+    },
+    {
+      "path": "automation/pipeline/src/errors.py",
+      "sha256": "f96bbd9aef9fad17af3314d212d4f837ae84cf68e664b393c75b4a21f39734e8"
+    },
+    {
+      "path": "automation/pipeline/src/flow.py",
+      "sha256": "59969d80585ae6e7c16085e15a1850954d926bb011460478bf82220d76cd0d09"
+    },
+    {
+      "path": "automation/pipeline/src/machineherald_preview.py",
+      "sha256": "1f13a91a3a199bf0503a47c164fbe46ae700ab60974d107a31657806ecb93d3d"
+    },
+    {
+      "path": "automation/pipeline/src/personas.py",
+      "sha256": "f65f0bfec53f710c1f64c464309a5dc3312126e64612db84452dbf428dc8d7df"
+    },
+    {
+      "path": "automation/pipeline/src/photo_command.py",
+      "sha256": "dcf88c574a8c67427351c6c83e18b1781a4549692ccabe5d8bfae859e11e5da4"
+    },
+    {
+      "path": "automation/pipeline/src/photographs.py",
+      "sha256": "12dca14997b9904f592e1f0b29b9b6618be10532fc5457ab61be159f3e35b6ba"
+    },
+    {
+      "path": "automation/pipeline/src/siwc_auth.py",
+      "sha256": "2c65a79b1495c0ea67c2952738dc99be44627dd53607c5d816abedd2756742b5"
+    },
+    {
+      "path": "automation/pipeline/src/text_encoding.py",
+      "sha256": "cc084344aa7dc1ef876e09870a65a8c8546f3435cb1cee2743ab0da2619fa37c"
+    },
+    {
+      "path": "automation/pipeline/src/toolkit.py",
+      "sha256": "17270605b5184f1f1320353be5f1a774f2c66266a9bac7ff54df1472bed876f4"
+    },
+    {
+      "path": "automation/pipeline/src/websearch.py",
+      "sha256": "9d50181f5bb28020f97de7757fbc410361e00c5794274fef238daca0ad49dd4f"
+    },
+    {
+      "path": "automation/pipeline/tests/test_adapter_api.py",
+      "sha256": "3ab02892681b676f5c534c44e39a975cc8079aea49bca8711e40ca16a3959af4"
+    },
+    {
+      "path": "pyproject.toml",
+      "sha256": "2cc7c9e0624e26c6aa58753432fb56ebbbd8dfa7694d10bc3a081422f99b5364"
+    }
+  ],
+  "patch_sha256": "1a5d23df284406016d3b9763b51fa12f4be58a94a27faece17b1679db45e2cf0",
+  "excluded": "local-tests/** (OAuth/SIWC checkpoints, responses, run logs, article text and persona payloads); no credential material copied",
+  "restore": "apply worktree.patch to the source_base_commit listed above"
+}
