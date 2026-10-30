@@ -152,3 +152,32 @@ O ensaio mock foi repetido após o alinhamento: a coleta real main:coletor/2026-
 Snapshot code-only final RB-FACTORY-P1-v0.1.3-20261030: 46 arquivos, SHA-256 8dabd229848cdc790ca5deb24b4ca139e19e1bbbb509650d76de8cac95590166; manifesto SHA-256 dbe3b3ec7479a04a2ec8d479bb6010a28b1b5f0c825b8efbfc63b7f31ebb3e95. v0.1.2 permanece preservado.
 
 Checkpoint local atual REVISTA-BACK-CHECKPOINT.md: SHA-256 18856F150364952D1BD87C4499B6AE15E1033BFE02FC6BB74E0035B29FCE8FE7. Versão local imediatamente anterior preservada como REVISTA-BACK-CHECKPOINT.md.pre-v0.1.3-20261030, SHA-256 FC3A2358D021452A794797B4BFAD431471A7926EB998DD7B13280A783EF787B3. Nenhum texto privado de reportagem ou parecer foi incluído.
+
+## Infraestrutura real e branch isolada da factory - v0.1.4 - 2026-10-30
+
+### Preservacao e versionamento
+
+- O snapshot local v0.1.3 permaneceu inalterado: `RB-FACTORY-P1-v0.1.3-20261030.zip`, SHA-256 `8dabd229848cdc790ca5deb24b4ca139e19e1bbbb509650d76de8cac95590166`; manifesto SHA-256 `dbe3b3ec7479a04a2ec8d479bb6010a28b1b5f0c825b8efbfc63b7f31ebb3e95`.
+- A lane foi commitada localmente em `D:/Censurado-ollama-test`, branch `codex/revista-back-factory-v0.1.4-20261030`, commit `48515ed30476e0d4338ae8b02a5f69840ca5ceaa`, filho da base `a087e918515f5d01aa21f1b0d70c73b9ece725cc`. Sao 28 arquivos de codigo/config-exemplo/contrato/testes; LICENSE segue igual a base.
+- O commit exclui `local-tests/`, checkpoints, bancos, prompts privados, credenciais e textos editoriais. O checkpoint local anterior (SHA-256 `18856f150364952d1bd87c4499b6ae15e1033bfe02fc6bb74e0035b29fce8fe7`) foi preservado como copia local `.pre-v0.1.4-20261030`. Checkpoint local atualizado: SHA-256 `acc09a7cbda6454b2be5ecb435b062d65468381b7c5b188daa2d5aeea10fae11`.
+- Envio do codigo ao remoto Censurado e criacao da branch pelo conector GitHub foram negados por HTTP 403; a credencial `Saaimingo` nao tem permissao de escrita em `hec-ovi/censurado-web-brain`, e a integracao retornou `Resource not accessible by integration`. Nao foi criada referencia remota, PR ou fork. `main` local/remoto nao mudou. A branch e o commit seguem preservados localmente aguardando acesso de escrita.
+
+### Worker na stack existente
+
+- Foi preparado o servico Compose `factory` no perfil opt-in `factory`, usando o executor/image existentes. Executa `run.py factory --watch`, reinicia com `unless-stopped`, espera `init-perms` e health do `publish`, e persiste fila, runs DBOS e acervo em `./data`. Configuracao e prompts ficam em `FACTORY_CONFIG_DIR` montado read-only e ignorado pelo Git.
+- A configuracao-exemplo seleciona somente OAuth/SIWC `gpt-6-luna/max`, sem fallback. O armazenamento OAuth POSIX usa `XDG_DATA_HOME=/data/factory-oauth`, com modos 0700/0600. Credencial Windows DPAPI nao foi lida nem copiada para Linux; login OAuth oficial no runtime de destino continua necessario.
+- `.env.example` documenta `COMPOSE_PROFILES=factory`; esta preparacao nao foi ativada nem implantada.
+
+### Bloqueios reais observados
+
+- Sem listener ou health check em `127.0.0.1:8082` e `:8080`. O checkout irmao `censurado-web-backend`, `.env`, `keys.json` e `factory-config/factory.config.json` estao ausentes. O engine Docker nao esta ativo (named pipe Linux engine ausente).
+- O codigo/config original confirma `8082` como backend `publish` construido do sibling `censurado-web-backend`; `8080` e o llama.cpp configurado no pipeline antigo. Nenhum `llama-server` executavel/processo foi encontrado. `ollama.exe` nao foi usado como substituto.
+- `NEWSROOM_OPERATOR_TOKEN` nao existe em env process/user/machine nem `.env`. O codigo oficial o provisiona pelo `bootstrap.sh`, que roda rotacao de chave; nao foi executado. Sem servidor e credencial Bearer, nao foi chamado `GET /authors`. Cadastro/disponibilidade reais de `ranzinza`, `beto-cartucho` e `nina-prisma` permanecem nao verificados; `gamer-x` nao foi inventado.
+- O arquivo local OAuth DPAPI existe; apenas existencia/metadados foram vistos. Nenhuma inferencia real GPT-6 Luna ou outra chamada externa foi feita. A factory ainda nao esta homologada para agentes reais.
+
+### Verificacao e continuidade
+
+- Teste focado combinado: 53 passed (Compose, factory, adaptador API e SIWC/Responses simulados). Tudo offline/mock; Compose nao foi executado porque Docker Engine esta inativo.
+- Hashes: `factory.config.example.json` `9968f5d535bc7250b0e3119ed339291241390e769687d227d0ebe409e85c300c`; `docker-compose.yml` `c9ed94ef0212040f7cae67c3a83cdbadd661cf5731c44fb411de04d1daac32f7`; `automation/executor/Dockerfile` `805bd6876c94e18bf1c4c75a55bf4ec984009e8be4f9dd4d296973f53e36ace9`; `factory_worker.py` `80ff7234a8bc907ccde33c690b7fa3f7bed04366aac8ec9e64d4760195e60c37`; `factory_queue.py` `f7d627533ffd95a0805a96d60d27efef6f36cfb361d0561c58ee7f5a262a4967`; `siwc_auth.py` `be3e8a78d48a1b04cb6351018c0972a3368d8a6c072adf5afaff429290f1a0e6`; `call_journal.py` `c9b6e19c3476a298f935bb59a1ebfce9b67922da5a4d074db9f4d0f5113d50ba`.
+- Worktree do leitor segue na branch `codex/revista-back-primeira-edicao-20261029`. O unico arquivo local nao commitado continua `docs/visual/prototipos/revista-back-leitor-piloto/index.html`, SHA-256 `F6B6A31AB008BBEDC745E7DEEF198D20B272B9395E183753D9F54785CE71D19F`. Esta atualizacao altera somente este checkpoint; o HTML permanece preservado.
+- Checkpoint remoto antes desta atualizacao: branch em `946fb013cda46576eeba7979fb51b6e4becd68dc`, checkpoint blob `88204019a4a2d9d7ad2e99af7748147454ccb862`. Este addendum preserva a versao anterior pelo historico Git; nenhuma reportagem ou parecer privado foi incluido.
