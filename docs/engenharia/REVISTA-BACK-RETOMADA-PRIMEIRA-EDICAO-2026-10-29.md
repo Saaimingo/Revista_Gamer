@@ -64,3 +64,28 @@ Não alterar `main`, não mexer no antigo PR #44, não usar API paga, não publi
 **DECISÕES NOVAS:** o Codex é engenheiro, NÃO operador contínuo; a fábrica deve partir da detecção da coleta 08h00/18h40 e trabalhar autonomamente até a matéria aprovada no acervo, via orquestrador/DBOS e agentes por papéis. Ciclo por matéria J1/R1, se necessário J2/R2, se necessário J3/R3, após terceira rejeição bloqueio. Pesquisas complementares e necessidades de imagem são solicitadas e retornam ao mesmo fluxo. Só depois, em ciclo SEPARADO, grade/edição/diagramador/montagem. Requisitos de observabilidade para central do diretor, MAS **não implementar o painel ainda**. Testes locais em novembro e portabilidade preparada para VPS 24/7 em dezembro, contratação/deploy somente autorizados futuramente; horários adicionais de coleta são mera hipótese. Não trocar modelos nem iniciar nova chamada SIWC real por causa desta documentação.
 
 **Handoff obrigatório duplo:** atualizar depois de verificação local este checkpoint no GitHub E o arquivo no PC `D:\Censurado-ollama-test\local-tests\REVISTA-BACK-CHECKPOINT.md`, preservando backup, hashes e histórico de divergências. Não é possível sincronizar automaticamente o arquivo Windows a partir deste commit GitHub.
+
+
+## Continuidade consolidada após desligamento — 2026-10-30
+
+**Release de continuidade:** RB-FABRICA-P1-2026-10-30. Esta atualização substitui o estado operacional histórico acima e preserva o conteúdo anterior como registro.
+
+### Recuperação confirmada
+
+- Worktree do leitor em C:\Users\saimi\Revista_Gamer-primeira-edicao, branch codex/revista-back-primeira-edicao-20261029, HEAD 7456bb934aff4bbfa5580f9dfae6f3f1e8aeef82. O tip remoto antes desta atualização era 4fea7bb41cd456b6be6029a33954a9dc46a5a26a. O único arquivo local modificado continua sendo docs/visual/prototipos/revista-back-leitor-piloto/index.html, SHA-256 F6B6A31AB008BBEDC745E7DEEF198D20B272B9395E183753D9F54785CE71D19F; não foi commitado nem enviado.
+- Clone local do Censurado permanece em main, HEAD a087e918515f5d01aa21f1b0d70c73b9ece725cc, com alterações locais preservadas. Backup privado pré-implementação conferido por hash: 362 arquivos, zero divergências; hash de SHA256SUMS.txt 28DA6D8069EF8C45293AF8D6221FA9C77919F66AA9F859E00CADAD4DAFDE8D9A.
+- J1/R1 continuam preservados e inalterados fora do Git: draft.txt 52F1ABCBAA38FD71D58645B8050C70506F3CF4DBADDBDDF21C9FE1E58DD052DE; draft.json 8D363FDDDAE7AC084ED8651183FE6D9C38E98C6912D128EB2F4426A0F6A3FD62; review.txt E6B1306A1EF0729583E3FCFA519FA61D8E41E69A7E3D320099818574817921F7; review.json 0FAF227786DCA52F2F89519ABFF064D09825318CEF34FC451F848C2FE304733F. As duas chamadas SIWC reportaram completed/attempt=1; não foram repetidas. Uso reportado: J1 21.968/717 e R1 22.383/424 tokens; isso não mede saldo de assinatura.
+
+### Implementação local
+
+No clone do Censurado foi preparada uma lane local para detecção read-only do Captador, verificação de Git blob e ETag, fila SQLite idempotente, worker serial com lock, triagem, encaminhamento limitado ao roster permitido, pesquisa com proveniência de páginas lidas, correções J1/R1 → J2/R2 → J3/R3 e acervo privado append-only após aceite explícito da revisão. A factory não chama o publicador; imagens e montagem de edição continuam separadas. O contrato, schema e comando run.py factory foram atualizados apenas no clone local, ainda sem commit/PR.
+- Hashes SHA-256 locais: collector.py CE3AE0420B7D8200B48F583A003C6D430D3409134E7AC9B1F85E402276601652; factory_queue.py B5C99647E4CDBEE4F67C4DB64CA0C72D8001E6BD7964489433425BEEA2E2E0FC; archive.py 99A442B7C5A0B344F0D69E6EFEC5D7988CE7241747BE851F2E2D2A9B0AE6D440; factory_worker.py 4961C4F4E7199FE0B5A68F1E5AA5BE1ACB96CD61ECC252B48E2F5B55BD527E59; flow.py 05007716C8289DCFAA371ECB86BFAABBE3C4C94624E9BA1AC16ACE764AC32BD6; config.py F5D82F690072D2B066302B30A4CAF4D5FABBDABD3B35816E3407BCAAD438731E.
+- A configuração local de factory usa API local e rejeita adaptadores SIWC nos nós dessa lane. Ela não foi executada: nenhum novo poll do Captador, pesquisa web real, chamada de modelo, publicação ou deploy ocorreu nesta retomada. Os handles seed ranzinza/gamer-x ainda precisam ser verificados no backend; a variável de token local não estava disponível para confirmar o roster.
+
+### Testes e gates remanescentes
+
+- 10 testes focados da nova lane passaram, incluindo workflow DBOS simulado com pesquisa complementar, correção, aceite e arquivamento sem publicar. A seleção offline do pipeline/source_images sem tópicos e sem o teste de timeout sensível ao host terminou com exit code 0. git diff --check passou.
+- A suíte ampla ainda registra duas falhas no ambiente disponível: o teste de tópicos não encontra pydantic; test_batch_contains_a_hung_article_and_continues excede seu limite de quatro segundos para ambas as pautas, reproduzido com Python 3.11 e com o .venv Python 3.14. Nenhuma dependência foi instalada e a lane antiga não foi alterada.
+- Transições ainda manuais: confirmar roster/credencial e endpoint local; iniciar o worker ou configurar agendamento supervisionado; decidir pautas bloqueadas/incertas; revisão visual humana; escolher e montar edição; aprovar direitos de imagem; autorizar qualquer publicação/deploy. Nenhum agendamento está ativo.
+
+O checkpoint local D:\Censurado-ollama-test\local-tests\REVISTA-BACK-CHECKPOINT.md também foi atualizado com esta release e preserva cópia prévia local. Este documento público registra apenas hashes/metadados; reportagem e parecer continuam privados.
