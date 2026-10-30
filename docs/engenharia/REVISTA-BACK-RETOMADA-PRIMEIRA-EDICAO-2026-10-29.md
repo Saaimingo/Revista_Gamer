@@ -141,3 +141,14 @@ A homologação ainda depende de backend e cadastro reais disponíveis, uma auto
 ## Hash final do checkpoint local — 2026-10-30
 
 Após corrigir a codificação do trecho acrescentado, o checkpoint local REVISTA-BACK-CHECKPOINT.md ficou em UTF-8, SHA-256 FC3A2358D021452A794797B4BFAD431471A7926EB998DD7B13280A783EF787B3. A cópia anterior foi preservada como REVISTA-BACK-CHECKPOINT.md.pre-autonomy-20261030, SHA-256 5FC535BC0E9EDA69D92CF475C5366C34BDE5E27F5A89BFC43C01AF9C70FDE289. Nenhum texto privado de reportagem ou parecer foi acrescentado a este registro remoto.
+
+
+## Configuração final gpt-6-luna e snapshot v0.1.3 — 2026-10-30
+
+A configuração persistente da nova factory foi alinhada ao adaptador OAuth/SIWC existente, exclusivamente gpt-6-luna/max e sem fallback. Nenhum worker foi iniciado, token lido ou inferência real executada. O backend real continua indisponível e o cadastro online das personas não foi verificado.
+
+O ensaio mock foi repetido após o alinhamento: a coleta real main:coletor/2026-10-30-0800.md permaneceu no blob SHA 29d1765245c6f1b4f26f61d9f55aeba879e119a1; 9 tarefas, 1 arquivada somente no acervo de simulação, 2 bloqueadas, 6 descartadas; 27 Responses simuladas gpt-6-luna/max; re-poll adicionou 0. O status continua passed_simulation_only. Hash do manifesto local final: 8fbfaf4c39c832c452cc6ce2ae393e4c4120b0bb47d127abfc7f9e56155cfaca. Hash do artigo simulado: 8279e2d30434df797694bad51181f9951f2d54ba0919081cec121295c128132b; packet final: d7a96ba1cd20345557c4f645053daabd3326bc0fbdae6a669ff520a7c3ec3a59.
+
+Snapshot code-only final RB-FACTORY-P1-v0.1.3-20261030: 46 arquivos, SHA-256 8dabd229848cdc790ca5deb24b4ca139e19e1bbbb509650d76de8cac95590166; manifesto SHA-256 dbe3b3ec7479a04a2ec8d479bb6010a28b1b5f0c825b8efbfc63b7f31ebb3e95. v0.1.2 permanece preservado.
+
+Checkpoint local atual REVISTA-BACK-CHECKPOINT.md: SHA-256 18856F150364952D1BD87C4499B6AE15E1033BFE02FC6BB74E0035B29FCE8FE7. Versão local imediatamente anterior preservada como REVISTA-BACK-CHECKPOINT.md.pre-v0.1.3-20261030, SHA-256 FC3A2358D021452A794797B4BFAD431471A7926EB998DD7B13280A783EF787B3. Nenhum texto privado de reportagem ou parecer foi incluído.
