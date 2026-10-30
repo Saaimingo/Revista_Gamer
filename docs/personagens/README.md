@@ -1,5 +1,7 @@
 # Setor: personagens e assinaturas
 
+> **CONTINUIDADE ATUALIZADA — 24/10/2026:** A visão abaixo foi escrita antes dos PRs atuais e contém estados antigos. **Antes de trabalhar em personagens, leia [docs/personagens/continuidade/README.md](continuidade/README.md)** e o [checkpoint completo de 24/10](continuidade/CHECKPOINT-BLOCO-02-2026-10-24.md). Arlindo Carranca, Beto Cartucho e Nina Prisma têm decisões criativas posteriores registradas ali; `main` ainda não incorporou automaticamente PRs #13/#14/#19/#21. Nenhum teste ou merge é inferido.
+
 **Status:** DNAs completos ainda em desenvolvimento. **Ranzinza**: nome e retrato-base Protótipo A aprovados pela direção em 19/10/2026; voz e DNA editorial completo pendentes.
 
 ## Missão
