@@ -17,3 +17,16 @@
 ## Próximas entradas
 
 _Acrescente novas entradas datadas aqui sem reescrever o passado._
+
+
+## Retorno da direção: Codex está em execução — 31/10/2026
+
+**Origem:** atualização verbal direta do diretor ao Fundador 5. **Estado:** andamento **relatado pelo diretor**, ainda sem relatório/commit técnico de conclusão verificado.
+
+O diretor esclareceu que, após o primeiro ensaio real da factory, as nove inferências Luna funcionaram no transporte/pipeline, mas a pauta System76 foi bloqueada ao final das três avaliações do revisor. Estão investigando a causa editorial: rigor ou critérios do revisor, qualidade da escrita, dados insuficientes ou combinação. **Não aumentar/remover o limite de três ciclos sem diagnóstico**; o bloqueio pode ter sido legítimo.
+
+Antes da rodada agendada de 31/10 às 18h40, o diretor e Fundador 4 discutiram com o Bloco Coletor a ampliação da investigação documental, preservando as funções editoriais; a coleta real das 18h40 entregou os primeiros dossiês (`revista-back.coletor.v1`), já conferidos em repositório.
+
+**Informação operacional nova:** o diretor declara que **o Codex está atualmente trabalhando na integração/correções e executando testes**, e que já informou ter solucionado alguns problemas. **Não há, neste retorno, lista precisa dos problemas resolvidos, logs, relatório final ou commit novo comprovando essas correções.** A última verificação do Fundador 5 da branch remota da factory indicava `312dbd2cecb65a3f01400118d1a5d4d2a79c4177`; mudanças locais em curso podem não estar publicadas.
+
+**Conduta do Fundador 5:** não enviar prompt duplicado ao Codex nem alterar factory, iniciar worker/backlog, solicitar novas inferências, ampliar revisão ou mudar parâmetros durante a missão em andamento. Ao chegar o relatório do Codex, identificar exatamente alterações, resultados dos testes, pendências e diferenças entre correções técnicas e qualidade editorial. Conferir commits/arquivos disponíveis antes de declarar problemas solucionados. Nenhuma publicação autorizada.
