@@ -171,3 +171,16 @@ O diretor sugere conversar diretamente com o responsável pelo captador para inv
 **Proposta de piloto futuro, condicionada à direção:** uma pauta relevante, dossiê com URL de cada afirmação, evidência original/primária ou secundária, identidade exata do produto, antecedentes, fatos confirmados, conflito documentado, lacunas, data e limites de pesquisa. Aferir quantas citações o jornalista aproveita, novas buscas necessárias, correções do revisor, tempo de execução, custo, precisão e falsos vínculos entre assuntos. Preservar boletim atual, regras de anti-repetição e histórico e proibir cópia integral de textos de terceiros em repositório público. **Não executar** nova coleta, inferência, mudança de automação ou contrato por conta desta nota.
 
 **Próxima decisão:** diretor avaliar a proposta em diálogo com Fundador e Bloco Coletor. Formalização de contrato e piloto somente após comando específico.
+
+
+## Atualização de diretriz — Coletor como pesquisador editorial (31/10/2026)
+
+**Origem:** orientação explícita do diretor ao Fundador 4. **Status:** direção conceitual definida; integração técnica ainda pendente.
+
+O diretor rejeita limitar artificialmente o coletor à descoberta e a pequenos resumos. O coletor deve aproveitar ao máximo sua capacidade de pesquisa documental pública para entregar aos jornalistas **o contexto mais completo, útil e verificável possível**, inclusive fontes primárias e secundárias, antecedentes, cronologia, especificações e gerações de produtos, confirmações, versões conflitantes, evolução de rumores, lacunas e perguntas não resolvidas. O campo "O que ainda falta investigar?" permite ao jornalista avaliar se precisa buscar algo mais. Pesquisa complementar do jornalista deve ser **opcional, motivada por lacunas**, não uma repetição obrigatória do trabalho já feito.
+
+**Divisão:** coletor descobre e investiga documentalmente; jornalista julga as evidências, define enfoque e escreve; revisor verifica rigor e consistência. A profundidade do coletor não o transforma em redator. Não impor arbitrariamente limite de um ou dois dossiês por rodada: dimensionar a pesquisa conforme relevância, recursos e qualidade real. Preservar atribuição às fontes e não reproduzir material protegido integralmente em repositório público.
+
+**Integração:** incumbência do Codex adaptar a fábrica para aceitar, preservar e disponibilizar a totalidade do dossiê relevante aos agentes, sem descartar campos ricos por limitação do parser atual. Manter compatibilidade com o formato antigo e conservar trilha de proveniência. Coordenar especificação da entrega do Bloco Coletor com o contrato de ingestão da fábrica, sem criar processo paralelo de teste ou reconstruir a esteira existente. A ordem de implementação deve ser dada pelo diretor; esta nota não dispara mudança ou inferência.
+
+**Ressalva técnica:** informação reunida não equivale automaticamente a prova correta; jornalista e revisor devem poder conferir alegações na fonte, sobretudo diante de contradições ou alegações de alto impacto. A causa do bloqueio System76 continua sem diagnóstico definitivo.
