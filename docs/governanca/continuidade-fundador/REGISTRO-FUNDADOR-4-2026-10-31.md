@@ -139,3 +139,20 @@ O conceito abrange conversas/interação com os **jornalistas** (Arlindo Carranc
 - **Direção ratificada:** visão de controle centralizado, intervenção contextual, prioritização da revista + redes sociais, expansão gradual posterior para áudio, audiovisual e YouTube.
 - **Pendente:** requisitos funcionais detalhados, interface, permissões de intervenção, estados/retomada, integrações com redes, roteiro de expansão e local/forma do site adicional.
 - **Não autorizado:** iniciar Codex para construir painel/podcast/YouTube, abrir canais, modificar a fábrica ou criar nova pasta de ideias futuras **neste momento**. O diretor mencionou que pedirá **posteriormente** uma pasta de iniciativas futuras; aguardar solicitação explícita.
+
+
+## L. Debate sobre enriquecimento do coletor e handoff para a fábrica — 31/10/2026
+
+**Origem:** conversa do diretor com Fundador 4 após ensaio System76. **Status:** hipótese de melhoria e proposta de conversa com Bloco Coletor; **NÃO aprovada implementação**, alteração de prompt ou reprocessamento de pauta.
+
+O diretor sugere conversar diretamente com o responsável pelo captador para investigar **até onde o coletor consegue entregar contexto factual**, em vez de apenas notícia/título/link/resumo; o objetivo é fornecer ao jornalista um dossiê inicial mais útil e reduzir perda de contexto na entrada da fábrica. O coletor já é responsável por antirrepetição e acompanhamento de rumores, anúncios, jogos e desmentidos, conforme trabalho anteriormente autorizado.
+
+**Conferência do Fundador em código e arquivo público nesta rodada:**
+- Arquivo [coletor/2026-10-31-0800.md](https://github.com/Saaimingo/Revista_Gamer/blob/main/coletor/2026-10-31-0800.md) reúne **8 notícias novas e radar de 12 pautas**; cada entrada de notícia inclui **resumo factual, URL, data/fonte e indicação de acesso**. Não é apenas lista de links.
+- No repo privado [revista-back-factory](https://github.com/Saaimingo/revista-back-factory), branch §codex/revista-back-factory-v0.1.4-20261030§, o parser §automation/pipeline/src/collector.py§ reconhece os campos §title§, §category§, §discovery_source§, §source_url§, §reported_date§, §capture_summary§ e §reported_access_status§, retém §raw_record§ e sinaliza que o resumo **não comprova leitura da fonte pelo jornalista**. **Não há estrutura semântica específica** para versões de produto, fontes primárias/secundárias por alegação, histórico do radar ou divergências, embora o bruto seja preservado.
+- O §factory_worker.py§ encaminha o §candidate§ à esteira; o §context.py§ injeta esse contexto em nós da fábrica e executa §websearch§ separado, incluindo §candidate.source_url§ na pesquisa quando configurado. Portanto ampliar o markdown do captador **não assegura**, por si só, que os novos campos sejam consumidos de maneira útil; integração requer compatibilidade de contrato entre os dois lados.
+- O ensaio System76 envolveu pesquisa ativa separada e retornos de reviewer; **não há prova de que o bloqueio teve causa no captador**. Ainda é necessária auditoria dos três drafts, reviews e evidências.
+
+**Hipótese a discutir com o Bloco do Coletor:** cada descoberta poderia trazer, dentro de limites de custo, precisão e volume, tipo da pauta, produto/modelo/geração exato, resumo factual com fontes atribuídas, alegações não verificadas, diferenças entre versões, referência a comunicado primário, lacunas, contexto temporal e ligação ao radar. Evitar reproduzir integralmente matéria protegida de terceiros, inventar resultados ou transferir apuração/conclusões jornalísticas ao coletor. Jornalista e reviewer continuam obrigados a conferir o material na fonte quando necessário.
+
+**Próxima ação apenas proposta:** ouvir o Bloco Coletor sobre capacidades reais e limites e, só se o diretor aprovar uma proposta precisa, preparar ajuste conjunto de formato do captador + parser/prompt da fábrica e teste controlado. Não fazer alteração automática nem abrir nova execução do Luna.
