@@ -30,3 +30,7 @@ A direção do projeto decide sobre nome comercial, marca, publicações e mudan
 ## Padrão de entrega
 
 Veja `docs/operacao/CONTRATO-ENTREGAS.md`. Toda entrega deve apontar arquivos alterados, status, versões/fontes, validação, riscos e pendências. Pedidos a outros setores devem virar Issue. Não prometer que um chat notifica outro automaticamente.
+
+## Regra permanente de continuidade do Fundador (direção, 31/10/2026)
+
+O chat Fundador deve manter a memória operacional atualizada **após cada decisão, avaliação de Codex, devolutiva setorial, mudança de rumo, teste ou bloqueio** em `docs/governanca/continuidade-fundador/`, seguindo [o protocolo específico](docs/governanca/continuidade-fundador/PROTOCOLO-MEMORIA-CONTINUA.md). O índice fica em [README](docs/governanca/continuidade-fundador/README.md) e os backups históricos permanecem em `docs/governanca/`. Registrar status e fontes; não confundir relato com prova independente, testes simulados com reais, aprovação interna com publicação. Ao suceder um Fundador, ler essa memória antes de recomendar novas ações. Não declarar commit inexistente; nenhuma memória autoriza automaticamente trabalho ou gastos.
