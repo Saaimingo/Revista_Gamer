@@ -107,3 +107,35 @@ A direção comemorou o funcionamento real da esteira, mas criticou a possível 
 **Não autorizado por este registro:** inferência adicional, reprocessamento da pauta bloqueada, inicio automático/`--watch`, despesa, publicação de qualquer artigo, montagem de edição, fusão de branches, reescrita de DNA, alteração de visual, troca de modelo, uso indiscriminado de imagem ou deploy VPS.
 
 **Nota de confiabilidade:** muitas contagens e hashes operacionais são **relatos do Codex transmitidos à conversa**, não auditoria independente dos arquivos locais. Commits de correção e visibilidade do repo privado foram verificados pontualmente via GitHub. O repositório principal é público e nunca deve receber os textos privados da reportagem, tokens ou registros OAuth.
+
+
+## K. Diretriz multicanal e painel único de comando — conversa de 31/10/2026
+
+**Origem:** fala direta do diretor ao Fundador 4, após o primeiro ensaio real da factory. **Status:** visão estratégica ratificada pela direção; recursos e fases futuras **não implementados** e sem liberação de engenharia. A formalização técnica do painel ainda será debatida.
+
+### Propósito do painel
+
+O diretor deseja um **painel próprio da operação Revista Back**, independente do projeto Farol. Esse painel deve mostrar o percurso integral de cada pauta/processo e seus estados, evidências, revisões, bloqueios, pendências e agentes responsáveis. Deve permitir **intervenção humana contextual a qualquer momento autorizado**, não somente após um bloqueio, inclusive quando o diretor julgar uma pauta relevante mas incompleta, identificar falta de contexto ou quiser compreender uma divergência.
+
+O conceito abrange conversas/interação com os **jornalistas** (Arlindo Carranca, Beto Cartucho, Nina Prisma), **revisor**, **diagramador/montagem** e futuras funções de **acervo de imagens e vídeos**. O debate aberto inclui se a interação poderá ocorrer também fora de tarefas ativas; **não há decisão final** sobre o mecanismo de chat, controle de estados, limites de pausa ou regras de retomada. Não prometer um painel implementado pelo fato de existir um backend administrativo do Censurado.
+
+**Exemplo ilustrativo:** no ensaio System76, o diretor gostaria de poder abrir o segundo ciclo de revisão, visualizar argumentos/evidências, conversar com jornalista e revisor, delimitar o escopo ou pedir pesquisa adicional **antes** do bloqueio terminal. É uma capacidade pretendida do futuro painel, **não função atualmente comprovada**.
+
+### Prioridades e evolução dos canais
+
+1. **Revista digital:** produto editorial central, prioridade imprescindível e primeira frente de produção.
+2. **Redes sociais institucionais (Facebook e Instagram):** prioridade **próxima/imediata**, funcionando como principal vetor de atração de público à revista e apoio futuro à monetização; integrar operação e resultados ao painel quando houver capacidade real. As contas já foram criadas, mas não presumir fluxos/editoria/comercial homologados.
+3. **Podcast em áudio:** atrativo **futuro**, não demanda de implementação agora; vozes e formato devem ser discutidos e validados no momento oportuno.
+4. **Podcast audiovisual com personagens reconhecíveis:** **evolução posterior** ao áudio, com representações de Beto Cartucho, Arlindo Carranca e Nina Prisma; exige arte/movimento/voz/identidade e direitos consistentes.
+5. **YouTube:** frente audiovisual **posterior**, aproveitando o conteúdo audiovisual e a materialização visual dos personagens. Não presumir canal ou produção já disponíveis.
+6. **Site/presença web:** ampliação natural do acervo/canais, mas com formato e sequência ainda a precisar de definição. Distinguir **site institucional adicional** da **experiência web de leitura**, necessária para distribuir a revista digital prevista na arquitetura.
+
+**Princípio central:** uma **única operação editorial**, com pesquisa/fatos/memória reaproveitáveis de forma rastreável, pode futuramente alimentar revista, posts sociais, podcasts e vídeo, mas cada canal terá adaptação, direitos, revisão, métricas e aprovação específicos. Não assumir que o mesmo motor, sem adaptação, já produz todos esses formatos. O painel único reduz dispersão e permite visão consolidada de tarefas, resultados e decisões.
+
+**Relação com Farol:** são projetos separados. O painel descrito pertence exclusivamente à Revista Back; o Farol poderá futuramente supervisionar o projeto em nível superior. Não misturar bancos, interface ou governança por antecipação.
+
+### Distinção entre decisão e execução
+
+- **Direção ratificada:** visão de controle centralizado, intervenção contextual, prioritização da revista + redes sociais, expansão gradual posterior para áudio, audiovisual e YouTube.
+- **Pendente:** requisitos funcionais detalhados, interface, permissões de intervenção, estados/retomada, integrações com redes, roteiro de expansão e local/forma do site adicional.
+- **Não autorizado:** iniciar Codex para construir painel/podcast/YouTube, abrir canais, modificar a fábrica ou criar nova pasta de ideias futuras **neste momento**. O diretor mencionou que pedirá **posteriormente** uma pasta de iniciativas futuras; aguardar solicitação explícita.
