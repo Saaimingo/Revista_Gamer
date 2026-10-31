@@ -18,8 +18,10 @@ A partir daqui, a conversa do Fundador **não é a única memória do projeto**:
 - [REGISTRO-FUNDADOR-4-2026-10-31.md](REGISTRO-FUNDADOR-4-2026-10-31.md): registro vivo histórico do Fundador 4, incluindo a primeira execução real com Luna, discussão do revisor e entrega de dossiês do coletor.
 - [BACKUP-CONTINUIDADE-FUNDADOR-4-PARA-FUNDADOR-5-2026-10-31.md](BACKUP-CONTINUIDADE-FUNDADOR-4-PARA-FUNDADOR-5-2026-10-31.md): passagem formal com arquitetura, estado verificado, decisões, limites e prioridades.
 - [REGISTRO-FUNDADOR-5-2026-10-31.md](REGISTRO-FUNDADOR-5-2026-10-31.md): diário contínuo da nova direção, iniciado em 31/10/2026.
+- [BACKUP-CONTINUIDADE-FUNDADOR-5-PARA-FUNDADOR-6-2026-10-31.md](BACKUP-CONTINUIDADE-FUNDADOR-5-PARA-FUNDADOR-6-2026-10-31.md): passagem formal com confirmação remota da factory, alerta de integração no motor antigo e auditoria de papéis pendente.
+- [REGISTRO-FUNDADOR-6-2026-10-31.md](REGISTRO-FUNDADOR-6-2026-10-31.md): diário cronológico do Fundador 6.
 - [PROTOCOLO-MEMORIA-CONTINUA.md](PROTOCOLO-MEMORIA-CONTINUA.md): o que registrar, quando, como conferir e quem pode aprovar.
 
-**Passagem vigente:** Fundador 4 → 5 formalizada em 31/10/2026. O Fundador 5 deve manter seu registro continuamente atualizado e, quando necessário, produzir `BACKUP-CONTINUIDADE-FUNDADOR-5-PARA-FUNDADOR-6-AAAA-MM-DD.md`. Não substituir registros vivos por backups finais.
+**Passagem vigente:** Fundador 5 → 6 formalizada em 31/10/2026. O Fundador 6 deve manter seu registro continuamente atualizado e, quando necessário, produzir `BACKUP-CONTINUIDADE-FUNDADOR-6-PARA-FUNDADOR-7-AAAA-MM-DD.md`. Não substituir registros vivos por backups finais.
 
 **Nível de acesso:** `Saaimingo/Revista_Gamer` é público. Não registrar credenciais, tokens OAuth, e-mails pessoais, arquivos privados completos, dados de clientes ou conteúdo editorial inédito que deva permanecer reservado. Registrar apenas referências, hashes e fatos operacionais apropriados.
