@@ -1,5 +1,9 @@
 # Setor: visual e experiência de leitura
 
+## Direção de refinamento — virada física, lombada e spread (01/11/2026)
+
+**[ESPECIFICAÇÃO — Materialidade do papel, folhear por clique e dupla de páginas da BACK](ESPECIFICACAO-MATERIALIDADE-FOLHEAR-E-SPREAD-BACK-2026-11-01.md)**. Elaborada pelo Bloco 03 após novos ensaios, feedback do diretor e [handoff do Bloco 02 na Issue #50](https://github.com/Saaimingo/Revista_Gamer/issues/50). Decisões: clique/toque curto completa a virada; arraste que mantém folha presa é inaceitável; dupla deve parecer revista de papel, com lombada, curvatura, bordas e espessura discretas; página dupla é composição editorial única; **sem comprometer viewport integral nem menu hambúrguer recolhido**. Requisitos e critérios de teste detalhados no documento. Motor e acabamento ainda exigem validação da direção; não se autoriza Codex ou deploy por inferência.
+
 ## PRIORIDADE — Parecer corretivo do Bloco 03 à Direção/Fundador (29/10/2026)
 
 **[ESPECIFICAÇÃO CORRETIVA — Identidade visual e leitor da Revista BACK](ESPECIFICACAO-CORRETIVA-IDENTIDADE-LEITOR-BACK-2026-10-29.md)**. Documento registrado após o diretor apresentar capturas de todas as faces (1–10) do primeiro ensaio real do Codex. O diagnóstico se concentra em **geometria full-viewport, hambúrguer dentro da revista, duas páginas preenchendo a tela, capa cinematográfica e Modelo B03-03**. A direção **já aprovou** a experiência mobile imersiva e a arquitetura de capa; não reabrir. O `design-qa: passed` da prévia corresponde a verificações técnicas de overflow/responsividade, **não** a aceite da identidade visual. Encaminhamento ao fundador para próximo prompt do Codex; não é autorização deste Bloco para executar Codex ou publicar.
