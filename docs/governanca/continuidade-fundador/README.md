@@ -22,6 +22,8 @@ A partir daqui, a conversa do Fundador **não é a única memória do projeto**:
 - [REGISTRO-FUNDADOR-6-2026-10-31.md](REGISTRO-FUNDADOR-6-2026-10-31.md): diário cronológico do Fundador 6.
 - [PROTOCOLO-MEMORIA-CONTINUA.md](PROTOCOLO-MEMORIA-CONTINUA.md): o que registrar, quando, como conferir e quem pode aprovar.
 
+- [Proposta operacional em debate: dialogo entre jornalistas e revisao](../../operacao/PROPOSTA-DIALOGO-EDITORIAL-JORNALISTAS-REVISAO-2026-10-31.md): orientacao da Direcao sobre rigor factual, perguntas do revisor, respostas do jornalista e interpretacao de personas; registrada em `main` no commit `ee74ab0`. Nao e ordem de implementacao.
+
 **Passagem vigente:** Fundador 5 → 6 formalizada em 31/10/2026. O Fundador 6 deve manter seu registro continuamente atualizado e, quando necessário, produzir `BACKUP-CONTINUIDADE-FUNDADOR-6-PARA-FUNDADOR-7-AAAA-MM-DD.md`. Não substituir registros vivos por backups finais.
 
 **Nível de acesso:** `Saaimingo/Revista_Gamer` é público. Não registrar credenciais, tokens OAuth, e-mails pessoais, arquivos privados completos, dados de clientes ou conteúdo editorial inédito que deva permanecer reservado. Registrar apenas referências, hashes e fatos operacionais apropriados.
