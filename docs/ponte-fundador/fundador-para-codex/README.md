@@ -13,3 +13,5 @@
 - [PF-2026-11-01-004 — Parecer favorável ao plano e escopo exato de D1](PF-2026-11-01-004.md): aguarda autorização expressa do Diretor para implementação da primeira entrega; não aciona Codex automaticamente.
 
 - [PF-2026-11-01-005 — AUTORIZAÇÃO da Direção: executar D1–D3 offline com autonomia](PF-2026-11-01-005.md): substitui a pendência executiva da PF-004; autoriza implementação/testes técnicos e PR privado rascunho sem merge, mas não novas inferências Luna nem produção contínua.
+
+- [PF-2026-11-01-006 — Revisão do PR privado D1–D3, gates de aceite legado e teste de worker](PF-2026-11-01-006.md): revisão independente de código remoto; pede correções offline já autorizadas e preparação de ensaio real ainda sujeito a autorização.
