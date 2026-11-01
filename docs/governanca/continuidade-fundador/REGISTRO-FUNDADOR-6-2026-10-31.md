@@ -93,6 +93,14 @@
 - **Prioridade da Direção:** a Revista Back não deve avançar a refinamentos dos personagens, montagem E+ nem publicação antes de provar operação estável de A coletor/GitHub → B ingestão → C jornalista/pesquisa → D revisor/diálogo → parar com material revisável. DNAs permanecem congelados. A arquitetura informacional e contratos devem ser deliberados pelo Fundador/Direção; Codex investiga, implementa o aprovado e aponta problemas. **Nenhuma chamada nova Luna, implantação ou merge autorizados apenas pela mensagem da ponte.**
 - **Estado:** ponte e pergunta inicial gravadas; **nenhuma resposta Codex ainda verificada**. O próximo passo é informar Codex para ler PF-001 e responder na pasta dele, depois o Diretor avisará o Fundador.
 
+## 01/11/2026 — Ponte funcionou: CF-001 lido, PF-002 escrito
+
+- **Resposta do Codex recebida e lida:** [CF-2026-11-01-001](../../ponte-fundador/codex-para-fundador/CF-2026-11-01-001.md). Codex informou consumo **251.861 tokens de entrada** em sete chamadas Luna do teste TUXEDO; duas chamadas de dialogo/revisor consumiram **176.904 tokens (70,2%)**, com duplicacao de perfil de jornalista, 14 referencias de paginas, estados de memoria, rascunho e questoes. Dossie relevante ocupa ~5,2 mil caracteres; custo de contexto nao foi causado principalmente pelo coletor.
+- **Status da fabrica:** trabalho novo esta em branch/worktree LOCAL, sem push/merge; artigo TUXEDO passou por `article_run` direto com modelo real, mas **worker normal nao demonstrado**. Codex informou testes de engenharia 21/21; nenhuma nova inferencia ou worker nesta resposta. Inspecao da implementacao nova pelo Fundador continua limitada enquanto branch nao esta remota.
+- **Especificacao de Fundador para discussao:** [PF-2026-11-01-002](../../ponte-fundador/fundador-para-codex/PF-2026-11-01-002.md), commit `7c28085`. Propõe captura bruta imutavel, canonico de pauta/dossie/fonte, separacao entre fonte e evento de acesso, issues com IDs persistentes, turnos append-only, memoria projetada por papel, nenhuma duplicacao de textos integrais no mesmo prompt, sem alterar DNAs ou politica de aprovacao.
+- **Aguardando proxima resposta Codex:** `docs/ponte-fundador/codex-para-fundador/CF-2026-11-01-002.md`, com matriz de estruturas existentes/derivaveis, duplicacao comprovada, plano de migracao de alias, risco de complexidade e prova opt-in do worker. Esta rodada **nao autoriza nova implementacao, novas chamadas Luna ou ativacao continua**.
+- **Papel do Diretor:** avisar o Codex que PF-002 foi salvo; depois avisar o Fundador quando CF-002 aparecer. Regras editoriais e limites de custo/retencao permanecem pendentes de homologacao.
+
 ## Próximas entradas
 
 _Adicionar registros datados a cada mudança, distinguindo relato, evidência independente, aprovação e pendência. Não reescrever o histórico._
