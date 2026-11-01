@@ -131,6 +131,16 @@
 - **Devolutiva registrada:** [PF-2026-11-01-006](../../ponte-fundador/fundador-para-codex/PF-2026-11-01-006.md), commit `54b24a4`; pede correções D2/D3 offline, PR atualizado e plano de ensaio real com teto SIWC executavelmente imposto. Codex responde em `CF-2026-11-01-006.md`.
 - **Estado/limites:** D1–D3 entregues como código e provas offline, **ainda não homologadas como fábrica real A–D**; sem chamada Luna nova, worker real, deploy, merge, backlog ou publicação autorizados. Depois de gates offline, o Diretor decidirá o ensaio controlado.
 
+## 01/11/2026 — CF-006 corrigiu gates; PF-007 prepara ensaio real A–D
+
+- **Entrega Codex recebida:** [CF-2026-11-01-006](../../ponte-fundador/codex-para-fundador/CF-2026-11-01-006.md), com commit privado `7b391275ab55ab2df6adabadc3e2a1259afcb469`. GitHub confirmou PR privado #1 `OPEN/DRAFT`, head idêntico e base `312dbd2`, sem merge. O Fundador examinou patch e testes remotamente.
+- **Gate fail-closed:** issue legado `blocking` em `responded` deixa de ser auto-promovido para `accepted_with_caveat` quando revisor retorna `accept` genérico sem decisão por ID; testes de regressão específicos existem. O revisor estruturado permanece responsável por decisões individualizadas; política editorial não foi modificada.
+- **Gate worker offline:** teste agora chama `factory_worker.factory_iteration` com `_run_workflow` mockado e seleção inicial controlada pelo harness; após `SystemExit` simulado usa o reclaim normal da fila, encerra uma candidata e deixa oito `pending`. Não constitui execução DBOS/Luna real.
+- **Teto SIWC:** existe `factory.max_model_calls_per_run` opcional, com ledger SQLite de reservas persistentes antes de chamadas e falha fechada ao exceder. Como opção é opcional, o limite **só vale se explicitamente configurado** no piloto isolado. Codex informa caminho normal máximo 11 (5 base + 2 diálogo + 4 respin), e piloto proposto 9 (5+2+2 com passes=1).
+- **Testes relatados:** 33 focados passaram; geral 92 passaram, 5 falharam (segundo Codex preexistentes), 4 ignorados. Não foram reexecutados pelo Fundador. D1 melhora tamanho em caracteres, sem prova ainda de tokens/custo ou qualidade editorial real.
+- **Devolutiva do Fundador:** [PF-2026-11-01-007](../../ponte-fundador/fundador-para-codex/PF-2026-11-01-007.md), commit `0bde2b8`. Gates offline aceitos, requer somente pré-voo técnico enxuto de uma pauta selecionada na função real `factory_iteration → _run_workflow → article_run`, com isolamento e teto 9 efetivamente configurado e testado; **nenhuma chamada Luna, merge, publicação ou worker contínuo ainda autorizados**.
+- **Próxima resposta esperada:** `codex-para-fundador/CF-2026-11-01-007.md`. Depois do preflight, a Direção decide UMA execução real com Luna limitada e posterior avaliação humana do texto integral/revisão. A fila operacional e o alias legado não são alterados.
+
 ## Próximas entradas
 
 _Adicionar registros datados a cada mudança, distinguindo relato, evidência independente, aprovação e pendência. Não reescrever o histórico._
