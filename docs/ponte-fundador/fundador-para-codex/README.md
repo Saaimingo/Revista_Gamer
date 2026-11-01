@@ -17,3 +17,5 @@
 - [PF-2026-11-01-006 — Revisão do PR privado D1–D3, gates de aceite legado e teste de worker](PF-2026-11-01-006.md): revisão independente de código remoto; pede correções offline já autorizadas e preparação de ensaio real ainda sujeito a autorização.
 
 - [PF-2026-11-01-007 — Gates offline aceitos; preflight de um único ensaio real A–D](PF-2026-11-01-007.md): validou código do PR atualizado e exige seleção segura e config de teto 9 em dry-run antes de autorização de inferência.
+
+- [PF-2026-11-01-008 — Pré-voo CF-007 recebido, gate de Luna/OAuth ainda fechado](PF-2026-11-01-008.md): pede somente versionamento seguro/auditável do runner no PR privado, sem inferência e sem redesenho.
