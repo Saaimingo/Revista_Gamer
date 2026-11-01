@@ -68,6 +68,14 @@
 - **Futuro:** o diretor deseja um repositorio operacional dedicado aos dados editoriais da revista; nao criar/migrar ainda. Garantir fonte configuravel e isolamento de governanca, chat, blocos e instrucoes Codex da entrada de noticias.
 - **Estado:** especificacao e documentos no GitHub; implementacao e E2E dependem de Codex executar a ordem. Nenhuma alteracao tecnica feita pelo Fundador.
 
+## 01/11/2026 — Retorno de Codex: teste real TUXEDO e correcao da origem System76
+
+- **Devolutiva detalhada e segura:** [Análise do Fundador sobre a entrega local e teste TUXEDO](../../engenharia/DEVOLUTIVA-FUNDADOR-TESTE-TUXEDO-DIALOGO-MEMORIA-2026-11-01.md), commit `33a38d0`.
+- O Codex relatou dois commits locais `e3780df` e `c4a3070` na branch local `codex/collector-dialogue-memory-20261031`, sem push ou merge. Testou coleta real TUXEDO no workflow isolado, 7 chamadas Luna, diálogo/memória e final `blocked`. Não executou worker normal ou backlog.
+- **Correção verificável:** divergência anterior dos IDs System76 foi erro de reconstrução do Fundador. O parser não reconhece `Acesso ao conteúdo integral`; considerando campo vazio, o hash de revisão e run_id calculados coincidem exatamente com o histórico `8f345fc...` / `rb-05a34e...`. Descarta-se suspeita de proveniência **baseada apenas nesses IDs**. Resta corrigir alias do campo e preservar idempotência.
+- **Novos pontos críticos:** prompts grandes informados (380k/319k caracteres) contrariam intenção de memória compacta; revisão continua bloqueando notícia com incerteza explícita sobre especificação do fabricante e requer discussão editorial. Antes de produção, auditar código novo via branch remota privada, reduzir contexto e validar worker opt-in sem fila inteira.
+- Implementação ainda não homologada nem ativada continuamente; nenhum merge/publicação autorizado por esta nota. Não divulgar relatório técnico local privado, DNAs, prompts ou conteúdo integral de matéria.
+
 ## Próximas entradas
 
 _Adicionar registros datados a cada mudança, distinguindo relato, evidência independente, aprovação e pendência. Não reescrever o histórico._
