@@ -12,6 +12,12 @@ A comunicação é **assíncrona via GitHub**. Abrir uma Issue NÃO acorda um ch
 6. Quem pediu **verifica** o resultado; fecha a Issue com link para documentação aprovada.
 7. Se houver alteração global, direção atualiza `DECISOES.md` e `STATUS-GERAL.md`.
 
+## Canal de troca estruturada Fundador–Codex–Blocos (01/11/2026)
+
+O Diretor instituiu [`docs/ponte-fundador/`](../ponte-fundador/README.md) para conversas tecnicas e pareceres iterativos: `fundador-para-codex/`, `codex-para-fundador/`, `fundador-para-blocos/`, `blocos-para-fundador/`. Cada remetente cria arquivo em seu proprio espaco, indicando destinatario, `thread_id`, `message_id`, `in_reply_to`, referencias, evidencias e proxima acao. O receptor le e responde no espaco de sua autoria. **Nao editar mensagem de outra parte** e nao declarar entrega sem commit conferido.
+
+Este canal complementa, e nao substitui, as Issues para solicitacoes formais nem a documentacao setorial. Nenhuma mensagem acorda automaticamente outro chat. O Diretor deve avisar o destinatario quando houver resposta. Instrucoes ao Codex precisam de contrato de dados e comportamento aprovado pelo Fundador/Direcao antes de implementacao; o Codex identifica conflitos e alternativas sem definir sozinho a politica editorial. **Proibido incluir conteudo privado em texto no repositorio publico.** A ponte nao alimenta a pasta `coletor/` nem a fabrica como pauta.
+
 ## Sem conflitos de edição
 
 - Cada setor edita preferencialmente sua pasta. Mudanças no escopo de outro setor viram solicitação/PR.
