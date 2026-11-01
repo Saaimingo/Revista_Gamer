@@ -22,3 +22,15 @@ O tom pode ser criativo e descontraido quando apropriado ao personagem e a uma r
 ## Proximo passo
 
 Debater com a direcao, por etapas, um protocolo bidirecional de perguntas, respostas, contestacoes fundamentadas, uso de evidencias, limites de ciclos e escalonamento humano. Diferenciar bloqueio por evidencia insuficiente de bloqueio por limite operacional. Nenhuma mudanca de prompt, DNA, codigo ou gasto de inferencia autorizada neste registro.
+
+## Hipotese em debate: memoria temporaria por reportagem
+
+**Origem:** nova ideia apresentada pelo diretor durante a investigacao de dialogo jornalista/revisor. **Estado:** hipotese de arquitetura, nao aprovada nem implementada.
+
+Cada materia pode receber uma pequena memoria propria, associada a `story_id` e `run_id`, com versao do texto, perguntas identificadas, respostas argumentadas, links e hashes de evidencias, pontos resolvidos ou pendentes, conclusoes provisórias e eventual escalonamento humano. Jornalista e revisor receberiam apenas o trecho relevante dessa memoria em cada chamada Luna, sem inserir todo o historico no prompt.
+
+O armazenamento atual da factory ja possui SQLite para a fila e candidatos, checkpoints locais DBOS por run e arquivo privado append-only para versoes aprovadas; estes mecanismos **nao constituem, por si, a memoria conversacional editorial proposta**. Investigar como acrescenta-la sem criar outra fabrica ou perder a durabilidade e a idempotencia atuais.
+
+Ao encerrar uma materia, discutir tres destinos distintos: (a) arquivar no historico privado as fontes, fatos confirmados, divergencias, justificativas de aceite e conhecimento reutilizavel, com proveniencia e data; (b) manter pendencias e versoes necessarias para auditoria, recurso ou retomada; (c) reduzir ou eliminar detalhes transitorios do dialogo somente apos politica explicita de retencao e descarte. Nao transferir conjecturas para a base de fatos nem descartar registros ainda necessarios para recuperacao.
+
+A memoria deve ser limitada por topico/pauta, resumida quando necessario e capaz de evitar repeticao de perguntas ja respondidas. Toda resposta deve distinguir alegacao do fabricante, fonte lida, hipotese e fato verificado. Limites de dialogo, orcamento e tempo continuam a ser deliberados com a direcao.
