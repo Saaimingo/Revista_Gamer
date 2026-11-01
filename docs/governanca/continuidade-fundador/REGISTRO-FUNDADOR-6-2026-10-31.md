@@ -115,6 +115,13 @@
 - Fundador escreveu [PF-2026-11-01-004](../../ponte-fundador/fundador-para-codex/PF-2026-11-01-004.md), commit `5795fbc`: concordância técnica com as três entregas e **escopo fechado proposto** para D1, visando remover duplicações de persona, fontes, issues e draft dos prompts sem perder evidência nem alterar artefatos privados antigos, medir caracteres por bloco e testar offline. Não autoriza D2/D3, Luna ou implantação contínua.
 - **Ponto de parada:** Direção precisa autorizar expressamente D1. Depois disso, registrar a autorização na ponte e pedir ao Codex implementar somente D1, apresentar diffs e testes, e parar antes da etapa seguinte. Não abrir quarta rodada de inventário sem necessidade.
 
+## 01/11/2026 — Autorizacao executiva D1–D3 offline (PF-005)
+
+- **Diretor autorizou expressamente:** "vou dar autorização a ele pra seguir [...] se precisa fazer, não precisa de minha permissão pra certas coisas. O que é necessário ser feito precisa ser feito". O objetivo é remover pedidos repetitivos de autorização para correções técnicas já cobertas pelo plano.
+- **Ordem de execução:** [PF-2026-11-01-005](../../ponte-fundador/fundador-para-codex/PF-2026-11-01-005.md), commit `6d879c2`. Substitui a pendência executiva histórica da PF-004 e autoriza Codex a implementar **D1, D2, D3 offline em sequência**, com testes, commits e checkpoints, sem parar após cada etapa por aprovação rotineira.
+- **Autonomia limitada:** permitidos ajustes no worktree/branch da factory e eventual push + PR rascunho SOMENTE no repositorio PRIVADO, excluindo artefatos/segredos. Não autoriza novas chamadas Luna, inferência paga real, `factory --watch`, processamento de backlog, alteração da fila operacional, publicação, DNAs/prompts privados nem merge/deploy contínuo. Teste real de uma pauta sob worker exige depois plano controlado de quota/chamadas.
+- **Próximo marco:** Codex iniciar D1 imediatamente, registrar `CF-2026-11-01-004.md` com testes e continuar D2/D3 sem nova permissão se estiverem dentro do contrato. Fundador revisar mensagens assim que Diretor avisar.
+
 ## Próximas entradas
 
 _Adicionar registros datados a cada mudança, distinguindo relato, evidência independente, aprovação e pendência. Não reescrever o histórico._
