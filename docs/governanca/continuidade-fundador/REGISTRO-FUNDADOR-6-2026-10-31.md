@@ -84,6 +84,15 @@
 - **Pontos tecnicos a examinar antes de proxima ordem:** riqueza da coleta preservada em bruto, modelo normalizado sem perdas silenciosas, dados canonicos com referencias, eventos de dialogo auditaveis mas contexto enxuto, medicao de duplicacao e custo real dos prompts reportados (380k/319k caracteres nao significam tamanho do banco), limites por papel, teste de isolamento e deduplicacao.
 - **Status:** sem nova ordem ao Codex; esquema dos campos ainda nao foi homologado; evitar merge/ativacao continua por inferencia.
 
+## 01/11/2026 — Ponte de comunicação bilateral Fundador ↔ Codex e demais Blocos
+
+- **Decisão explícita do Diretor:** instituir uma pasta única no GitHub para comunicação assíncrona bilateral entre o Fundador e Codex, extensível a todos os Blocos 02–06, com espaços independentes de escrita para cada remetente. O Diretor fará o aviso manual quando uma parte responder; não existe comunicação automática entre chats.
+- **Estrutura criada:** [`docs/ponte-fundador/`](../../ponte-fundador/README.md) com `fundador-para-codex/`, `codex-para-fundador/`, `fundador-para-blocos/` e `blocos-para-fundador/`; arquivos por rodada com IDs, encadeamento `in_reply_to` e regras de autoria/segurança. Repositório publico: nenhum dado privado operacional deve ser colado.
+- **Mensagem inicial ao Codex:** [PF-2026-11-01-001](../../ponte-fundador/fundador-para-codex/PF-2026-11-01-001.md), thread `FACTORY-AD-2026-11-01`, commit `9e045ea`. Solicita diagnóstico real do worker, pipeline A-D, perda de campos do coletor, auditoria do tamanho dos prompts, deduplicação/contratos e proposta mínima para estabilização. A próxima resposta do Codex deverá ser criada em `codex-para-fundador/CF-2026-11-01-001.md` e avisada ao Diretor.
+- **Referências operacionais atualizadas:** `AGENTS.md`, `README.md`, `docs/operacao/PROTOCOLO-HANDOFF.md` e `docs/governanca/continuidade-fundador/README.md`, com o link da ponte. Não alterar documentos de outro autor para responder.
+- **Prioridade da Direção:** a Revista Back não deve avançar a refinamentos dos personagens, montagem E+ nem publicação antes de provar operação estável de A coletor/GitHub → B ingestão → C jornalista/pesquisa → D revisor/diálogo → parar com material revisável. DNAs permanecem congelados. A arquitetura informacional e contratos devem ser deliberados pelo Fundador/Direção; Codex investiga, implementa o aprovado e aponta problemas. **Nenhuma chamada nova Luna, implantação ou merge autorizados apenas pela mensagem da ponte.**
+- **Estado:** ponte e pergunta inicial gravadas; **nenhuma resposta Codex ainda verificada**. O próximo passo é informar Codex para ler PF-001 e responder na pasta dele, depois o Diretor avisará o Fundador.
+
 ## Próximas entradas
 
 _Adicionar registros datados a cada mudança, distinguindo relato, evidência independente, aprovação e pendência. Não reescrever o histórico._
