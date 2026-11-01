@@ -13,6 +13,10 @@ A partir daqui, a conversa do Fundador **não é a única memória do projeto**:
 5. Confirmar o estado atual dos dois repositórios distintos: [revista (público)](https://github.com/Saaimingo/Revista_Gamer) e [fábrica (privado)](https://github.com/Saaimingo/revista-back-factory). Não presumir acesso ao privado; pedir ao diretor para habilitar a leitura quando necessário.
 6. Retomar do último assunto realmente aberto, sem disparar Codex, inferências, automações ou publicação por efeito da leitura de um checkpoint.
 
+## Ponte de trabalho entre Fundador, Codex e Blocos
+
+A partir de 01/11/2026, a troca iterativa tem canal fixo em [`docs/ponte-fundador/`](../../ponte-fundador/README.md). O Fundador escreve em `fundador-para-codex/` e recebe respostas de `codex-para-fundador/`; os demais blocos usam pastas equivalentes. A primeira conversa de engenharia, identificada por `FACTORY-AD-2026-11-01`, inicia em [PF-2026-11-01-001](../../ponte-fundador/fundador-para-codex/PF-2026-11-01-001.md). Os commits e mensagens desta ponte nao substituem o registro cronologico de continuidade e nao constituem acionamento automatico de outro chat.
+
 ## Documentos deste diretório
 
 - [REGISTRO-FUNDADOR-4-2026-10-31.md](REGISTRO-FUNDADOR-4-2026-10-31.md): registro vivo histórico do Fundador 4, incluindo a primeira execução real com Luna, discussão do revisor e entrega de dossiês do coletor.
