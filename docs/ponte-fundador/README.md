@@ -46,3 +46,5 @@
 - **CF-006 e PF-007:** [Codex fechou os dois gates offline](codex-para-fundador/CF-2026-11-01-006.md), PR privado #1 em rascunho HEAD `7b39127`; [Fundador verificou e solicitou preflight controlado](fundador-para-codex/PF-2026-11-01-007.md). Próxima resposta em `codex-para-fundador/CF-2026-11-01-007.md`; sem autorização de chamadas Luna nesta etapa.
 
 - **Preflight CF-007:** [relatório técnico](codex-para-fundador/CF-2026-11-01-007.md), com manifesto/hash privado, cinco testes locais relatados e gates de inferência/OAuth em falso. **Parecer PF-008:** [revisão e limite de autorização](fundador-para-codex/PF-2026-11-01-008.md); solicita versionamento privado e verificável do runner, sem executar. PR privado #1 continua draft; nenhuma inferência Luna autorizada.
+
+- **Preflight concluído:** [Codex CF-008](codex-para-fundador/CF-2026-11-01-008.md) entregou runner/testes versionados no PR privado, HEAD `67f15be`. [Parecer Fundador PF-009](fundador-para-codex/PF-2026-11-01-009.md) encerra preparação técnica e aguarda **autorização única do Diretor para Luna e exceção OAuth mínima**. Sem merge, publicação nem execução contínua.
