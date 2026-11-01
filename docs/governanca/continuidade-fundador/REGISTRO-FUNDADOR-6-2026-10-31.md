@@ -39,6 +39,17 @@
 - **Limite operacional:** consultas e respostas via GitHub não acontecem automaticamente entre chats. Criar uma Issue ou editar Markdown não acorda o outro bloco; ele deve consultar os registros ou receber handoff dirigido pela Direção/automação futura autorizada.
 - **Pendência para decisão:** discutir se manter a comunicação distribuída por Issues/pastas setoriais ou estabelecer uma área explícita própria do Fundador com caixas de entrada, saídas, pareceres e vínculos, sem duplicar nem apagar o protocolo histórico. **Não criar/mover diretórios, substituir arquivos setoriais ou acionar outros blocos antes da deliberação.**
 
+## 31/10/2026 — Diretriz em debate: colaboração dialogada entre jornalista e revisor
+
+- **Origem:** discussão direta com o diretor no Fundador 6, ao examinar a primeira execução real do Carranca/System76. **Status: proposta editorial em debate; não é homologação, ordem de implementação nem mudança de DNA.**
+- **Diagnóstico da Direção:** o problema central percebido é o modelo de comunicação engessada entre jornalista e revisor. Hoje há devolutivas estruturadas e reescritas, mas faltam perguntas objetivas, explicações, justificativas e contrapropostas, com turnos rápidos e delimitados. Os papéis devem colaborar para construir reportagem boa e verificável, não funcionar como mero fiscal e subordinado.
+- **Exemplo dos preços:** diante de valores divergentes, revisor deve questionar a possibilidade de diferenças de SKU, geração, memória, configuração, época e fonte; jornalista deve pesquisar, responder com evidência ou declarar explicitamente o que não conseguiu confirmar. Os códigos N1/N2 são pistas, não prova independente da correspondência dos preços a cada versão.
+- **Exemplo benchmark:** ao cobrir produto ainda não lançado, a falta de benchmark independente pode ser apresentada como limitação explícita, sem exigir teste inexistente ou travar automaticamente notícia de anúncio. Jornalista também deve poder contestar de modo fundamentado exigência inadequada à pauta. A auditoria não identifica benchmark como a causa exclusiva do bloqueio final.
+- **Tom Revista Back:** permitir ao jornalista usar ironia e sua personalidade aprovada para contextualizar anúncios e promessas comerciais, sem confundir opinião com fato ou alegar testes próprios. A Revista Back não deve reproduzir rigidez estilística de publicação financeira; rigor factual continua obrigatório.
+- **Princípio em estudo:** revisor deve ser parceiro editorial exigente, investigar em conjunto, dar luz às falhas e explicar por que algo está ou não suficientemente apurado; jornalista deve ser capaz de questionar, argumentar e solicitar nova pesquisa sem obedecer cegamente. Não alterar DNAs dos três jornalistas antes de avaliar se bastam instruções de colaboração e protocolo de troca.
+- **Restrições de projeto:** trocas com histórico, fonte e decisões registradas; limitar rodadas/custos; evitar conversas infinitas; se persistir divergência não resolvida, separar `evidencia insuficiente` de `limite operacional alcançado` e escalar à direção humana. O diálogo entre nós de IA é sequencial, com passagem de contexto, não conversação contínua espontânea.
+- **Próximo passo:** debater e definir regras de comunicação, critérios de aceite e escalonamento em pequenas partes com o diretor. **Nenhuma missão ao Codex ou alteração na fábrica autorizada neste marco.**
+
 ## Próximas entradas
 
 _Adicionar registros datados a cada mudança, distinguindo relato, evidência independente, aprovação e pendência. Não reescrever o histórico._
