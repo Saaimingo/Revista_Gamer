@@ -43,3 +43,7 @@
 Este repositório é a fonte de verdade de projeto. Repositórios de software da fábrica e do site podem ser criados futuramente, se a separação for justificada e aprovada. Não confundir estes chats de planejamento com os agentes que executarão a produção.
 
 Documentação inicial elaborada em 2026-10-15; sujeita a revisão e aprovação da direção.
+
+## Ponte entre Fundador, Codex e Blocos
+
+A comunicacao assincrona e documentada entre o Fundador, o Codex e os setores da Revista Back fica em [docs/ponte-fundador/](docs/ponte-fundador/README.md). Mensagens para o Codex e respostas dele usam pastas separadas; o Diretor avisa manualmente quando ha resposta. Esse canal nao participa da coleta de noticias.
