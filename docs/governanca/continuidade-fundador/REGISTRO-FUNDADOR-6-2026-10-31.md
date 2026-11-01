@@ -76,6 +76,14 @@
 - **Novos pontos críticos:** prompts grandes informados (380k/319k caracteres) contrariam intenção de memória compacta; revisão continua bloqueando notícia com incerteza explícita sobre especificação do fabricante e requer discussão editorial. Antes de produção, auditar código novo via branch remota privada, reduzir contexto e validar worker opt-in sem fila inteira.
 - Implementação ainda não homologada nem ativada continuamente; nenhum merge/publicação autorizado por esta nota. Não divulgar relatório técnico local privado, DNAs, prompts ou conteúdo integral de matéria.
 
+## 01/11/2026 — Diretriz da Direcao: especificar contratos antes de ordenar implementacao
+
+- **Registro aprovado da mudança metodologica:** [Diretriz de especificacao antes da implementacao](../DIRETRIZ-ESPECIFICACAO-ANTES-IMPLEMENTACAO-2026-11-01.md), commit `c26a34d`.
+- **Critica da Direcao:** o Fundador tem delegado indevidamente ao Codex decisoes arquiteturais e informacionais que deveriam ser especificadas e debatidas antes da codificacao: definicao de campos, aliases, semantica, referencias, deduplicacao, memoria compacta e contexto entregue a cada agente.
+- **Novo arranjo de responsabilidade:** Diretor homologa politicas e objetivos; Fundador projeta e especifica contrato funcional, informacional, estados e criterios de aceite; Codex implementa, encontra conflitos e propoe alternativas sem decidir unilateralmente objetivos editoriais ou modelos de informacao.
+- **Pontos tecnicos a examinar antes de proxima ordem:** riqueza da coleta preservada em bruto, modelo normalizado sem perdas silenciosas, dados canonicos com referencias, eventos de dialogo auditaveis mas contexto enxuto, medicao de duplicacao e custo real dos prompts reportados (380k/319k caracteres nao significam tamanho do banco), limites por papel, teste de isolamento e deduplicacao.
+- **Status:** sem nova ordem ao Codex; esquema dos campos ainda nao foi homologado; evitar merge/ativacao continua por inferencia.
+
 ## Próximas entradas
 
 _Adicionar registros datados a cada mudança, distinguindo relato, evidência independente, aprovação e pendência. Não reescrever o histórico._
