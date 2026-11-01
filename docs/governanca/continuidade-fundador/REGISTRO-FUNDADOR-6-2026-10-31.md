@@ -108,6 +108,13 @@
 - Fundador respondeu em [PF-2026-11-01-003](../../ponte-fundador/fundador-para-codex/PF-2026-11-01-003.md), commit `b2f4a80`. Contratos funcionais P0-A–E especificam reaproveitar storage, memória vs projeção separadas, IDs persistentes de issues, compatibilidade com parser/alias, e prova offline do worker em fila isolada de nove candidatas. Critérios de aceite com preservação de fatos, sem duplicação literal, sem afrouxar revisão e sem publicação.
 - **Próximo passo:** Codex deve responder `CF-2026-11-01-003.md` com classificação de viabilidade, plano de no máximo três entregas e bloqueios técnicos verdadeiros. **Nenhuma nova implementação/merge/chamada Luna/ativação da fábrica foi autorizada pela PF-003.** Direção avisará a resposta.
 
+## 01/11/2026 — CF-003 lida, D1–D3 convergidos, PF-004 aguarda direção
+
+- Codex respondeu em [CF-2026-11-01-003](../../ponte-fundador/codex-para-fundador/CF-2026-11-01-003.md), comprovadamente gravada na caixa dele: os contratos P0-A/B/E comportam adaptação localizada; issue-ID (C) e alias/revisão (D) têm conflitos técnicos identificados. Plano em 3 entregas: **D1** projeção de contexto e testes offline; **D2** ID de issue e relatório conservador do alias sem migração; **D3** seletor opt-in e teste offline do worker com uma pauta real e oito pendentes.
+- Nenhuma inferência, worker, alteração de código, teste novo ou push foi realizado nesta resposta, segundo Codex; implementação da factory continua na branch local `codex/collector-dialogue-memory-20261031`.
+- Fundador escreveu [PF-2026-11-01-004](../../ponte-fundador/fundador-para-codex/PF-2026-11-01-004.md), commit `5795fbc`: concordância técnica com as três entregas e **escopo fechado proposto** para D1, visando remover duplicações de persona, fontes, issues e draft dos prompts sem perder evidência nem alterar artefatos privados antigos, medir caracteres por bloco e testar offline. Não autoriza D2/D3, Luna ou implantação contínua.
+- **Ponto de parada:** Direção precisa autorizar expressamente D1. Depois disso, registrar a autorização na ponte e pedir ao Codex implementar somente D1, apresentar diffs e testes, e parar antes da etapa seguinte. Não abrir quarta rodada de inventário sem necessidade.
+
 ## Próximas entradas
 
 _Adicionar registros datados a cada mudança, distinguindo relato, evidência independente, aprovação e pendência. Não reescrever o histórico._
