@@ -27,6 +27,12 @@ A direção do projeto decide sobre nome comercial, marca, publicações e mudan
 - Não adicionar chaves de API, tokens, dados pessoais sensíveis, mídia binária não autorizada ou logs com segredos.
 - Não usar limites do Plus como garantia de acesso à API ou execução desassistida: medir e validar.
 
+## Ponte de comunicacao Fundador ↔ Codex e Blocos — diretriz de 01/11/2026
+
+A Direcao criou a [Ponte do Fundador](docs/ponte-fundador/README.md), com pastas distintas de autoria. Quando a tarefa vier do Fundador, ler primeiro `docs/ponte-fundador/fundador-para-codex/`; responder criando arquivo novo em `docs/ponte-fundador/codex-para-fundador/`, com `message_id`, `thread_id`, `in_reply_to` e links das evidencias. O arquivo inicial da conversa de estabilizacao da fabrica e [PF-2026-11-01-001](docs/ponte-fundador/fundador-para-codex/PF-2026-11-01-001.md). **Nao editar o espaco do interlocutor nem tratar mensagem de diagnostico como autorizacao para deploy.** Blocos usam as duas pastas correspondentes `fundador-para-blocos/` e `blocos-para-fundador/`.
+
+O GitHub e a ponte nao acionam outros chats automaticamente. O Diretor avisa a parte interessada de que ha mensagem. O registro publico nao deve conter prompts privados integrais, DNAs privados, segredos, logs de inferencia ou materias nao publicadas. O codigo e os detalhes sigilosos ficam no repositorio PRIVADO da fabrica. O canal nao deve ser consumido como fonte de pauta do coletor.
+
 ## Padrão de entrega
 
 Veja `docs/operacao/CONTRATO-ENTREGAS.md`. Toda entrega deve apontar arquivos alterados, status, versões/fontes, validação, riscos e pendências. Pedidos a outros setores devem virar Issue. Não prometer que um chat notifica outro automaticamente.
