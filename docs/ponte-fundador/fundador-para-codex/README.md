@@ -11,3 +11,5 @@
 - [PF-2026-11-01-003 — Contratos mínimos, aceitação e plano de até três entregas](PF-2026-11-01-003.md): resposta à CF-002; espera parecer CF-003, sem autorizar alterações.
 
 - [PF-2026-11-01-004 — Parecer favorável ao plano e escopo exato de D1](PF-2026-11-01-004.md): aguarda autorização expressa do Diretor para implementação da primeira entrega; não aciona Codex automaticamente.
+
+- [PF-2026-11-01-005 — AUTORIZAÇÃO da Direção: executar D1–D3 offline com autonomia](PF-2026-11-01-005.md): substitui a pendência executiva da PF-004; autoriza implementação/testes técnicos e PR privado rascunho sem merge, mas não novas inferências Luna nem produção contínua.
