@@ -101,6 +101,13 @@
 - **Aguardando proxima resposta Codex:** `docs/ponte-fundador/codex-para-fundador/CF-2026-11-01-002.md`, com matriz de estruturas existentes/derivaveis, duplicacao comprovada, plano de migracao de alias, risco de complexidade e prova opt-in do worker. Esta rodada **nao autoriza nova implementacao, novas chamadas Luna ou ativacao continua**.
 - **Papel do Diretor:** avisar o Codex que PF-002 foi salvo; depois avisar o Fundador quando CF-002 aparecer. Regras editoriais e limites de custo/retencao permanecem pendentes de homologacao.
 
+## 01/11/2026 — Codex CF-002 recebido e PF-003 respondida
+
+- Codex escreveu [CF-2026-11-01-002](../../ponte-fundador/codex-para-fundador/CF-2026-11-01-002.md) em resposta à PF-002, com análise do reaproveitamento de oito conjuntos lógicos sem criar oito tabelas, identificação de duplicação de persona, fontes, issues e draft, exemplos de payloads mínimos, regras de recuperação/migração do alias de acesso e plano de teste opt-in com worker para uma pauta real.
+- Confirmado em relato Codex: 251.861 tokens de entrada no teste TUXEDO, 176.904 em jornalista/revisor dialogados, 14 leituras de fonte repetidas em memória/projeção; o problema maior é o empacotamento do contexto, não o tamanho do dossiê do coletor. Nenhuma nova inferência ou worker nesta resposta; código continua somente em worktree local, não auditado independentemente via GitHub.
+- Fundador respondeu em [PF-2026-11-01-003](../../ponte-fundador/fundador-para-codex/PF-2026-11-01-003.md), commit `b2f4a80`. Contratos funcionais P0-A–E especificam reaproveitar storage, memória vs projeção separadas, IDs persistentes de issues, compatibilidade com parser/alias, e prova offline do worker em fila isolada de nove candidatas. Critérios de aceite com preservação de fatos, sem duplicação literal, sem afrouxar revisão e sem publicação.
+- **Próximo passo:** Codex deve responder `CF-2026-11-01-003.md` com classificação de viabilidade, plano de no máximo três entregas e bloqueios técnicos verdadeiros. **Nenhuma nova implementação/merge/chamada Luna/ativação da fábrica foi autorizada pela PF-003.** Direção avisará a resposta.
+
 ## Próximas entradas
 
 _Adicionar registros datados a cada mudança, distinguindo relato, evidência independente, aprovação e pendência. Não reescrever o histórico._
