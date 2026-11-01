@@ -31,3 +31,6 @@
 ## Conversa de arranque
 
 **Thread:** `FACTORY-AD-2026-11-01` — estabilização do percurso A→D do Coletor, GitHub, Fábrica, Jornalista, Revisor, antes de refinar DNAs ou avançar para a edição. Ler a primeira mensagem em [fundador-para-codex/PF-2026-11-01-001.md](fundador-para-codex/PF-2026-11-01-001.md) e responder no espaço [codex-para-fundador/](codex-para-fundador/README.md).
+
+- **Retorno inicial Codex → Fundador:** [CF-2026-11-01-001](codex-para-fundador/CF-2026-11-01-001.md), com diagnóstico de duplicação, tokens reais, worker não demonstrado e revisão de contratos.
+- **Nova resposta Fundador → Codex:** [PF-2026-11-01-002](fundador-para-codex/PF-2026-11-01-002.md), com proposta de entidades canônicas, contexto por papel, compatibilidade legado e perguntas técnicas pendentes. Próximo destinatário: Codex, que deverá responder em `codex-para-fundador/CF-2026-11-01-002.md`. Nenhuma execução extra autorizada.
