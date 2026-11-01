@@ -1,5 +1,15 @@
 # Setor: visual e experiência de leitura
 
+## NOVO HANDOFF DA DIREÇÃO — NOVEMBRO/2026: EXPERIÊNCIA IMERSIVA, FOLHEAR E ZOOM
+
+**Leitura prioritária do Bloco 03 ao retomar este setor:** [Handoff do diretor, transmitido pelo Bloco 02 por ter usado acidentalmente o chat de Personagens](analises-fundador/HANDOFF-DIRECAO-BLOCO02-PARA-BLOCO03-INTERACOES-IMERSIVAS-2026-11-01.md).
+
+O diretor testou três pranchas conceituais e **três rodadas de laboratórios interativos** no chat errado (Bloco 02), e pediu que a continuidade fique integralmente com este **Bloco 03**. **Conceitos aprovados:** câmera cinematográfica aproximando/afastando a imagem sem editar seu arquivo e zoom de componentes integrado à fotografia (sem menu lateral), condicionado a ajustes na identidade. **Ainda não aprovado:** folhear físico, mesmo após melhorias; precisa ter interação orgânica pela **ponta inferior direita**, verso, curvatura, sombra e reação ao gesto real; comparar **StPageFlip/engine pronta** com v0.3 existente, sem presumir biblioteca vencedora.
+
+**Aberturas duplas:** preservam capa isolada → **02–03**, **04–05**, etc.; aprofundar diagrama/mapa que atravessa o par; no celular horizontal oferecer dupla/visão geral com zoom quando legível, mantendo texto acessível, âncora e alternância Folhear/Contínua. **Não reconstruir** o leitor híbrido existente nem mudar a fábrica editorial. O documento contém linha do tempo, **aceites e reprovações expressos**, requisitos por dispositivo, 13 ensaios de aceite e referências às fontes do setor. Protótipos HTML originais permanecem nos anexos da conversa do Bloco 02, **não estão versionados por este handoff**.
+
+Este encaminhamento é **diagnóstico e direção de continuidade**, não ordem de engenharia/merge/publicação. A avaliação e a decisão final pertencem à Direção e ao Bloco 03.
+
 ## Nova diretriz da Direção — avaliar motor de revista existente e leitura adaptativa (26/10/2026)
 
 **Leitura PRIORITÁRIA para a próxima avaliação do Bloco 03:** [“Avaliar motores de revista digital existentes e experiência de leitura por celular, tablet e notebook”](analises-fundador/DIRETRIZ-DA-DIRECAO-AVALIAR-MOTORES-DE-LEITURA-RESPONSIVA-2026-10-26.md).
