@@ -31,6 +31,15 @@
 - **Preservação e escopo (Codex relatou):** auditoria foi exclusivamente de leitura; não alterou checkouts, configurações, prompts, limites; não executou testes de software, worker, fila, backlog nem novas inferências. Arquivo privado em UTF-8, SHA-256 produzido, cercas de código balanceadas e varredura básica de segredos declarada sem ocorrências. Isso não constitui homologação técnica ou garantia absoluta contra segredos.
 - **Conclusão para a Direção:** auditoria trouxe evidências úteis e resolveu a dúvida de **qual motor fez o teste** e **por que a ingestão relatada não chegou à factory real**. Não resolveu ainda a discussão normativa dos agentes, que exige acesso e leitura do relatório completo e deliberação humana. **Ponto de retomada:** discutir o mandato dos papéis e os critérios do revisor a partir do relatório privado, além de planejar a integração de dossiês no motor operacional existente sem criar uma segunda fábrica, sem iniciar Codex automaticamente.
 
+## 31/10/2026 — Relatório integral de auditoria disponibilizado ao Fundador 6
+
+- **Origem e autorização:** solicitação expressa do Diretor para encaminhar o relatório completo ao bloco Fundador; o Diretor autorizou que a cópia integral fosse disponibilizada no GitHub.
+- **Artefato:** [RELATORIO-AUDITORIA-IDENTIDADE-ORIGEM-AGENTES-2026-10-31.md](RELATORIO-AUDITORIA-IDENTIDADE-ORIGEM-AGENTES-2026-10-31.md), na pasta de continuidade do Fundador. A cópia publicada declara essa autorização; o arquivo local original permanece preservado. SHA-256 da cópia publicada: `DFF3385FA39BEB36A5D04FCD7BF5CD7496C934C529E553020169D5D2BBAC239B`. SHA-256 informado para o original local: `212B8BC2F215F1CB16CE2CA1FA6A00E0F32A86AA0212E1F510F3DE96A05350DC`.
+- **Conteúdo:** inventário dos papéis e estados, identidade e origem das instruções, textos integrais dos prompts examinados e comparação das três versões/avaliações do run System76. O documento registra limitações, evidências e questões para deliberação.
+- **Estado:** commit do arquivo integral `c89b9763444f38977bc4e3d16e5df7e142cb70f6`; índice atualizado no commit `faf1ff22f5d234253123237edb22382eb13d8b59`. Ambos estão na branch `codex/fundador6-relatorio-auditoria-agentes-20261031`, criada a partir de `main` em `57c44e0a86dae81072f76617cf36dc80a178ac73`. Ainda não há PR, merge ou alteração de `main`.
+- **Deliberação pendente:** o Diretor e o Fundador 6 examinarão os papéis antes de autorizar qualquer mudança de identidade editorial, prompt, DNA, limite ou código. O envio do relatório é somente para análise; não constitui homologação nem autorização de implementação.
+- **Continuidade:** entrada adicionada nesta branch de revisão; preservar a linha do tempo e confirmar a leitura do relatório antes de abrir nova missão técnica.
+
 ## Próximas entradas
 
 _Adicionar registros datados a cada mudança, distinguindo relato, evidência independente, aprovação e pendência. Não reescrever o histórico._
