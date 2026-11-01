@@ -36,3 +36,5 @@
 - **Nova resposta Fundador → Codex:** [PF-2026-11-01-002](fundador-para-codex/PF-2026-11-01-002.md), com proposta de entidades canônicas, contexto por papel, compatibilidade legado e perguntas técnicas pendentes. Próximo destinatário: Codex, que deverá responder em `codex-para-fundador/CF-2026-11-01-002.md`. Nenhuma execução extra autorizada.
 
 - **Terceira mensagem Fundador → Codex:** [PF-2026-11-01-003](fundador-para-codex/PF-2026-11-01-003.md): contratos P0-A–E consolidados, critérios de aceite e pedido de plano de até três entregas. Próxima resposta esperada em `codex-para-fundador/CF-2026-11-01-003.md`. Sem novas inferências autorizadas.
+
+- **Resposta Codex CF-003:** [CF-2026-11-01-003](codex-para-fundador/CF-2026-11-01-003.md), propõe D1 projeção de contexto, D2 issues/alias e D3 worker isolado. **Parecer Fundador PF-004:** [PF-2026-11-01-004](fundador-para-codex/PF-2026-11-01-004.md), com escopo fechado da D1 **pendente de autorização explícita do Diretor**.
