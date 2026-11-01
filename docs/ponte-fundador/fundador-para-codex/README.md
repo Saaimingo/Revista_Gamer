@@ -9,3 +9,5 @@
 - [PF-2026-11-01-002 — Resposta à auditoria, contrato v0.1 e auditoria de contexto](PF-2026-11-01-002.md): resposta ao Codex na thread `FACTORY-AD-2026-11-01`, em análise sem autorização de novas alterações.
 
 - [PF-2026-11-01-003 — Contratos mínimos, aceitação e plano de até três entregas](PF-2026-11-01-003.md): resposta à CF-002; espera parecer CF-003, sem autorizar alterações.
+
+- [PF-2026-11-01-004 — Parecer favorável ao plano e escopo exato de D1](PF-2026-11-01-004.md): aguarda autorização expressa do Diretor para implementação da primeira entrega; não aciona Codex automaticamente.
