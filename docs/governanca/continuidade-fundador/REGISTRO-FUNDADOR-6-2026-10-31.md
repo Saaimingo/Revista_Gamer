@@ -50,6 +50,14 @@
 - **Restrições de projeto:** trocas com histórico, fonte e decisões registradas; limitar rodadas/custos; evitar conversas infinitas; se persistir divergência não resolvida, separar `evidencia insuficiente` de `limite operacional alcançado` e escalar à direção humana. O diálogo entre nós de IA é sequencial, com passagem de contexto, não conversação contínua espontânea.
 - **Próximo passo:** debater e definir regras de comunicação, critérios de aceite e escalonamento em pequenas partes com o diretor. **Nenhuma missão ao Codex ou alteração na fábrica autorizada neste marco.**
 
+## 31/10/2026 — Investigacao independente do Fundador: dialogo editorial
+
+- **Evidencia:** consulta ao codigo remoto da factory privada (HEAD `312dbd2`) em `flow.py`, `render.py`, `context.py`, `adapter_siwc.py`, `factory.config.example.json` e `tests/test_factory.py`. Nenhum modelo, teste ou worker executado.
+- **Documento detalhado:** [Diagnostico tecnico de dialogo editorial](../../operacao/DIAGNOSTICO-FUNDADOR6-DIALOGO-EDITORIAL-2026-10-31.md), commit `a8f85b1`.
+- **Achados:** o prompt de reescrita ativo identificado na auditoria nao inclui `{draft}` apesar de o codigo armazenar a versao anterior; nao existe campo estruturado de pergunta e resposta do jornalista para o revisor; cada chamada SIWC usa prompt individual e nao encadeia automaticamente historico; a solicitacao de pesquisa na ultima avaliacao pode esbarrar no limite de reescritas; a persona e carregada do backend mas sua versao exata no run historico nao foi conferida; testes de factory usam prompts sinteticos e nao garantem dialogo.
+- **Direcao:** rigor de bloqueio permanece integral; flexibilidade refere-se exclusivamente a clareza, perguntas e entendimento. DNAs aprovados nao devem ser modificados. Avaliar instrucao operacional de interpretacao da persona, nao presumir falha de DNA.
+- **Status:** diagnostico de leitura e propostas pendentes de debate/aceite humano. Nao acionar Codex para implementacao por inferencia.
+
 ## Próximas entradas
 
 _Adicionar registros datados a cada mudança, distinguindo relato, evidência independente, aprovação e pendência. Não reescrever o histórico._
