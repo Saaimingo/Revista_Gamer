@@ -19,3 +19,5 @@
 - [PF-2026-11-01-007 — Gates offline aceitos; preflight de um único ensaio real A–D](PF-2026-11-01-007.md): validou código do PR atualizado e exige seleção segura e config de teto 9 em dry-run antes de autorização de inferência.
 
 - [PF-2026-11-01-008 — Pré-voo CF-007 recebido, gate de Luna/OAuth ainda fechado](PF-2026-11-01-008.md): pede somente versionamento seguro/auditável do runner no PR privado, sem inferência e sem redesenho.
+
+- [PF-2026-11-01-009 — Pré-voo técnico encerrado; ensaio real depende da Direção](PF-2026-11-01-009.md): runner versionado no PR privado verificado; não solicita nova implementação e preserva os gates de Luna/OAuth.
