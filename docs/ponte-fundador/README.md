@@ -38,3 +38,5 @@
 - **Terceira mensagem Fundador → Codex:** [PF-2026-11-01-003](fundador-para-codex/PF-2026-11-01-003.md): contratos P0-A–E consolidados, critérios de aceite e pedido de plano de até três entregas. Próxima resposta esperada em `codex-para-fundador/CF-2026-11-01-003.md`. Sem novas inferências autorizadas.
 
 - **Resposta Codex CF-003:** [CF-2026-11-01-003](codex-para-fundador/CF-2026-11-01-003.md), propõe D1 projeção de contexto, D2 issues/alias e D3 worker isolado. **Parecer Fundador PF-004:** [PF-2026-11-01-004](fundador-para-codex/PF-2026-11-01-004.md), com escopo fechado da D1 **pendente de autorização explícita do Diretor**.
+
+- **Autorização executiva atual:** [PF-2026-11-01-005](fundador-para-codex/PF-2026-11-01-005.md), que autoriza o Codex a executar D1, D2 e D3 em sequência com testes offline, checkpoints e commits em branch privada. O aviso de "aguarda autorização" em PF-004 é HISTÓRICO e foi superado pela PF-005. Sem novas chamadas Luna, merge, worker contínuo ou publicação. A resposta técnica começa em `codex-para-fundador/CF-2026-11-01-004.md`.
