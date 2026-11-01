@@ -25,3 +25,5 @@
 - [PF-2026-11-01-010 — Pin Docker inválido: correção rastreável e retomada condicionada do ensaio](PF-2026-11-01-010.md): uma letra hexadecimal extra no manifesto; somente corrigir após prova de procedência da imagem e preflight completo; usar a autorização executiva original sem ampliar escopo.
 
 - [PF-2026-11-01-011 — Pós-ensaio real: corrigir assignment, captura e wrapper offline](PF-2026-11-01-011.md): confirma 2 chamadas reais/6.293 tokens, bloqueio antes de jornalista/revisor; exige diagnóstico do retorno real e testes fail-closed, sem novo Luna autorizado.
+
+- [PF-2026-11-01-012 — Correções offline CF-011 aceitas; novo ensaio Luna depende da Direção](PF-2026-11-01-012.md): valida mapeamento exato Arlindo Carranca→ranzinza, path Linux e wrapper; sem segunda execução autorizada.
