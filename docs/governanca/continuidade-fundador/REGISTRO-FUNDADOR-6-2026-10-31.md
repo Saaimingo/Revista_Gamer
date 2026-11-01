@@ -58,6 +58,16 @@
 - **Direcao:** rigor de bloqueio permanece integral; flexibilidade refere-se exclusivamente a clareza, perguntas e entendimento. DNAs aprovados nao devem ser modificados. Avaliar instrucao operacional de interpretacao da persona, nao presumir falha de DNA.
 - **Status:** diagnostico de leitura e propostas pendentes de debate/aceite humano. Nao acionar Codex para implementacao por inferencia.
 
+## 31/10/2026 — Diretor autoriza pacote de implementacao, com verificacao de proveniencia antes do teste
+
+- **Ordem tecnica registrada e conferida:** [Integracao real Coletor–Fabrica–Jornalista–Revisor e memoria dialogada](../../engenharia/ORDEM-CODEX-IMPLEMENTACAO-CADEIA-COLETOR-DIALOGO-MEMORIA-2026-10-31.md), commit `4e9433f`.
+- **Autorizacao:** implementar adaptacoes incrementais no Censurado real para receber dossies completos, dialogo editorial bidirecional e memoria privada pequena por materia; exigir evidencias A–D e testes reais rastreados. Sem novo motor, sem publicacao ou alteracao de DNAs.
+- **GitHub observado:** `coletor/2026-10-31-1840.md` tem nove noticias, doze pautas de radar e tres dossies JSON `revista-back.coletor.v1`; os tres `linked_news_urls` correspondem a noticias no mesmo arquivo. O parser atual le noticias simples, mas nao associa dossies.
+- **Ressalva critica:** codigo confirma leitura Github -> fila, mas run historico System76 `rb-05a34e3a8ddc9ff622e862e6` difere do `run_id` recalculado para o arquivo atual `coletor/2026-10-30-0800.md` (`rb-e3de5eda5607f7750a720475`). Codex devera reconciliar origem por IDs, captura, URL e hash; nao afirmar ponta a ponta historico sem essa prova.
+- **Teste real:** distinguir mocks/ficcoes de captura efetiva e de chamada Luna. No momento da auditoria privada, worker factory nao estava ativo, embora Docker estivesse ligado. Nunca consumir fila inteira em teste; apenas pauta isolada com prova de origem e sem publicacao.
+- **Futuro:** o diretor deseja um repositorio operacional dedicado aos dados editoriais da revista; nao criar/migrar ainda. Garantir fonte configuravel e isolamento de governanca, chat, blocos e instrucoes Codex da entrada de noticias.
+- **Estado:** especificacao e documentos no GitHub; implementacao e E2E dependem de Codex executar a ordem. Nenhuma alteracao tecnica feita pelo Fundador.
+
 ## Próximas entradas
 
 _Adicionar registros datados a cada mudança, distinguindo relato, evidência independente, aprovação e pendência. Não reescrever o histórico._
