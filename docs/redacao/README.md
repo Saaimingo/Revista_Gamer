@@ -24,3 +24,5 @@ Separar fatos de interpretações e incertezas. Detectar conclusão sem suporte,
 
 - [Atribuição de alegações comerciais, verificação proporcional e revisão por gênero de matéria](POLITICA-ATRIBUICAO-ALEGACOES-E-EVIDENCIAS-2026-11-02.md) — decisão D-019. O Revisor **não bloqueia automaticamente** notícia sobre produto anunciado/recente por falta de benchmark; exige fonte/autenticidade, atribuição clara, tratamento de contradições relevantes e evidências para **conclusões próprias** da revista. Isso não constitui aprovação de qualquer rascunho ou autorização de chamada IA.
 - A Direção determinou ainda (D-020) documentação técnica viva por setor/módulo, com contratos, dependências, testes, diagnóstico e recuperação, a ser mantida pelos responsáveis na evolução do sistema.
+
+- [Integração do Coletor como Pesquisador de Inteligência Editorial, 02/11/2026](CONTRATO-INTEGRACAO-PESQUISADOR-EDITORIAL-2026-11-02.md) — comunicado aprovado pela Direção (D-021), benchmarks quando pertinentes, preservação do JSON v1, validação de dados e evidências de ingestão ainda pendentes. Não cria esteira paralela nem autoriza Luna.
