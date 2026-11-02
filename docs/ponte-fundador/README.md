@@ -64,3 +64,5 @@
 - **Clarificação da Direção, 02/11:** [PF-2026-11-02-002](fundador-para-codex/PF-2026-11-02-002.md) esclarece D-019: jornalismo não é laboratório universal; divulgar resultados atribuídos às fontes sem exigir todas as combinações de hardware, mantendo ressalvas para discrepâncias materiais conhecidas. Política setorial atualizada. Sem nova inferência autorizada.
 
 - **02/11 — Coletor Pesquisador / PF-003:** a Direção encaminhou evolução para pesquisador documental/benchmarks (D-021), ainda não homologada na fábrica. [PF-2026-11-02-003](fundador-para-codex/PF-2026-11-02-003.md) registra inspeção do relatório 08h (8 notícias, 4 dossiês v1, data inválida `nagoshi-s4`), requisitos de compatibilidade/pertinência e ordem **offline** consolidada com PF-014; nenhuma nova inferência/merge/publicação autorizada.
+
+- **02/11, 18h40 — primeira coleta com comparativos observada:** [arquivo real](../../coletor/2026-11-02-1840.md), 9 notícias e 7 dossiês v1, benchmarks/limitações identificados. [PF-2026-11-02-004](fundador-para-codex/PF-2026-11-02-004.md) complementa PF-003 com esta segunda fixture; manter validação offline e nenhuma nova inferência Luna.
