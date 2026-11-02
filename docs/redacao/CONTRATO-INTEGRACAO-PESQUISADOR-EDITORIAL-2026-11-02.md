@@ -53,3 +53,9 @@ Esta é uma inspeção de código e do arquivo, **não** execução independente
 9. Ensaios **com agentes reais** são objetivo futuro de homologação e exigirão autorização executiva específica; esta especificação só autoriza estudos e testes offline dentro das ordens técnicas já aprovadas.
 
 **Status de implantação:** comunicado aprovado como DIREÇÃO; capacidades novas configuradas conforme relato, ainda NÃO comprovadas em execução completa nem homologadas na fábrica. **Sem publicação, alteração de DNA, merge, deploy ou nova inferência Luna por este contrato.**
+
+## Atualização de evidência — coleta de 02/11 às 18h40
+
+Foi inspecionada diretamente a [coleta 18h40](../../coletor/2026-11-02-1840.md), Git blob `87e354fe5017c22fa8ea744602c3fd0a7e2cf5d3`: 9 notícias, 12 pautas de radar e 7 dossiês com a subseção **Evidências de desempenho e comparativos**. JSON `revista-back.coletor.v1` sintaticamente válido, 7 vínculos a notícias presentes, cinco classificações observadas inclusive `CONTESTADO`, e fontes `PRIMARY`, `SECONDARY`, `COMMUNITY`. A inspeção não encontrou datas `published_at` inválidas nem `source_ids` órfãos nessa captura, mas a falha da coleta 08h permanece caso de regressão.
+
+**Status refinado:** a produção de comparativos pelo Coletor **foi observada numa rodada real após a nova instrução**, mas sua pertinência factual independente, a ingestão completa pela fábrica e o uso por jornalista/Revisor **ainda aguardam validação**. Não homologar como fábrica E2E, não alterar automaticamente a política D-019, nem autorizar novas chamadas Luna. Ordem complementar da ponte: [PF-2026-11-02-004](../ponte-fundador/fundador-para-codex/PF-2026-11-02-004.md).
