@@ -64,3 +64,15 @@ O título deve distinguir DDR5 da ficha TUXEDO e LPDDR5X da ficha Intel, se amba
 - **Redação/Bloco 04:** manter a política, os gêneros editoriais e critérios aplicáveis claros.
 - **Fundador:** transformar a decisão em contrato verificável para a fábrica e acompanhar qualidade/segurança.
 - **Codex:** quando instruído, adequar roteamento/revisão e testes offline, com critérios auditáveis; **não** enfraquecer fail-closed, reescrever DNA sem decisão, nem executar novo teste Luna sem autorização expressa.
+
+## 9. Esclarecimento adicional da Direção: jornalismo informativo, não laboratório universal
+
+A Direção explicitou que o rigor NÃO significa explorar exaustivamente cada variável hipotética antes de publicar uma notícia ou comparação. A Revista Back informa o que os dados públicos efetivamente sustentam, cita a origem e **não promete que um resultado vale para toda configuração, ajuste ou cenário possível**.
+
+- Um benchmark público relevante permite informar: “Nos testes publicados pelo veículo X, o processador A ficou à frente do B”. **Não** exige que a revista reproduza hardware, teste todas as memórias/BIOS, antecipe overclock ou investigue todas as combinações imagináveis.
+- Condições de teste como GPU, resolução ou potência devem ser mencionadas **quando são conhecidas e mudam materialmente o sentido da comparação**, não como checklist universal obrigatório. Exemplo: se uma medição usa RTX 5090 e outra RTX 5070, não apresentá-las como prova isolada de superioridade entre processadores; pode-se noticiar o resultado como comparação dos dois conjuntos, deixando a diferença clara.
+- Testes e números apresentados por um veículo idôneo podem ser relatados com atribuição e contexto suficiente, sem transformar sua notícia em auditoria laboratorial do estudo. Uma conclusão universal da própria revista exige suporte maior que o relato de uma medição específica.
+- O Revisor procura **erro material real**, não exceções meramente possíveis. Não deve prolongar pesquisas indefinidamente, bloquear por variáveis hipotéticas ou exigir detalhe irrelevante ao que foi afirmado. Se uma comparação fundamentalmente inadequada sustenta a manchete, corrigir a manchete/conclusão, não exigir que o jornalista cubra o universo de configurações.
+- O Coletor entrega fontes úteis e benchmarks encontrados; ausência de estudos é registrada com escopo. Não há meta de documentação exaustiva, apenas boa informação fundamentada e compreensível para o leitor.
+
+**Princípio editorial reafirmado:** a técnica serve à informação; não aprisiona a notícia. Este esclarecimento complementa a D-019 e preserva atribuição, precisão e transparência. Não muda a autorização de operação ou o estado de matérias já ensaiadas.
