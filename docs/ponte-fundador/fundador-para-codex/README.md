@@ -31,3 +31,5 @@
 - [PF-2026-11-01-013 — CF-012: ensaio real alcançou jornalista e revisor; diagnóstico offline de output_loop](PF-2026-11-01-013.md): investiga fragmento SIWC e heurística local, reconcilia arquivos staged e pede acesso privado à matéria e primeira avaliação, sem nova inferência.
 
 - [PF-2026-11-01-014 — Avaliação privada do rascunho e Revisor; diagnóstico da pesquisa complementar](PF-2026-11-01-014.md): falso positivo output_loop comprovado, detector novo aceito offline; quatro fontes estranhas no follow-up requerem reprodução e correção sem Luna.
+
+- [PF-2026-11-02-001 — Direção aprova atribuição de alegações e evidência proporcional](PF-2026-11-02-001.md): regra D-019 para notícias versus análises/dossiês; Codex segue PF-014 primeiro, adapta contrato/testes apenas offline, sem Luna/merge/publicação. D-020 determina manual técnico vivo e recuperabilidade.
