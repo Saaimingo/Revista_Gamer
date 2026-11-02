@@ -37,3 +37,5 @@
 - [PF-2026-11-02-002 — Técnica a serviço da informação, não benchmark exaustivo](PF-2026-11-02-002.md): delimita D-019; fontes podem ser citadas pelos resultados publicados sem auditoria de todas as configurações; Revisor só questiona discrepâncias materialmente relevantes; apenas trabalho offline.
 
 - [PF-2026-11-02-003 — Comunicado do Pesquisador e auditoria preliminar do JSON v1](PF-2026-11-02-003.md): reúne PF-014 e D-019/D-021; 8 notícias/4 dossiês reais, data inválida confirmada, parser já aceita v1 mas falta validação semântica, relevância de busca e prova de transmissão; autoriza somente testes/correções offline.
+
+- [PF-2026-11-02-004 — Coleta real 18h40 já traz comparativos; somar fixture à PF-003](PF-2026-11-02-004.md): 9 notícias e 7 dossiês v1, cinco classificações e fontes COMMUNITY; testar offline com o arquivo das 08h, sem novo escopo, Luna ou merge.
