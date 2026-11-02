@@ -35,3 +35,5 @@
 - [PF-2026-11-02-001 — Direção aprova atribuição de alegações e evidência proporcional](PF-2026-11-02-001.md): regra D-019 para notícias versus análises/dossiês; Codex segue PF-014 primeiro, adapta contrato/testes apenas offline, sem Luna/merge/publicação. D-020 determina manual técnico vivo e recuperabilidade.
 
 - [PF-2026-11-02-002 — Técnica a serviço da informação, não benchmark exaustivo](PF-2026-11-02-002.md): delimita D-019; fontes podem ser citadas pelos resultados publicados sem auditoria de todas as configurações; Revisor só questiona discrepâncias materialmente relevantes; apenas trabalho offline.
+
+- [PF-2026-11-02-003 — Comunicado do Pesquisador e auditoria preliminar do JSON v1](PF-2026-11-02-003.md): reúne PF-014 e D-019/D-021; 8 notícias/4 dossiês reais, data inválida confirmada, parser já aceita v1 mas falta validação semântica, relevância de busca e prova de transmissão; autoriza somente testes/correções offline.
