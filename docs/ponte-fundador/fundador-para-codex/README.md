@@ -33,3 +33,5 @@
 - [PF-2026-11-01-014 — Avaliação privada do rascunho e Revisor; diagnóstico da pesquisa complementar](PF-2026-11-01-014.md): falso positivo output_loop comprovado, detector novo aceito offline; quatro fontes estranhas no follow-up requerem reprodução e correção sem Luna.
 
 - [PF-2026-11-02-001 — Direção aprova atribuição de alegações e evidência proporcional](PF-2026-11-02-001.md): regra D-019 para notícias versus análises/dossiês; Codex segue PF-014 primeiro, adapta contrato/testes apenas offline, sem Luna/merge/publicação. D-020 determina manual técnico vivo e recuperabilidade.
+
+- [PF-2026-11-02-002 — Técnica a serviço da informação, não benchmark exaustivo](PF-2026-11-02-002.md): delimita D-019; fontes podem ser citadas pelos resultados publicados sem auditoria de todas as configurações; Revisor só questiona discrepâncias materialmente relevantes; apenas trabalho offline.
