@@ -224,6 +224,12 @@
 - **Pendências concretas de reproducibilidade:** projeto `pyproject.toml` na raiz do repo PRIVADO declara `dbos>=2.29`, mas `uv.lock` não contém `dbos` (quebra `uv sync --locked`), embora o Dockerfile instale via pyproject; manual PRIVADO tem dois links relativos para políticas que pertencem ao repo público, inválidos na árvore privada. Requer reparos mínimos offline; não exigir reestruturação.
 - **Parecer** [PF-2026-11-02-005](../../ponte-fundador/fundador-para-codex/PF-2026-11-02-005.md), commit `2eb3a0f`: **núcleo integrado aceito como OFFLINE**, não homologado com agentes reais. Codex pode corrigir contagem/lock/links de forma mínima; se lock não puder ser resolvido com fonte confiável, registrar impeditivo. Sem terceiro ensaio Luna, retry de chamados uncertain, nova autorização, worker, merge ou publicação. Próximo objetivo sob autorização separada: ensaio isolado real para diálogo/revisão e qualidade da matéria, preflight Docker obrigatório.
 
+## 02/11/2026 — Direção autoriza missão única de correção + terceiro ensaio REAL (DIR-003)
+
+- **Pedido explícito do Diretor:** não voltar a cada correção; concluir três pendências pequenas da PF-005 e, **se preflight estiver seguro**, rodar o próximo teste com agentes reais na sequência. Registrado em [PF-2026-11-02-006](../../ponte-fundador/fundador-para-codex/PF-2026-11-02-006.md), autorização única `DIR-2026-11-02-ENSAIO-AD-003` condicionada a correções e preflight, commit `9f8fdd7`.
+- **Escopo:** um único candidato de hardware do relatório `coletor/2026-11-02-1840.md` (TechSpot, preço de GPUs, dossiê `dossier-gpu-pricing-oct-2026`, Git blob `87e354fe5017c22fa8ea744602c3fd0a7e2cf5d3`), fluxo A–D genuíno Luna/SIWC até **9 tentativas**, ledger/DBOS/SQLite/artefatos novos e isolados, tokens medidos, preservação de matérias/pareceres somente em local privado. Não reabrir ensaios anteriores nem publicar; não fazer retry em `uncertain` e não processar backlog.
+- **Gate técnico antes da PRIMEIRA chamada:** três correções pontuais e regressões offline, confirmar Docker Linux Engine, runner, seleção exata, hashes, isolação, quotas e auth controlada. Se falhar, parar sem chamar Luna; se começar, autorização fica consumida mesmo que resultado técnico fique blocked/uncertain. Próxima resposta Codex em `CF-2026-11-02-002.md`. A ponte não acorda Codex automaticamente; Diretor o instrui a ler PF006.
+
 ## Próximas entradas
 
 _Adicionar registros datados a cada mudança, distinguindo relato, evidência independente, aprovação e pendência. Não reescrever o histórico._
