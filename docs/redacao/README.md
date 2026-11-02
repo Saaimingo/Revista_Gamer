@@ -19,3 +19,8 @@ Cada pauta terá ID, pergunta central, categoria, importância, evidências disp
 ## Gates de qualidade
 
 Separar fatos de interpretações e incertezas. Detectar conclusão sem suporte, testes não reproduzíveis, dados de versões diferentes, amostras não representativas, risco autoral e linguagem rasa. Toda mudança de conclusão relevante precisa de referência verificável. Nenhuma publicação autônoma.
+
+## Política editorial aprovada em 02/11/2026
+
+- [Atribuição de alegações comerciais, verificação proporcional e revisão por gênero de matéria](POLITICA-ATRIBUICAO-ALEGACOES-E-EVIDENCIAS-2026-11-02.md) — decisão D-019. O Revisor **não bloqueia automaticamente** notícia sobre produto anunciado/recente por falta de benchmark; exige fonte/autenticidade, atribuição clara, tratamento de contradições relevantes e evidências para **conclusões próprias** da revista. Isso não constitui aprovação de qualquer rascunho ou autorização de chamada IA.
+- A Direção determinou ainda (D-020) documentação técnica viva por setor/módulo, com contratos, dependências, testes, diagnóstico e recuperação, a ser mantida pelos responsáveis na evolução do sistema.
