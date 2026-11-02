@@ -39,3 +39,5 @@
 - [PF-2026-11-02-003 — Comunicado do Pesquisador e auditoria preliminar do JSON v1](PF-2026-11-02-003.md): reúne PF-014 e D-019/D-021; 8 notícias/4 dossiês reais, data inválida confirmada, parser já aceita v1 mas falta validação semântica, relevância de busca e prova de transmissão; autoriza somente testes/correções offline.
 
 - [PF-2026-11-02-004 — Coleta real 18h40 já traz comparativos; somar fixture à PF-003](PF-2026-11-02-004.md): 9 notícias e 7 dossiês v1, cinco classificações e fontes COMMUNITY; testar offline com o arquivo das 08h, sem novo escopo, Luna ou merge.
+
+- [PF-2026-11-02-005 — Aceite técnico offline da CF-001; correções pontuais de reprodutibilidade](PF-2026-11-02-005.md): núcleo aprovado para teste offline (137 passed/4 skipped), corrigir resumo 8 vs 11 dossiês, conciliar `uv.lock`/dbos e links quebrados do manual; terceira inferência Luna ainda não autorizada.
