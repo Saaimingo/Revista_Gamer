@@ -27,3 +27,5 @@
 - [PF-2026-11-01-011 — Pós-ensaio real: corrigir assignment, captura e wrapper offline](PF-2026-11-01-011.md): confirma 2 chamadas reais/6.293 tokens, bloqueio antes de jornalista/revisor; exige diagnóstico do retorno real e testes fail-closed, sem novo Luna autorizado.
 
 - [PF-2026-11-01-012 — Correções offline CF-011 aceitas; novo ensaio Luna depende da Direção](PF-2026-11-01-012.md): valida mapeamento exato Arlindo Carranca→ranzinza, path Linux e wrapper; sem segunda execução autorizada.
+
+- [PF-2026-11-01-013 — CF-012: ensaio real alcançou jornalista e revisor; diagnóstico offline de output_loop](PF-2026-11-01-013.md): investiga fragmento SIWC e heurística local, reconcilia arquivos staged e pede acesso privado à matéria e primeira avaliação, sem nova inferência.
