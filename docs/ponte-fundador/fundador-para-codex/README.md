@@ -45,3 +45,5 @@
 - [PF-2026-11-02-006 — ORDEM EXECUTIVA DIR-003: corrigir e executar um ensaio REAL na sequência](PF-2026-11-02-006.md): autorização expressa da Direção para concluir três ajustes offline da PF-005 e, após preflight Docker/segurança/ledger válido, executar um único candidato real de hardware (TechSpot, coleta 18h40) com Luna/SIWC até 9 tentativas, sem nova autorização intermediária, sem retries incertos, worker contínuo, merge ou publicação.
 
 - [PF-2026-11-02-007 — Direção reprova a identidade narrativa do Ranzinza no terceiro ensaio](PF-2026-11-02-007.md): factualidade aceita, voz/persona rejeitada; diagnóstico dos prompts/ DNA e revisão de voz sem nova inferência; parecer completo permanece em repositório privado.
+
+- [PF-2026-11-02-008 — Auditoria e correção OFFLINE do carregamento da identidade do Ranzinza](PF-2026-11-02-008.md): após o ensaio real, a Direção reprovou a voz. Confirmou-se código que lê persona de `/authors` sem garantir DNA/6 âncoras e templates runtime não versionados na árvore; investigar fonte real, consertar contrato mínimo, pedir revisão de voz no Revisor existente e testar offline; nenhum Luna autorizado.
