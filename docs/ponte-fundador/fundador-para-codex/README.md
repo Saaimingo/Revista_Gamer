@@ -43,3 +43,5 @@
 - [PF-2026-11-02-005 — Aceite técnico offline da CF-001; correções pontuais de reprodutibilidade](PF-2026-11-02-005.md): núcleo aprovado para teste offline (137 passed/4 skipped), corrigir resumo 8 vs 11 dossiês, conciliar `uv.lock`/dbos e links quebrados do manual; terceira inferência Luna ainda não autorizada.
 
 - [PF-2026-11-02-006 — ORDEM EXECUTIVA DIR-003: corrigir e executar um ensaio REAL na sequência](PF-2026-11-02-006.md): autorização expressa da Direção para concluir três ajustes offline da PF-005 e, após preflight Docker/segurança/ledger válido, executar um único candidato real de hardware (TechSpot, coleta 18h40) com Luna/SIWC até 9 tentativas, sem nova autorização intermediária, sem retries incertos, worker contínuo, merge ou publicação.
+
+- [PF-2026-11-02-007 — Direção reprova a identidade narrativa do Ranzinza no terceiro ensaio](PF-2026-11-02-007.md): factualidade aceita, voz/persona rejeitada; diagnóstico dos prompts/ DNA e revisão de voz sem nova inferência; parecer completo permanece em repositório privado.
